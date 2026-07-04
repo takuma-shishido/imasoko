@@ -30,7 +30,7 @@ import {
 import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
-import { clampToEdge, metersBetween, project } from "@/lib/coords";
+import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
   locate,
@@ -1082,10 +1082,16 @@ export class RoomEngine {
     if (m.building) return bById(m.building)!.name + " " + m.floor + " ・ " + areaN;
     return areaN;
   }
+  // 目的地(集合場所)までの距離を GPS 実座標(緯度経度)から計算する(issue #28)。
+  // 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は resolveMeetingPos の x/y を unproject で復元。
   private distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
-    if (!mp || m.viewer || m.lost) return "—";
-    if (m.area !== mp.area) return "別エリア";
-    const d = Math.hypot(m.x - mp.x, m.y - mp.y) * AREAS[m.area].mpp;
+    // 閲覧のみ/位置未共有は「—」。範囲外(lost)でも GPS があれば実距離を出す(issue #28)。
+    if (!mp || m.viewer || m.lat == null || m.lng == null) return "—";
+    const dest = unproject(MAP_AREAS[mp.area], mp.x, mp.y);
+    return this.fmtDist(metersBetween({ lat: m.lat, lng: m.lng }, dest));
+  }
+  private fmtDist(d: number): string {
+    if (d >= 1000) return "約" + (d / 1000).toFixed(d >= 10000 ? 0 : 1) + "km";
     return "約" + Math.max(10, Math.round(d / 10) * 10) + "m";
   }
 
