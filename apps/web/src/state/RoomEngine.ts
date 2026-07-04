@@ -477,15 +477,19 @@ export class RoomEngine {
         expiresAt,
       });
     } catch (e) {
-      const gone = e instanceof HttpError && e.status === 410;
+      // 404→NotFound / 410→期限切れ。それ以外(通信エラー・5xx 等)は"存在しない"と
+      // 誤認させないよう、再試行できるトップへ戻してトーストで知らせる(issue #13 レビュー対応)。
+      const status = e instanceof HttpError ? e.status : 0;
+      const screen: Screen = status === 410 ? "expired" : status === 404 ? "notfound" : "top";
       this.setState({
         ...this.initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
-        screen: gone ? "expired" : "notfound",
+        screen,
         roomId,
       });
-      if (!(e instanceof HttpError)) this.toast("ルーム情報を取得できませんでした");
+      if (screen === "top")
+        this.toast("接続できませんでした。通信環境を確認して、もう一度お試しください");
     }
   };
 

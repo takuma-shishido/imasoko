@@ -84,4 +84,16 @@ describe("App smoke", () => {
     await waitFor(() => expect(screen.getByText("ルームが見つかりません。")).toBeTruthy());
     expect(api.getRoom).toHaveBeenCalledWith("nope");
   });
+
+  it("通信エラー時の共有リンクは 404 ではなくトップへ戻す", async () => {
+    vi.mocked(api.getRoom).mockRejectedValueOnce(new Error("network down"));
+    render(
+      <MemoryRouter initialEntries={["/r/abc"]}>
+        <App />
+      </MemoryRouter>
+    );
+    // "見つかりません"(404)ではなくトップ画面に戻る
+    await waitFor(() => expect(screen.getByText("いまそこ")).toBeTruthy());
+    expect(screen.queryByText("ルームが見つかりません。")).toBeNull();
+  });
 });

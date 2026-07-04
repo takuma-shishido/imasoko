@@ -22,7 +22,16 @@ function Frame() {
     if (bootRef.current) return;
     bootRef.current = true;
     const m = loc.pathname.match(/^\/r\/([^/]+)$/);
-    if (m) v.openRoomById(decodeURIComponent(m[1]));
+    if (m) {
+      let id = m[1];
+      // 不正な % エンコードでも例外(URIError)で落とさない(room_id は token_urlsafe なので decode は保険)。
+      try {
+        id = decodeURIComponent(id);
+      } catch {
+        /* そのまま使う */
+      }
+      v.openRoomById(id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
