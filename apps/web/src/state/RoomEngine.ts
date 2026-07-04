@@ -22,8 +22,10 @@ import {
   bAnchor,
   bById,
   bSpot,
+  mergeCampus,
   roomFull,
   roomLookup,
+  setBuildings,
 } from "@/lib/campusData";
 import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
@@ -230,6 +232,18 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
+  }
+
+  // キャンパスマスタを実サーバーから取得し建物データを差し替える(issue #14)。
+  // 失敗時は campusData.ts のフォールバック定義を維持する。
+  async loadCampus() {
+    try {
+      const res = await api.getCampus();
+      setBuildings(mergeCampus(res));
+      this.setState({}); // BUILDINGS 差し替えを描画へ反映
+    } catch {
+      /* 取得失敗時はローカル定義のまま */
+    }
   }
 
   // ── toast ──

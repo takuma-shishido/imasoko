@@ -44,6 +44,49 @@ export interface PublicRoomRes {
   expires_at: string;
 }
 
+// ── Campus master (GET /api/campus・docs/07 §1.5) ──────
+// server(app/campus.py の返却 = buildings.json + classrooms.csv)と齟齬なく対応させる。
+export interface CampusArea {
+  id: AreaId;
+  name: string;
+}
+export interface CampusSpot {
+  id: string;
+  label: string;
+  area: AreaId;
+  lat: number;
+  lng: number;
+}
+export interface CampusRoom {
+  id: string;
+  name: string;
+  type?: string;
+}
+export interface CampusFloor {
+  level: string;
+  rooms: CampusRoom[];
+}
+export interface CampusBuilding {
+  id: string;
+  name: string;
+  svgRegionId?: string;
+  spots: CampusSpot[];
+  floors: CampusFloor[];
+}
+export interface CampusClassroom {
+  building_id: string;
+  floor: string;
+  room_id: string;
+  name: string;
+  capacity: string;
+  note: string;
+}
+export interface CampusRes {
+  areas: CampusArea[];
+  buildings: CampusBuilding[];
+  classrooms: CampusClassroom[];
+}
+
 // ── WebSocket (client → server) ───────────────────────
 export interface MemberState {
   id: string;

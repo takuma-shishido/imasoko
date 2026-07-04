@@ -17,6 +17,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     engine.start();
+    void engine.loadCampus(); // キャンパスマスタを実サーバーから取得(issue #14)
     return () => engine.stop();
   }, [engine]);
 
