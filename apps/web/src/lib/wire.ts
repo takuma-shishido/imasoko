@@ -6,34 +6,33 @@ import type { MeetingPointMsg, MemberState } from "@/types/messages";
 import { MAP_AREAS } from "./mapAreas";
 import { project, resolveArea, unproject } from "./coords";
 
+/** 緯度経度 → エリア + 画像 px 座標。全エリア外は lost(issue #1/#2)。 */
+export function locate(
+  lat: number,
+  lng: number
+): { area: AreaId; x: number; y: number; lost: boolean } {
+  const resolved = resolveArea(lat, lng);
+  if (resolved == null) return { area: "campus", x: 0, y: 0, lost: true }; // 全エリアの範囲外(圏外)
+  const p = project(MAP_AREAS[resolved], lat, lng);
+  return { area: resolved, x: p.x, y: p.y, lost: false };
+}
+
 /** サーバー MemberState → 内部 Member。lat/lng を area+x/y に変換(位置なし=閲覧のみ、全エリア外=lost)。 */
 export function memberFromWire(m: MemberState): Member {
-  let area: AreaId = "campus";
-  let x = 0;
-  let y = 0;
-  let lost = false;
   const hasPos = m.lat != null && m.lng != null;
-  if (m.lat != null && m.lng != null) {
-    const resolved = resolveArea(m.lat, m.lng);
-    if (resolved == null) {
-      lost = true; // 全エリアの範囲外(圏外)
-    } else {
-      area = resolved;
-      const p = project(MAP_AREAS[area], m.lat, m.lng);
-      x = p.x;
-      y = p.y;
-    }
-  }
+  const loc = hasPos
+    ? locate(m.lat!, m.lng!)
+    : { area: "campus" as AreaId, x: 0, y: 0, lost: false };
   return {
     id: m.id,
     name: m.name,
-    area,
-    x,
-    y,
+    area: loc.area,
+    x: loc.x,
+    y: loc.y,
     building: m.building_id,
     floor: m.floor,
     viewer: !hasPos, // 位置未共有は閲覧のみ扱い(実位置取得は #2 で有効化)
-    lost,
+    lost: loc.lost,
   };
 }
 
