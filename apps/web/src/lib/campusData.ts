@@ -1,7 +1,9 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
+import type { CampusRes } from "@/types/messages";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
-// docs/05 §2・§5 の buildings.json に相当するフロント側インライン定数(本番は GET /api/campus)。
+// docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
+// 実配線では GET /api/campus のデータで差し替える(issue #14)。レイアウト(x/y/w/h)はフロントが保持。
 
 type RoomSpec = string | [string, string];
 
@@ -130,6 +132,46 @@ export const BUILDINGS: Building[] = [
     floors: [mkF("b4", "4F", ["403", "410", "411", "412"]), mkF("b4", "3F", seq(301, 306))],
   },
 ];
+
+// 建物レイアウト(模式マップ上の配置・キャプション・表示順)の安定スナップショット。
+// データはサーバー由来に差し替えるが、x/y/w/h は #3 の模式SVGに紐づくためフロントが保持する(issue #14)。
+type BuildingLayout = Pick<Building, "id" | "x" | "y" | "w" | "h" | "fl" | "cap" | "fs">;
+const BUILDING_LAYOUTS: BuildingLayout[] = BUILDINGS.map((b) => ({
+  id: b.id,
+  x: b.x,
+  y: b.y,
+  w: b.w,
+  h: b.h,
+  fl: b.fl,
+  cap: b.cap,
+  fs: b.fs,
+}));
+
+/** GET /api/campus のレスポンス → 内部 Building[](データ=サーバー / レイアウト=フロント)。 */
+export function mergeCampus(res: CampusRes): Building[] {
+  const byId = new Map(res.buildings.map((b) => [b.id, b]));
+  const out: Building[] = [];
+  for (const { id, ...rect } of BUILDING_LAYOUTS) {
+    const sb = byId.get(id);
+    if (!sb) continue; // レイアウト未定義の建物は模式マップに置けないためスキップ
+    out.push({
+      id,
+      name: sb.name, // 名前・階・教室はサーバー由来
+      ...rect,
+      floors: sb.floors.map((f) => ({
+        level: f.level,
+        rooms: f.rooms.map((r) => ({ id: r.id, n: r.name, t: r.type ?? null })),
+      })),
+    });
+  }
+  return out;
+}
+
+/** BUILDINGS の中身をサーバー由来へ差し替える(参照は不変。bById 等の module 関数はこの配列を参照)。 */
+export function setBuildings(next: Building[]): void {
+  BUILDINGS.length = 0;
+  BUILDINGS.push(...next);
+}
 
 export const bById = (id: string): Building | undefined => BUILDINGS.find((b) => b.id === id);
 export const bAnchor = (b: Building) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });

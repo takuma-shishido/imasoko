@@ -3,6 +3,7 @@
 //    実配線する際に使用する。エンドポイントは docs 準拠。
 
 import type {
+  CampusRes,
   CreateRoomReq,
   CreateRoomRes,
   PublicRoomRes,
@@ -51,7 +52,7 @@ export const api = {
       body: JSON.stringify({ visibility, title }),
     }).then(json<{ visibility: Visibility }>),
 
-  getCampus: (): Promise<unknown> => fetch("/api/campus").then(json<unknown>),
+  getCampus: (): Promise<CampusRes> => fetch("/api/campus").then(json<CampusRes>),
 };
 
 // host_token の端末ローカル保存(docs/design/01)。
