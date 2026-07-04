@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 import { useRoom } from "@/state/RoomContext";
+import { CAMPUS_PROJECTION } from "@/lib/campusGeo";
 import { CampusSvg } from "./map/CampusSvg";
 import { Station1Svg } from "./map/Station1Svg";
 import { Station2Svg } from "./map/Station2Svg";
+
+// 実地図(campus)は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)。
+// 北方向の画面ベクトルは (bx, by)。上向き矢印をこの角度だけ時計回りに回すと北を指す。
+const CAMPUS_NORTH_DEG = (Math.atan2(CAMPUS_PROJECTION.bx, -CAMPUS_PROJECTION.by) * 180) / Math.PI;
 
 // 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装した模式版)。
 // SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
@@ -307,6 +312,41 @@ export function MapView() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* 方位コンパス(実地図は街区に合わせ回転しているため北を示す) */}
+      {v.isCampusArea && (
+        <div
+          data-nopan="1"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 36,
+            height: 36,
+            borderRadius: 9999,
+            background: "#fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+            zIndex: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="北の向き"
+        >
+          <svg
+            width="36"
+            height="36"
+            viewBox="-18 -18 36 36"
+            style={{ transform: `rotate(${CAMPUS_NORTH_DEG}deg)` }}
+          >
+            <path d="M0 -12 L4 1 L0 -2 L-4 1 Z" fill="#ee0000" />
+            <path d="M0 -2 L4 1 L0 12 L-4 1 Z" fill="#c8c8c8" />
+            <text x="0" y="-13" textAnchor="middle" fontSize="7" fontWeight="700" fill="#ee0000">
+              N
+            </text>
+          </svg>
         </div>
       )}
 
