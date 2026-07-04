@@ -77,6 +77,21 @@ describe("App smoke", () => {
     await waitFor(() => expect(screen.getByText("サッカー部 集合")).toBeTruthy());
   });
 
+  it("自分の公開ルームをタップして再参加できる(#21)", async () => {
+    localStorage.setItem("imasoko.host.p1", "tok"); // p1 を host(自分のルーム)にする
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByText("公開ルームを探す"));
+    // own なので「(あなたのルーム)」付きで表示され、タップでブロックされず再参加できる
+    const card = await screen.findByText("サッカー部 集合(あなたのルーム)");
+    fireEvent.click(card);
+    await waitFor(() => expect(screen.getByText("名前を入れて参加する。")).toBeTruthy());
+    expect(api.getRoom).toHaveBeenCalledWith("p1");
+  });
+
   it("存在しないルームの共有リンク(/r/:id)は 404→NotFound を表示する", async () => {
     vi.mocked(api.getRoom).mockRejectedValueOnce(new HttpError(404, "not found"));
     render(

@@ -870,7 +870,8 @@ export class RoomEngine {
 
   // ── settings ──
   shareUrl() {
-    return "https://imasoko.app/r/" + this.state.roomId;
+    // 実オリジンから生成(ハードコードの imasoko.app だと共有/再参加リンクが実環境で機能しない・issue #21)。
+    return location.origin + "/r/" + this.state.roomId;
   }
   copyLink = () => {
     const url = this.shareUrl();
@@ -1248,6 +1249,7 @@ export class RoomEngine {
     }));
 
     // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
+    // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
     const publicRooms = s.publicList
       .filter((r) => r.exp > s.now)
       .map((r) => {
@@ -1256,13 +1258,7 @@ export class RoomEngine {
           title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
           members: r.members,
           remaining: fmtShort(r.exp - s.now),
-          open: () => {
-            if (own) {
-              this.toast("自分のルームです");
-              return;
-            }
-            this.openPublicRoom(r);
-          },
+          open: () => this.openPublicRoom(r),
         };
       });
 
