@@ -22,6 +22,14 @@ export function project(area: MapArea, lat: number, lng: number): Projected {
   return { u, v, x: u * area.width, y: v * area.height };
 }
 
+/** project の逆変換:エリア画像 px 座標(左上原点)→ 緯度経度。meeting_point(coords)送信で使う。 */
+export function unproject(area: MapArea, x: number, y: number): { lat: number; lng: number } {
+  const { lat0, lng0, lat1, lng1 } = area.bounds;
+  const u = x / area.width;
+  const v = y / area.height;
+  return { lng: lng0 + u * (lng1 - lng0), lat: lat0 - v * (lat0 - lat1) };
+}
+
 export interface ClampedProjected {
   x: number;
   y: number;

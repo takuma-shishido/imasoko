@@ -77,4 +77,5 @@ export type ServerMsg =
   | { type: "member_left"; id: string }
   | { type: "meeting_point"; point: MeetingPointMsg | null }
   | { type: "place_suggestions"; items: unknown[] }
+  | { type: "room_full" }
   | { type: "room_expired" };
