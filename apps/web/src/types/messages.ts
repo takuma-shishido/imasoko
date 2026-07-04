@@ -21,10 +21,15 @@ export type Visibility = "private" | "public";
 export interface CreateRoomReq {
   title?: string;
   visibility?: Visibility;
+  /** 集合時間(ISO 8601)。未指定なら作成時刻を集合時間とみなす(issue #4)。 */
+  meet_at?: string;
 }
 export interface CreateRoomRes {
   room_id: string;
   host_token: string;
+  /** 集合時間(有効期限の起点)。 */
+  meet_at: string;
+  /** = meet_at + 3h(END_OFFSET と一致)。 */
   expires_at: string;
   visibility: Visibility;
 }

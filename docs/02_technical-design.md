@@ -31,7 +31,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # ルーム
-    room_ttl: timedelta = timedelta(hours=2)      # TTL 既定2h・設定可(§1, 05)
+    room_ttl: timedelta = timedelta(hours=2)      # ⚠ 旧案。実装は end_offset_seconds=3h(集合時間+3h, issue #4)
     room_id_bytes: int = 8                         # secrets.token_urlsafe(bytes) → 11文字程度
     # 掃除タスク
     cleanup_interval_seconds: int = 60             # 期限切れ掃除の実行間隔(§8/dev-docs)
@@ -165,8 +165,8 @@ CIでこれらを回す設定は [03](./03_cicd.md)。**まずは coords と roo
 
 > 現状の詳細は [06 実装ステータス §4.1/§4.2](./06_implementation-status.md)。
 
-- [ ] 残る「要合意」:**`position` スロットリング間隔**(実測)+ **有効期限モデルの統一**(集合時間+3h ⇔ 作成+2h, [06 §2](./06_implementation-status.md))
-- [x] `apps/server/app/config.py` を作成(※ `room_ttl` は `timedelta` ではなく `room_ttl_seconds: int` で実装)
+- [ ] 残る「要合意」:**`position` スロットリング間隔**(実測)。※**有効期限モデルは集合時間+3h に統一済み**(issue #4, [06 §2](./06_implementation-status.md))
+- [x] `apps/server/app/config.py` を作成(※有効期限は `end_offset_seconds: int`(集合時間+3h, issue #4)で実装。旧案の作成起点 `room_ttl` からモデル変更)
 - [x] `apps/web/src/lib/constants.ts` を作成
 - [x] `apps/server/.env.example` を作成
 - [x] `apps/server/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義

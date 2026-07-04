@@ -8,8 +8,8 @@ export const POSITION_MIN_MOVE_M = 5; // これ未満の移動は送らない
 export const WS_RECONNECT_BASE_MS = 1000;
 export const WS_RECONNECT_MAX_MS = 15000;
 
-// プロトタイプ固有:集合時間を指定し、その3時間後にルームを自動終了する
-// (docs は「作成から2時間」だが、プロトタイプ忠実のためこちらを採用。README 参照)
+// 有効期限モデル(issue #4 でチーム決定):集合時間を指定し、その3時間後にルームを自動終了する。
+// サーバーも同モデル(expires_at = meet_at + end_offset_seconds, apps/server/app/config.py)で一致。
 export const END_OFFSET = 3 * 3600000;
 
 // デモ用シミュレーション設定

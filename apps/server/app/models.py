@@ -4,6 +4,7 @@ dev-docs §5/§6 + docs/05 §6 を単一の真実として、web(apps/web/src/ty
 変更時は web/server を同じPRで揃える。
 """
 
+from datetime import datetime
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -91,12 +92,15 @@ ClientMsg = Annotated[
 class CreateRoomReq(BaseModel):
     title: Optional[str] = None
     visibility: Visibility = "private"
+    # 集合時間(ISO 8601)。未指定なら作成時刻を集合時間とみなす(issue #4)
+    meet_at: Optional[datetime] = None
 
 
 class CreateRoomRes(BaseModel):
     room_id: str
     host_token: str
-    expires_at: str
+    meet_at: str  # 集合時間(有効期限の起点)
+    expires_at: str  # = meet_at + 3h(front END_OFFSET と一致)
     visibility: Visibility
 
 

@@ -35,10 +35,11 @@ app = FastAPI(title="いまそこ", lifespan=lifespan)
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
 @app.post("/api/rooms", response_model=CreateRoomRes)
 def create_room(req: CreateRoomReq) -> CreateRoomRes:
-    room = rooms.create_room(req.title or "", req.visibility)
+    room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
     return CreateRoomRes(
         room_id=room.room_id,
         host_token=room.host_token,
+        meet_at=room.meet_at.isoformat(),
         expires_at=room.expires_at.isoformat(),
         visibility=room.visibility,  # type: ignore[arg-type]
     )

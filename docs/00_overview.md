@@ -13,6 +13,7 @@
 | 04 | [04_github-templates.md](./04_github-templates.md) | GitHubテンプレート設計(PR/Issue/CODEOWNERS/ブランチ・コミット規約) |
 | 05 | [05_feature-design.md](./05_feature-design.md) | 機能・データ設計(マップ3エリア/建物ドリルダウン/公開範囲/集合場所/空き教室CSV) |
 | 06 | [06_implementation-status.md](./06_implementation-status.md) | **実装ステータス(差分サマリ・最新情報・細かいTODO)** ← 「今どうなっているか」の一次情報 |
+| 07 | [07_api-design.md](./07_api-design.md) | **API設計(REST / WebSocket・具体例つき)** ← 実装リファレンス |
 | — | [design/](./design/00_index.md) | 画面ごとの詳細設計(トップ/公開一覧/参加/地図/各パネル/状態) |
 
 > 本ドキュメント群は「設計と手順」をまとめたもの。各ドキュメントには**そのままコピペして使える成果物(ツリー / YAML / テンプレート本文)**を掲載しているので、TODOに沿ってファイル化すればリポジトリ整備が完了する。
@@ -54,7 +55,7 @@
 - [x] **01 ディレクトリ設計**:`apps/web/` `apps/server/` `.github/` の骨格と `.gitignore` を作成(実装済み。3エリアは `public/map/*.svg` ではなくインライン模式SVGで実装)
 - [x] **04 GitHubテンプレート**:PR/Issueテンプレート・CODEOWNERS・CONTRIBUTING を作成(ラベル・ブランチ保護は**リポジトリ設定側で未実施**)
 - [x] **03 CI整備**:`web-ci` / `server-ci` ワークフロー、Lint/Format/Test/Build ゲート(ローカルで各コマンド緑。GitHub上での緑確認は未)
-- [x] **02 技術設計の確定**:定数化(config/constants)、設定/型/エラー/テストを実装。残る要合意は **throttle 間隔** と **有効期限モデルの統一**(集合時間+3h ⇔ 作成+2h, [06 §2](./06_implementation-status.md))
+- [x] **02 技術設計の確定**:定数化(config/constants)、設定/型/エラー/テストを実装。有効期限モデルは **集合時間+3h に統一済み**(issue #4)。残る要合意は **throttle 間隔**(実測)([06 §2](./06_implementation-status.md))
 - [x] **05 機能・データ設計**:マップ3エリア/建物ドリルダウン/public・private/集合場所3タイプ/空き教室 を実装(フロントは**シミュレーション自走**、サーバー雛形は用意、**両者の実配線は未接続**)
 - [x] **03 CD整備(任意)**:`deploy/Dockerfile` / `docker-compose.yml`(**Caddyは不採用**、リバースプロキシは各自運用)
 - [ ] フェーズ1着手のGate:`main` ブランチ保護の有効化(status checks `build`/`test` + レビュー1)は**未実施**

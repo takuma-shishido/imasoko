@@ -16,6 +16,11 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """naive datetime は UTC とみなす(is_expired の aware 比較で TypeError を避ける)。"""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
 @dataclass
 class Member:
     id: str
@@ -45,6 +50,7 @@ class Room:
     title: str
     visibility: str
     created_at: datetime
+    meet_at: datetime  # 集合時間(有効期限の起点・issue #4)
     expires_at: datetime
     members: dict[str, Member] = field(default_factory=dict)
     meeting_point: Optional[dict] = None
@@ -54,17 +60,22 @@ class Room:
 _rooms: dict[str, Room] = {}
 
 
-def create_room(title: str = "", visibility: str = "private") -> Room:
+def create_room(
+    title: str = "", visibility: str = "private", meet_at: Optional[datetime] = None
+) -> Room:
     room_id = secrets.token_urlsafe(settings.room_id_bytes)
     host_token = secrets.token_urlsafe(settings.host_token_bytes)
     created = now()
+    # 集合時間が未指定なら作成時刻を集合時間とみなす(issue #4)
+    meet = _as_utc(meet_at) if meet_at is not None else created
     room = Room(
         room_id=room_id,
         host_token=host_token,
         title=title or "",
         visibility=visibility,
         created_at=created,
-        expires_at=created + timedelta(seconds=settings.room_ttl_seconds),
+        meet_at=meet,
+        expires_at=meet + timedelta(seconds=settings.end_offset_seconds),
     )
     _rooms[room_id] = room
     return room

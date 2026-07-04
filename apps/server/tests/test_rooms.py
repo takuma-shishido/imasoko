@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -7,9 +7,29 @@ from app.main import app
 
 client = TestClient(app)
 
+END_OFFSET = timedelta(hours=3)  # 集合時間 +3h(issue #4・front END_OFFSET と一致)
+
 
 def setup_function() -> None:
     rooms_mod.clear()
+
+
+def test_expires_at_is_meet_at_plus_3h():
+    meet_at = datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
+    body = client.post("/api/rooms", json={"meet_at": meet_at.isoformat()}).json()
+
+    assert datetime.fromisoformat(body["meet_at"]) == meet_at
+    assert datetime.fromisoformat(body["expires_at"]) == meet_at + END_OFFSET
+
+
+def test_meet_at_defaults_to_creation_time():
+    before = rooms_mod.now()
+    body = client.post("/api/rooms", json={}).json()
+    after = rooms_mod.now()
+
+    meet_at = datetime.fromisoformat(body["meet_at"])
+    assert before <= meet_at <= after
+    assert datetime.fromisoformat(body["expires_at"]) == meet_at + END_OFFSET
 
 
 def test_create_get_and_expire():

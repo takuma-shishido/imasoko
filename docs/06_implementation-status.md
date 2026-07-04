@@ -39,8 +39,9 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 
 「プロトタイプ忠実」を優先したため、フロントは docs と次の点で異なる。**チームで最終確認し、必要なら docs 本文へ反映する。**
 
-1. **有効期限モデル** — docs は「作成から2時間(`room_ttl`)」。フロントは **集合時間を指定 → その3時間後に自動終了**(`END_OFFSET = 3h`, `apps/web/src/lib/constants.ts`)。
-   バックエンド雛形は docs 準拠(`room_ttl_seconds`, `apps/server/app/config.py`)。**実配線時にどちらかへ統一する。**
+1. **有効期限モデル** — ✅ **決定済み(issue #4):「集合時間(`meet_at`)+ 3時間」で自動終了**に統一。
+   フロントは `END_OFFSET = 3h`(`apps/web/src/lib/constants.ts`)、サーバーは `expires_at = meet_at + end_offset_seconds`(`apps/server/app/config.py` / `rooms.py`)で一致。
+   `POST /api/rooms` は任意の `meet_at`(ISO 8601)を受け取り(未指定なら作成時刻を集合時間とみなす)、`meet_at` と `expires_at` を返す。
 2. **作成フロー** — docs は [ルームを作る]即作成(private固定)。フロントは **作成モーダル**でルーム名・公開範囲・集合時間を先に指定。
 3. **地図/座標** — docs は実地理トレースSVG + lat/lng キャリブレーション変換。フロントのデモは **模式SVG(インラインコンポーネント)+ 直接 x/y**。
    docs の変換(`apps/web/src/lib/coords.ts`:`project` / `resolveArea` / クランプ)は**実装 + ユニットテスト済み**で、実位置取得経路で使う想定。
@@ -86,7 +87,7 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 - [x] `main.py`(REST + WS + SPA フォールバック配信)
 - [x] 入力バリデーション(name長・lat/lng範囲)・人数上限 join 拒否
 - [x] `pytest`(rooms/expiry/ws)
-- [ ] フロントの「集合時間+3h」モデルとの**統一方針決定**(現状 docs の作成+2h)
+- [x] 有効期限モデルを「集合時間(`meet_at`)+3h」に**統一**(issue #4)。`end_offset_seconds` + `POST /api/rooms` の任意 `meet_at`
 - [ ] `mypy` を `continue-on-error` から必須へ格上げ
 
 ### 4.3 CI/CD
@@ -128,7 +129,7 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 ## 5. 残課題の要点(コード外・要手作業)
 
 - **リポジトリ設定**:ブランチ保護 / Squash設定 / ラベル / CODEOWNERS ハンドル / deploy Secrets。
-- **設計統一**:有効期限モデル(集合時間+3h ⇔ 作成+2h)をどちらかに決定。
+- ~~**設計統一**:有効期限モデル(集合時間+3h ⇔ 作成+2h)をどちらかに決定。~~ → ✅ 集合時間+3h に決定・実装(issue #4)
 - **実配線**:フロント(シミュレーション)→ 実サーバー(WS/REST)接続、実位置取得。
 - **地図精度**:実地理SVG + キャリブレーション実測。
 - **実機**:HTTPS/WSS 疎通、複数端末での同時表示。
