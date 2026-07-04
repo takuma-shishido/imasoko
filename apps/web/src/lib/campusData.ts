@@ -1,5 +1,6 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
 import type { CampusRes } from "@/types/messages";
+import { CAMPUS_BUILDINGS } from "./campusGeo";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
 // docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
@@ -133,19 +134,23 @@ export const BUILDINGS: Building[] = [
   },
 ];
 
-// 建物レイアウト(模式マップ上の配置・キャプション・表示順)の安定スナップショット。
-// データはサーバー由来に差し替えるが、x/y/w/h は #3 の模式SVGに紐づくためフロントが保持する(issue #14)。
+// 建物レイアウト(マップ上の配置・キャプション・表示順)の安定スナップショット。
+// 号館(b1〜b6)の x/y/w/h は実地図データ(campusGeo.ts の CAMPUS_BUILDINGS)由来で、
+// 実フットプリントに整列する(issue #3)。未対応の建物は campusData の模式値をフォールバック。
 type BuildingLayout = Pick<Building, "id" | "x" | "y" | "w" | "h" | "fl" | "cap" | "fs">;
-const BUILDING_LAYOUTS: BuildingLayout[] = BUILDINGS.map((b) => ({
-  id: b.id,
-  x: b.x,
-  y: b.y,
-  w: b.w,
-  h: b.h,
-  fl: b.fl,
-  cap: b.cap,
-  fs: b.fs,
-}));
+const BUILDING_LAYOUTS: BuildingLayout[] = BUILDINGS.map((b) => {
+  const geo = CAMPUS_BUILDINGS[b.id];
+  return {
+    id: b.id,
+    x: geo?.x ?? b.x,
+    y: geo?.y ?? b.y,
+    w: geo?.w ?? b.w,
+    h: geo?.h ?? b.h,
+    fl: b.fl,
+    cap: b.cap,
+    fs: b.fs,
+  };
+});
 
 /** GET /api/campus のレスポンス → 内部 Building[](データ=サーバー / レイアウト=フロント)。 */
 export function mergeCampus(res: CampusRes): Building[] {
