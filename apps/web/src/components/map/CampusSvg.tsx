@@ -19,6 +19,8 @@ export function CampusSvg() {
     >
       <rect width={width} height={height} fill="#f7f7f7" />
       {CAMPUS_GEO.map((s, i) => {
+        // 号館(b1〜b6)は角丸カードのオーバーレイ(MapView)で表現するため、四角い実フットプリントは描かない。
+        if (s.ref) return null;
         if (s.kind === "road") {
           return (
             <path
