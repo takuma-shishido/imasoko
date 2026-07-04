@@ -54,7 +54,8 @@ describe("projectClamped", () => {
 
 describe("resolveArea", () => {
   it("キャンパス矩形内の点は campus", () => {
-    expect(resolveArea(35.632, 139.794)).toBe("campus");
+    // 実測 bbox(campusGeo.ts)内の点(中心付近)
+    expect(resolveArea(35.6303, 139.7858)).toBe("campus");
   });
 
   it("テレポート矩形内の点は station_2", () => {

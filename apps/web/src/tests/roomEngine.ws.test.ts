@@ -24,7 +24,7 @@ describe("RoomEngine WebSocket handling (issue #1)", () => {
       self_id: "me",
       members: [
         wire({ id: "me", name: "自分" }),
-        wire({ id: "u2", name: "ゆうた", lat: 35.632, lng: 139.794 }),
+        wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
       ],
       meeting_point: null,
       expires_at: exp,
@@ -59,7 +59,7 @@ describe("RoomEngine WebSocket handling (issue #1)", () => {
     expect(e.state.members.find((m) => m.id === "a")!.viewer).toBe(true);
     e.onServerMsg({
       type: "member_update",
-      member: wire({ id: "a", name: "A", lat: 35.632, lng: 139.794 }),
+      member: wire({ id: "a", name: "A", lat: 35.6303, lng: 139.7858 }),
     });
     const a = e.state.members.find((m) => m.id === "a")!;
     expect(a.viewer).toBe(false);

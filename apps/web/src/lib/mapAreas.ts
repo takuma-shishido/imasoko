@@ -1,8 +1,10 @@
 import type { AreaId, AreaDef, MapArea } from "@/types/campus";
+import { CAMPUS_GEO_BOUNDS } from "./campusGeo";
 
 // プロトタイプ実行時のエリア定義(模式SVGのワールドサイズ + 距離換算)。
 export const AREAS: Record<AreaId, AreaDef> = {
-  campus: { name: "有明キャンパス", short: "キャンパス", w: 800, h: 640, mpp: 0.5 },
+  // campus は実地理(OSM)を 800x640 へ投影(issue #3)。mpp は実 bbox の対角から概算(≒0.85m/px)。
+  campus: { name: "有明キャンパス", short: "キャンパス", w: 800, h: 640, mpp: 0.85 },
   station_1: { name: "国際展示場駅", short: "国際展示場", w: 600, h: 480, mpp: 0.35 },
   station_2: { name: "東京テレポート駅", short: "テレポート", w: 600, h: 480, mpp: 0.35 },
 };
@@ -11,7 +13,7 @@ export const AREAS: Record<AreaId, AreaDef> = {
 export const AREA_ORDER: AreaId[] = ["station_1", "station_2", "campus"];
 
 // docs/dev-docs §7:実測キャリブレーション2点(北西角/南東角)。
-// ※ 値はプレースホルダ(有明周辺の概算・互いに重ならない矩形)。実測後に差し替える(docs/02 §6 の運用)。
+// campus は data/キャンパス.json(OSM)の実 bbox(campusGeo.ts で生成)。駅2つは実測待ちのプレースホルダ。
 export const MAP_AREAS: Record<AreaId, MapArea> = {
   campus: {
     id: "campus",
@@ -19,7 +21,7 @@ export const MAP_AREAS: Record<AreaId, MapArea> = {
     svg: "/map/campus.svg",
     width: AREAS.campus.w,
     height: AREAS.campus.h,
-    bounds: { lat0: 35.634, lng0: 139.792, lat1: 35.63, lng1: 139.796 },
+    bounds: { ...CAMPUS_GEO_BOUNDS }, // 実地理データ由来(issue #3)
   },
   station_1: {
     id: "station_1",
