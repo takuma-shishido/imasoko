@@ -83,29 +83,36 @@ export function MapView() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 2,
+                gap: 1,
                 zIndex: 1,
                 boxSizing: "border-box",
+                overflow: "hidden",
+                padding: "0 3px",
               }}
             >
               <span
                 style={{
-                  fontSize: cb.fs,
+                  fontSize: Math.min(cb.fs, 13),
                   fontWeight: 600,
                   letterSpacing: -0.5,
                   color: "#171717",
                   lineHeight: 1.1,
+                  maxWidth: "100%",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                 }}
               >
                 {cb.name}
               </span>
-              {cb.cap && (
+              {cb.cap && cb.h > 34 && (
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 9,
                     color: "#888888",
                     lineHeight: 1.2,
                     maxWidth: "100%",
+                    whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
