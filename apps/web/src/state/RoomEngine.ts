@@ -29,7 +29,7 @@ import {
 } from "@/lib/campusData";
 import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
-import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
+import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { metersBetween } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
@@ -172,7 +172,7 @@ export class RoomEngine {
       isHost: true,
       selfId: "",
       publicList: [],
-      name: "",
+      name: getName(), // 前回入力した表示名を初期値に(issue #22)
       joinB: "",
       joinF: "",
       permModal: false,
@@ -459,6 +459,8 @@ export class RoomEngine {
   };
   enterRoom(viewerOnly: boolean) {
     const s = this.state;
+    const n = s.name.trim();
+    if (n) saveName(n); // 参加時に表示名を保存し、次回の初期値にする(issue #22)
     // 位置送信スロットリング・初回測位フラグをリセット(issue #2)。
     this.lastPosSentAt = 0;
     this.lastSentPos = null;
