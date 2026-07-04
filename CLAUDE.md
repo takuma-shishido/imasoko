@@ -49,6 +49,11 @@ Issue を作る/整理するときは、次の基準で担当とラベルを決�
 
 **ラベルの説明も絵文字付き**で統一(例:`task` = 🛠 作業タスク、`web` = 💻 フロント、`server` = 🖥 バックエンド、`good first issue` = 🌱 初心者向け)。既存ラベルは `gh label list` で確認。
 
+### 読み手で書き分ける(重要)
+
+- **`good first issue`(初心者向け・無担当)**:専門用語を**できる限り避け**、平易な文章で書く。必要な用語には一言説明を添える(例:`pytest`→「自動テスト」、`404`→「(見つからない)」、`host_token`→「(合言葉)」)。「既存の◯◯をまねして」と取っかかりを示し、末尾に「🔰 はじめての人へ」で setup([requirements.md](./requirements.md))へ誘導する。
+- **`@takuma-shishido`(host)担当の重い/広範囲タスク**:簡潔な技術記述でよい(用語をそのまま使ってOK)。
+
 ## 実装時の必須ルール
 
 - **型契約の同期**:WS/REST のメッセージ型を変えたら、web(`apps/web/src/types/messages.ts`)と server(`apps/server/app/models.py`)を**同じ PR で更新**する(docs/02 §4・docs/07)。
