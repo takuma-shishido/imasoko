@@ -25,6 +25,16 @@ docs/       企画書・技術文書・画面設計
 
 > Mac での環境構築(Node.js 導入含む)を最初から追う場合は **[requirements.md](./requirements.md)** を参照。
 
+### まとめて起動(server + web)
+
+server と web を1コマンドで立ち上げる:
+
+```bash
+./scripts/dev.sh     # server(:8000)と web(:5173)を同時起動。Ctrl+C で両方停止
+```
+
+`apps/server/.venv` が無ければ `uv` で自動作成し、`apps/web/node_modules` が無ければ `npm install` する。個別に起動したい場合は以下を参照。
+
 ### web(フロント)
 
 ```bash
