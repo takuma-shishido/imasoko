@@ -15,18 +15,14 @@ interface Props {
 export function Input({ label, placeholder, value, onChange, error, size = "md" }: Props) {
   return (
     <div style={{ width: "100%" }}>
-      {label && (
-        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{label}</div>
-      )}
+      {label && <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{label}</div>}
       <input
         className={`ims-input ims-input--${size}${error ? " ims-input--error" : ""}`}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
       />
-      {error && (
-        <div style={{ fontSize: 12, color: "#ee0000", marginTop: 5 }}>{error}</div>
-      )}
+      {error && <div style={{ fontSize: 12, color: "#ee0000", marginTop: 5 }}>{error}</div>}
     </div>
   );
 }

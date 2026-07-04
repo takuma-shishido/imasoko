@@ -13,24 +13,84 @@ const FEATURES = [
 export function TopPage() {
   const v = useRoom();
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       <MeshGradient height="58%" opacity={0.45} />
-      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", padding: "22px 28px 24px", minHeight: 0 }}>
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          padding: "22px 28px 24px",
+          minHeight: 0,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 11, letterSpacing: ".14em", color: "#171717", fontWeight: 500 }}>
+          <div
+            style={{
+              fontFamily: "'Geist Mono',monospace",
+              fontSize: 11,
+              letterSpacing: ".14em",
+              color: "#171717",
+              fontWeight: 500,
+            }}
+          >
             IMASOKO
           </div>
-          <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10, letterSpacing: ".12em", color: "#888888" }}>
+          <div
+            style={{
+              fontFamily: "'Geist Mono',monospace",
+              fontSize: 10,
+              letterSpacing: ".12em",
+              color: "#888888",
+            }}
+          >
             有明キャンパス
           </div>
         </div>
 
         <div style={{ marginTop: 44 }}>
-          <h1 style={{ fontSize: 56, fontWeight: 600, letterSpacing: -2.8, lineHeight: 1.05, margin: 0 }}>いまそこ</h1>
-          <p style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.6, margin: "12px 0 0", lineHeight: 1.4 }}>
+          <h1
+            style={{
+              fontSize: 56,
+              fontWeight: 600,
+              letterSpacing: -2.8,
+              lineHeight: 1.05,
+              margin: 0,
+            }}
+          >
+            いまそこ
+          </h1>
+          <p
+            style={{
+              fontSize: 21,
+              fontWeight: 600,
+              letterSpacing: -0.6,
+              margin: "12px 0 0",
+              lineHeight: 1.4,
+            }}
+          >
             集合、リンク一本で。
           </p>
-          <p style={{ fontSize: 14, color: "#4d4d4d", margin: "10px 0 0", lineHeight: 1.75, textWrap: "pretty" } as CSSProperties}>
+          <p
+            style={
+              {
+                fontSize: 14,
+                color: "#4d4d4d",
+                margin: "10px 0 0",
+                lineHeight: 1.75,
+                textWrap: "pretty",
+              } as CSSProperties
+            }
+          >
             URLを共有するだけで、全員の現在地が
             <br />
             キャンパスマップに表示されます。
@@ -41,8 +101,21 @@ export function TopPage() {
 
         <div style={{ borderTop: "1px solid #ebebeb" }}>
           {FEATURES.map(([n, label]) => (
-            <div key={n} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: "1px solid #ebebeb" }}>
-              <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: "#888888" }}>{n}</span>
+            <div
+              key={n}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "12px 0",
+                borderBottom: "1px solid #ebebeb",
+              }}
+            >
+              <span
+                style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: "#888888" }}
+              >
+                {n}
+              </span>
               <span style={{ fontSize: 13, color: "#171717" }}>{label}</span>
             </div>
           ))}

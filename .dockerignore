@@ -1,0 +1,15 @@
+# Docker ビルドコンテキスト(リポジトリルート)から除外して軽量化する
+**/node_modules
+**/.venv
+**/venv
+apps/web/dist
+apps/server/static/*
+!apps/server/static/.gitkeep
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+.git
+.github
+docs
+**/.DS_Store

@@ -15,14 +15,35 @@ export function LeaveModal() {
         <button
           onClick={v.cancelLeave}
           className="hv-border"
-          style={{ flex: 1, height: 38, borderRadius: 9999, border: "1px solid #ebebeb", background: "#fff", color: "#171717", fontSize: 13, fontFamily: "inherit", cursor: "pointer" }}
+          style={{
+            flex: 1,
+            height: 38,
+            borderRadius: 9999,
+            border: "1px solid #ebebeb",
+            background: "#fff",
+            color: "#171717",
+            fontSize: 13,
+            fontFamily: "inherit",
+            cursor: "pointer",
+          }}
         >
           キャンセル
         </button>
         <button
           onClick={v.doLeave}
           className="hv-bg-err-deep"
-          style={{ flex: 1, height: 38, borderRadius: 9999, border: 0, background: "#ee0000", color: "#fff", fontSize: 13, fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}
+          style={{
+            flex: 1,
+            height: 38,
+            borderRadius: 9999,
+            border: 0,
+            background: "#ee0000",
+            color: "#fff",
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: "inherit",
+            cursor: "pointer",
+          }}
         >
           退出する
         </button>

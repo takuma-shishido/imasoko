@@ -8,8 +8,7 @@ import type { AreaId } from "./campus";
 
 /** 集合場所(サーバ契約版・docs/05 §4)。フロント内部表現(campus.ts の MeetingPoint)と対応。 */
 export type PlaceRef =
-  | { type: "classroom"; roomId: string }
-  | { type: "building_spot"; spotId: string };
+  { type: "classroom"; roomId: string } | { type: "building_spot"; spotId: string };
 
 export type MeetingPointMsg =
   | { kind: "coords"; area: AreaId; lat: number; lng: number }

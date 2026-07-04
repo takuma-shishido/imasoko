@@ -11,12 +11,24 @@ interface Props {
   children: ReactNode;
 }
 
-export function BottomSheet({ onClose, sheetRef, onHandleDown, onHandleMove, onHandleUp, children }: Props) {
+export function BottomSheet({
+  onClose,
+  sheetRef,
+  onHandleDown,
+  onHandleMove,
+  onHandleUp,
+  children,
+}: Props) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 40 }}>
       <div
         onClick={onClose}
-        style={{ position: "absolute", inset: 0, background: "rgba(23,23,23,.32)", animation: "ims-fade-in .18s ease" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(23,23,23,.32)",
+          animation: "ims-fade-in .18s ease",
+        }}
       />
       <div
         ref={sheetRef}
@@ -38,7 +50,14 @@ export function BottomSheet({ onClose, sheetRef, onHandleDown, onHandleMove, onH
           onPointerDown={onHandleDown}
           onPointerMove={onHandleMove}
           onPointerUp={onHandleUp}
-          style={{ padding: "10px 0 8px", display: "flex", justifyContent: "center", cursor: "grab", touchAction: "none", flex: "none" }}
+          style={{
+            padding: "10px 0 8px",
+            display: "flex",
+            justifyContent: "center",
+            cursor: "grab",
+            touchAction: "none",
+            flex: "none",
+          }}
         >
           <div style={{ width: 38, height: 4, borderRadius: 9999, background: "#d9d9d9" }} />
         </div>

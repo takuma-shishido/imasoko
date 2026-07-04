@@ -6,10 +6,19 @@ export function MemberList() {
   const v = useRoom();
   return (
     <div>
-      <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, letterSpacing: ".14em", color: "#888888" }}>
+      <div
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 10.5,
+          letterSpacing: ".14em",
+          color: "#888888",
+        }}
+      >
         MEMBERS
       </div>
-      <div style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 14px" }}>参加者 {v.memberCount}人</div>
+      <div style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 14px" }}>
+        参加者 {v.memberCount}人
+      </div>
 
       <div
         style={{
@@ -22,7 +31,9 @@ export function MemberList() {
           marginBottom: 10,
         }}
       >
-        <div style={{ fontSize: 12, color: "#4d4d4d", whiteSpace: "nowrap", flex: "none" }}>自分の場所</div>
+        <div style={{ fontSize: 12, color: "#4d4d4d", whiteSpace: "nowrap", flex: "none" }}>
+          自分の場所
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <FloorSelector
             buildingValue={v.selfB}
@@ -74,14 +85,29 @@ export function MemberList() {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</span>
               {m.tag && (
-                <span style={{ fontSize: 10, color: "#4d4d4d", background: "#f5f5f5", borderRadius: 9999, padding: "1px 8px" }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "#4d4d4d",
+                    background: "#f5f5f5",
+                    borderRadius: 9999,
+                    padding: "1px 8px",
+                  }}
+                >
                   {m.tag}
                 </span>
               )}
             </div>
             <div style={{ fontSize: 12, color: "#888888", marginTop: 2 }}>{m.loc}</div>
           </div>
-          <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 11, color: "#4d4d4d", textAlign: "right" }}>
+          <div
+            style={{
+              fontFamily: "'Geist Mono',monospace",
+              fontSize: 11,
+              color: "#4d4d4d",
+              textAlign: "right",
+            }}
+          >
             {m.dist}
           </div>
         </div>

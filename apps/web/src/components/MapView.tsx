@@ -88,7 +88,15 @@ export function MapView() {
                 boxSizing: "border-box",
               }}
             >
-              <span style={{ fontSize: cb.fs, fontWeight: 600, letterSpacing: -0.5, color: "#171717", lineHeight: 1.1 }}>
+              <span
+                style={{
+                  fontSize: cb.fs,
+                  fontWeight: 600,
+                  letterSpacing: -0.5,
+                  color: "#171717",
+                  lineHeight: 1.1,
+                }}
+              >
                 {cb.name}
               </span>
               {cb.cap && (
@@ -262,7 +270,15 @@ export function MapView() {
             maxWidth: "75%",
           }}
         >
-          <span style={{ width: 9, height: 9, background: "#0070f3", transform: "rotate(45deg)", flex: "none" }} />
+          <span
+            style={{
+              width: 9,
+              height: 9,
+              background: "#0070f3",
+              transform: "rotate(45deg)",
+              flex: "none",
+            }}
+          />
           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {v.meetingLabel}
             <span style={{ color: "#888888" }}> ・ {v.meetingDistSelf}</span>
@@ -290,7 +306,15 @@ export function MapView() {
       {/* 地図FAB */}
       <div
         data-nopan="1"
-        style={{ position: "absolute", right: 12, bottom: 14, display: "flex", flexDirection: "column", gap: 8, zIndex: 6 }}
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          zIndex: 6,
+        }}
       >
         <FabButton onClick={v.fabZoomIn} title="拡大">
           ＋
@@ -299,13 +323,27 @@ export function MapView() {
           −
         </FabButton>
         <FabButton onClick={v.fabSelf} title="現在地へ">
-          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
             <circle cx="9" cy="9" r="4" />
             <path d="M9 1v3M9 14v3M1 9h3M14 9h3" />
           </svg>
         </FabButton>
         <FabButton onClick={v.fabFit} title="全員表示">
-          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
             <path d="M3 6V3h3M12 3h3v3M15 12v3h-3M6 15H3v-3" />
           </svg>
         </FabButton>
@@ -314,7 +352,15 @@ export function MapView() {
   );
 }
 
-function FabButton({ onClick, title, children }: { onClick: () => void; title: string; children: ReactNode }) {
+function FabButton({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <button
       onClick={onClick}

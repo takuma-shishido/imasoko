@@ -30,11 +30,33 @@ export function TerminalState() {
   }
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", textAlign: "center", gap: 8 }}>
-      <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 11, letterSpacing: ".14em", color: "#888888" }}>{code}</div>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0 32px",
+        textAlign: "center",
+        gap: 8,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 11,
+          letterSpacing: ".14em",
+          color: "#888888",
+        }}
+      >
+        {code}
+      </div>
       <div style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.4 }}>{title}</div>
       <div style={{ fontSize: 13, color: "#4d4d4d", lineHeight: 1.8 }}>{desc}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22, width: "100%" }}>
+      <div
+        style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22, width: "100%" }}
+      >
         {showCreate && (
           <Button variant="primary" size="md" onClick={v.createRoom}>
             新しいルームを作る

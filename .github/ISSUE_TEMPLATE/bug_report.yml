@@ -1,0 +1,29 @@
+name: "🐛 バグ報告"
+description: 不具合の報告
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 症状
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 再現手順
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+  - type: input
+    id: env
+    attributes:
+      label: 環境(端末 / ブラウザ / OS)
+      placeholder: "iPhone 15 / Safari, Android / Chrome など"

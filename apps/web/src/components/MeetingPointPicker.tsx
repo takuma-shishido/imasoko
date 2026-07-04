@@ -8,14 +8,39 @@ export function MeetingPointPicker() {
   const v = useRoom();
   return (
     <div>
-      <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, letterSpacing: ".14em", color: "#888888" }}>
+      <div
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 10.5,
+          letterSpacing: ".14em",
+          color: "#888888",
+        }}
+      >
         MEETING POINT
       </div>
       <div style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 12px" }}>集合場所を決める</div>
 
       {v.meetingSet && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f5f5f5", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
-          <span style={{ width: 10, height: 10, background: "#0070f3", transform: "rotate(45deg)", flex: "none" }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "#f5f5f5",
+            borderRadius: 8,
+            padding: "10px 12px",
+            marginBottom: 12,
+          }}
+        >
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              background: "#0070f3",
+              transform: "rotate(45deg)",
+              flex: "none",
+            }}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{v.meetingLabel}</div>
             <div style={{ fontSize: 11.5, color: "#888888" }}>{v.meetingByLabel}</div>
@@ -23,7 +48,17 @@ export function MeetingPointPicker() {
           <button
             onClick={v.clearMeeting}
             className="hv-border"
-            style={{ height: 28, padding: "0 12px", borderRadius: 9999, border: "1px solid #ebebeb", background: "#fff", color: "#4d4d4d", fontSize: 11.5, fontFamily: "inherit", cursor: "pointer" }}
+            style={{
+              height: 28,
+              padding: "0 12px",
+              borderRadius: 9999,
+              border: "1px solid #ebebeb",
+              background: "#fff",
+              color: "#4d4d4d",
+              fontSize: 11.5,
+              fontFamily: "inherit",
+              cursor: "pointer",
+            }}
           >
             解除
           </button>
@@ -31,27 +66,54 @@ export function MeetingPointPicker() {
       )}
 
       {/* coords */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 4px", borderBottom: "1px solid #ebebeb" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 4px",
+          borderBottom: "1px solid #ebebeb",
+        }}
+      >
         <Radio dot="transparent" />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
-          <div style={{ fontSize: 11.5, color: "#888888" }}>好きな地点をタップ。説明も付けられます</div>
+          <div style={{ fontSize: 11.5, color: "#888888" }}>
+            好きな地点をタップ。説明も付けられます
+          </div>
         </div>
         <button
           onClick={v.startPick}
-          style={{ height: 32, padding: "0 14px", borderRadius: 9999, border: 0, background: "#171717", color: "#fff", fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
+          style={{
+            height: 32,
+            padding: "0 14px",
+            borderRadius: 9999,
+            border: 0,
+            background: "#171717",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 500,
+            fontFamily: "inherit",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
         >
           地図で指定
         </button>
       </div>
 
       {/* member */}
-      <div onClick={v.mtPickMember} style={{ padding: "12px 4px", borderBottom: "1px solid #ebebeb", cursor: "pointer" }}>
+      <div
+        onClick={v.mtPickMember}
+        style={{ padding: "12px 4px", borderBottom: "1px solid #ebebeb", cursor: "pointer" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Radio dot={v.mtDotMember} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>誰かのところ</div>
-            <div style={{ fontSize: 11.5, color: "#888888" }}>その人が動くと集合地点も追従します</div>
+            <div style={{ fontSize: 11.5, color: "#888888" }}>
+              その人が動くと集合地点も追従します
+            </div>
           </div>
         </div>
         {v.mtIsMember && (
@@ -60,7 +122,18 @@ export function MeetingPointPicker() {
               <button
                 key={i}
                 onClick={mc.pick}
-                style={{ height: 30, padding: "0 13px", borderRadius: 9999, border: `1px solid ${mc.bd}`, background: mc.bg, color: mc.fg, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}
+                style={{
+                  height: 30,
+                  padding: "0 13px",
+                  borderRadius: 9999,
+                  border: `1px solid ${mc.bd}`,
+                  background: mc.bg,
+                  color: mc.fg,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
               >
                 {mc.name}
               </button>
@@ -75,7 +148,9 @@ export function MeetingPointPicker() {
           <Radio dot={v.mtDotPlace} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>場所から選ぶ</div>
-            <div style={{ fontSize: 11.5, color: "#888888" }}>教室・「◯号館前」などのランドマーク</div>
+            <div style={{ fontSize: 11.5, color: "#888888" }}>
+              教室・「◯号館前」などのランドマーク
+            </div>
           </div>
         </div>
         {v.mtIsPlace && (
@@ -83,7 +158,18 @@ export function MeetingPointPicker() {
             <select
               value={v.placeB}
               onChange={v.onPlaceB}
-              style={{ flex: 1, height: 36, border: "1px solid #ebebeb", borderRadius: 6, background: "#fff", fontFamily: "inherit", fontSize: 12.5, color: "#171717", padding: "0 8px", minWidth: 0 }}
+              style={{
+                flex: 1,
+                height: 36,
+                border: "1px solid #ebebeb",
+                borderRadius: 6,
+                background: "#fff",
+                fontFamily: "inherit",
+                fontSize: 12.5,
+                color: "#171717",
+                padding: "0 8px",
+                minWidth: 0,
+              }}
             >
               {v.buildingOpts.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -94,7 +180,18 @@ export function MeetingPointPicker() {
             <select
               value={v.placeR}
               onChange={v.onPlaceR}
-              style={{ flex: 1.3, height: 36, border: "1px solid #ebebeb", borderRadius: 6, background: "#fff", fontFamily: "inherit", fontSize: 12.5, color: "#171717", padding: "0 8px", minWidth: 0 }}
+              style={{
+                flex: 1.3,
+                height: 36,
+                border: "1px solid #ebebeb",
+                borderRadius: 6,
+                background: "#fff",
+                fontFamily: "inherit",
+                fontSize: 12.5,
+                color: "#171717",
+                padding: "0 8px",
+                minWidth: 0,
+              }}
             >
               <option value="">場所を選択</option>
               {v.placeOpts.map((o) => (

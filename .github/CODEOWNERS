@@ -1,0 +1,21 @@
+# PRが出ると対応パスの担当が自動でレビュアーに割り当てられる(dev-docs §11 の分担)。
+# ※ いまは全員ぶんの GitHub ハンドルが未確定なため、暫定でホストに集約している。
+#   初心者A/B/C のハンドルが決まったら、下の各行に追記する(例: /apps/server/app/rooms.py  @DEV_A @takuma-shishido)。
+
+# デフォルト(明示が無い変更)はホストがレビュー
+*                             @takuma-shishido
+
+# web 全般
+/apps/web/                    @takuma-shishido
+
+# server:担当ごと(TODO: @DEV_A / @DEV_B / @DEV_C を追記)
+/apps/server/app/rooms.py     @takuma-shishido
+/apps/server/app/expiry.py    @takuma-shishido
+/apps/server/app/handlers.py  @takuma-shishido
+/apps/server/app/ws.py        @takuma-shishido
+/apps/server/app/main.py      @takuma-shishido
+/apps/server/app/config.py    @takuma-shishido
+
+# ドキュメント・CI
+/docs/                        @takuma-shishido
+/.github/                     @takuma-shishido

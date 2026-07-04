@@ -13,7 +13,14 @@ interface Props {
   children: ReactNode;
 }
 
-export function Button({ variant = "primary", size = "lg", disabled, onClick, style, children }: Props) {
+export function Button({
+  variant = "primary",
+  size = "lg",
+  disabled,
+  onClick,
+  style,
+  children,
+}: Props) {
   return (
     <button
       type="button"

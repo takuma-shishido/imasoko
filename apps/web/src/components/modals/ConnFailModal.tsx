@@ -7,7 +7,14 @@ export function ConnFailModal() {
   if (!v.connFail) return null;
   return (
     <Modal overlayStyle={{ background: "rgba(23,23,23,.55)" }} cardStyle={{ textAlign: "center" }}>
-      <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10, letterSpacing: ".12em", color: "#888888" }}>
+      <div
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 10,
+          letterSpacing: ".12em",
+          color: "#888888",
+        }}
+      >
         CONNECTION LOST
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, marginTop: 6 }}>接続できません</div>
@@ -16,7 +23,19 @@ export function ConnFailModal() {
       </div>
       <button
         onClick={v.retryConn}
-        style={{ width: "100%", height: 40, marginTop: 16, borderRadius: 9999, border: 0, background: "#171717", color: "#fff", fontSize: 13, fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}
+        style={{
+          width: "100%",
+          height: 40,
+          marginTop: 16,
+          borderRadius: 9999,
+          border: 0,
+          background: "#171717",
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 500,
+          fontFamily: "inherit",
+          cursor: "pointer",
+        }}
       >
         再試行
       </button>

@@ -16,7 +16,16 @@ export function AreaSwitcher() {
         zIndex: 5,
       }}
     >
-      <div style={{ display: "flex", background: "#f5f5f5", borderRadius: 9999, padding: 3, flex: 1, gap: 2 }}>
+      <div
+        style={{
+          display: "flex",
+          background: "#f5f5f5",
+          borderRadius: 9999,
+          padding: 3,
+          flex: 1,
+          gap: 2,
+        }}
+      >
         {v.areasSeg.map((a) => (
           <button
             key={a.label}

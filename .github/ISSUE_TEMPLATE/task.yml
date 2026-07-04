@@ -1,0 +1,29 @@
+name: "🛠 タスク"
+description: 実装・調査などの作業タスク
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: ゴール
+      description: このタスクで達成したいこと
+    validations:
+      required: true
+  - type: textarea
+    id: todo
+    attributes:
+      label: やること(チェックリスト)
+      value: |
+        - [ ]
+  - type: dropdown
+    id: area
+    attributes:
+      label: 対象領域
+      options: [web, server, docs, infra/CI]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補足 / 関連ドキュメント

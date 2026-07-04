@@ -15,7 +15,16 @@ import type {
   Toast,
 } from "@/types/campus";
 import { AREAS, AREA_ORDER } from "@/lib/mapAreas";
-import { BUILDINGS, CLAMP, MAP_TEXTS, bAnchor, bById, bSpot, roomFull, roomLookup } from "@/lib/campusData";
+import {
+  BUILDINGS,
+  CLAMP,
+  MAP_TEXTS,
+  bAnchor,
+  bById,
+  bSpot,
+  roomFull,
+  roomLookup,
+} from "@/lib/campusData";
 import { END_OFFSET, SIM_MOVING, SIM_WALK_SPEED } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 
@@ -228,10 +237,7 @@ export class RoomEngine {
   toast(msg: string) {
     const id = ++this.toastN;
     this.setState((s) => ({ toasts: [...s.toasts, { id, msg }] }));
-    setTimeout(
-      () => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-      3200
-    );
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
   }
 
   // ── simulation ──
@@ -265,7 +271,15 @@ export class RoomEngine {
       this.toast("ゆうたさんが参加しました");
     });
     this.after(6000, () => {
-      this.addMember({ id: "saki", name: "さき", area: "campus", x: 200, y: 120, building: "b1", floor: "3F" });
+      this.addMember({
+        id: "saki",
+        name: "さき",
+        area: "campus",
+        x: 200,
+        y: 120,
+        building: "b1",
+        floor: "3F",
+      });
       this.toast("さきさんが参加しました(1号館3F)");
     });
     this.after(10000, () => {
@@ -288,7 +302,10 @@ export class RoomEngine {
     this.after(16000, () => {
       if (this.state.screen !== "map") return;
       this.setState((s) => ({
-        suggestions: [...s.suggestions, { id: "sg1", kind: "room", ref: "b1-305", note: "空いてた", by: "さき" }],
+        suggestions: [
+          ...s.suggestions,
+          { id: "sg1", kind: "room", ref: "b1-305", note: "空いてた", by: "さき" },
+        ],
       }));
       this.toast("さきさんが空き教室を追加しました");
     });
@@ -498,22 +515,31 @@ export class RoomEngine {
     this.setState({ area: id }, () => this.fitArea());
   }
   onMapDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]")) return;
+    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
+      return;
     if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-    this.drag = { sx: e.clientX, sy: e.clientY, tx: this.state.view.tx, ty: this.state.view.ty, moved: false };
+    this.drag = {
+      sx: e.clientX,
+      sy: e.clientY,
+      tx: this.state.view.tx,
+      ty: this.state.view.ty,
+      moved: false,
+    };
   };
   onMapMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!this.drag) return;
     const dx = e.clientX - this.drag.sx;
     const dy = e.clientY - this.drag.sy;
     if (Math.hypot(dx, dy) > 6) this.drag.moved = true;
-    if (this.drag.moved) this.setState({ view: { ...this.state.view, tx: this.drag.tx + dx, ty: this.drag.ty + dy } });
+    if (this.drag.moved)
+      this.setState({ view: { ...this.state.view, tx: this.drag.tx + dx, ty: this.drag.ty + dy } });
   };
   onMapUp = (e: PointerEvent<HTMLDivElement>) => {
     const d = this.drag;
     this.drag = null;
     if (!this.state.pickMode || !d || d.moved) return;
-    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]")) return;
+    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
+      return;
     const vp = this.vpRef.current;
     if (!vp) return;
     const r = vp.getBoundingClientRect();
@@ -522,7 +548,12 @@ export class RoomEngine {
     const wy = (e.clientY - r.top - ty) / k;
     const A = AREAS[this.state.area];
     if (wx < 0 || wy < 0 || wx > A.w || wy > A.h) return;
-    this.setState({ pickMode: false, pinModal: true, pendingPin: { area: this.state.area, x: wx, y: wy }, pinNote: "" });
+    this.setState({
+      pickMode: false,
+      pinModal: true,
+      pendingPin: { area: this.state.area, x: wx, y: wy },
+      pinNote: "",
+    });
   };
   startPick = () => this.setState({ pickMode: true, sheet: null, demoOpen: false });
   cancelPick = () => this.setState({ pickMode: false });
@@ -530,7 +561,10 @@ export class RoomEngine {
   confirmPin = () => {
     const p = this.state.pendingPin;
     if (!p) return;
-    this.setMeeting({ kind: "coords", area: p.area, x: p.x, y: p.y, note: this.state.pinNote.trim() }, "あなた");
+    this.setMeeting(
+      { kind: "coords", area: p.area, x: p.x, y: p.y, note: this.state.pinNote.trim() },
+      "あなた"
+    );
     this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
   };
   onMapWheel = (e: WheelEvent<HTMLDivElement>) => {
@@ -543,7 +577,9 @@ export class RoomEngine {
     const nk = Math.min(3.5, Math.max(fit * 0.7, k * Math.exp(-e.deltaY * 0.0016)));
     const cx = e.clientX - r.left;
     const cy = e.clientY - r.top;
-    this.setState({ view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk } });
+    this.setState({
+      view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk },
+    });
   };
   private zoomBy(f: number) {
     const vp = this.vpRef.current;
@@ -555,7 +591,9 @@ export class RoomEngine {
     const nk = Math.min(3.5, Math.max(fit * 0.7, k * f));
     const cx = r.width / 2;
     const cy = r.height / 2;
-    this.setState({ view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk } });
+    this.setState({
+      view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk },
+    });
   }
   fabZoomIn = () => this.zoomBy(1.35);
   fabZoomOut = () => this.zoomBy(1 / 1.35);
@@ -572,7 +610,9 @@ export class RoomEngine {
     this.centerOn(self.x, self.y, Math.max(this.state.view.k, 1.2));
   };
   fabFit = () => {
-    const pts = this.state.members.filter((m) => !m.lost && !m.viewer && m.area === this.state.area);
+    const pts = this.state.members.filter(
+      (m) => !m.lost && !m.viewer && m.area === this.state.area
+    );
     if (!pts.length) {
       this.fitArea();
       return;
@@ -585,7 +625,9 @@ export class RoomEngine {
     const y0 = Math.min(...pts.map((p) => p.y)) - 90;
     const y1 = Math.max(...pts.map((p) => p.y)) + 60;
     const k = Math.min(3, Math.min(r.width / (x1 - x0), r.height / (y1 - y0)));
-    this.setState({ view: { k, tx: r.width / 2 - ((x0 + x1) / 2) * k, ty: r.height / 2 - ((y0 + y1) / 2) * k } });
+    this.setState({
+      view: { k, tx: r.width / 2 - ((x0 + x1) / 2) * k, ty: r.height / 2 - ((y0 + y1) / 2) * k },
+    });
   };
 
   // ── sheets ──
@@ -633,10 +675,14 @@ export class RoomEngine {
     this.setState((s) => ({
       selfB: b,
       selfF: f,
-      members: s.members.map((m) => (m.id === "self" ? { ...m, building: b || null, floor: f || null } : m)),
+      members: s.members.map((m) =>
+        m.id === "self" ? { ...m, building: b || null, floor: f || null } : m
+      ),
     }));
     const bn = b ? bById(b)!.name : null;
-    this.toast(bn ? "自分の場所を「" + bn + " " + f + "」にしました" : "自分の場所を屋外にしました");
+    this.toast(
+      bn ? "自分の場所を「" + bn + " " + f + "」にしました" : "自分の場所を屋外にしました"
+    );
   }
   pickRoom(rid: string) {
     this.setState((s) => ({ selRoom: s.selRoom === rid ? null : rid }));
@@ -655,7 +701,10 @@ export class RoomEngine {
       return;
     }
     this.setState((s) => ({
-      suggestions: [...s.suggestions, { id: "sg" + Date.now(), kind: "room", ref: rid, note: "", by: "あなた" }],
+      suggestions: [
+        ...s.suggestions,
+        { id: "sg" + Date.now(), kind: "room", ref: rid, note: "", by: "あなた" },
+      ],
       selRoom: null,
     }));
     this.toast("空き教室の候補に追加しました");
@@ -750,8 +799,15 @@ export class RoomEngine {
       by: "あなた",
     }));
     const dupN = s.addRs.length - fresh.length;
-    this.setState({ suggestions: [...s.suggestions, ...added], addOpen: false, addNote: "", addRs: [] });
-    this.toast(fresh.length + "件の空き教室を追加しました" + (dupN ? "(" + dupN + "件は追加済み)" : ""));
+    this.setState({
+      suggestions: [...s.suggestions, ...added],
+      addOpen: false,
+      addNote: "",
+      addRs: [],
+    });
+    this.toast(
+      fresh.length + "件の空き教室を追加しました" + (dupN ? "(" + dupN + "件は追加済み)" : "")
+    );
   };
 
   // ── settings ──
@@ -770,7 +826,9 @@ export class RoomEngine {
   webShare = () => {
     const url = this.shareUrl();
     if (navigator.share)
-      navigator.share({ title: "いまそこ", text: "集合ルームに参加してください", url }).catch(() => {});
+      navigator
+        .share({ title: "いまそこ", text: "集合ルームに参加してください", url })
+        .catch(() => {});
     else {
       this.copyLink();
       this.toast("この環境では共有シートが使えないためコピーしました");
@@ -817,7 +875,10 @@ export class RoomEngine {
       fn();
     };
     return [
-      { label: "⏱ 残り時間を15秒にする", run: needRoom(() => this.setState({ expiresAt: Date.now() + 15000 })) },
+      {
+        label: "⏱ 残り時間を15秒にする",
+        run: needRoom(() => this.setState({ expiresAt: Date.now() + 15000 })),
+      },
       {
         label: "⏹ ルームを即終了(room_expired)",
         run: needRoom(() => {
@@ -825,7 +886,10 @@ export class RoomEngine {
           this.setState({ screen: "ended", sheet: null });
         }),
       },
-      { label: "〰 再接続中バーを表示/解除", run: needRoom(() => this.setState((s) => ({ reconnecting: !s.reconnecting }))) },
+      {
+        label: "〰 再接続中バーを表示/解除",
+        run: needRoom(() => this.setState((s) => ({ reconnecting: !s.reconnecting }))),
+      },
       { label: "✕ 接続失敗(継続)を表示", run: needRoom(() => this.setState({ connFail: true })) },
       {
         label: "👁 閲覧のみ ⇔ 位置共有 を切替",
@@ -1026,7 +1090,12 @@ export class RoomEngine {
       w: t.w || 400,
       ff: t.mono ? "'Geist Mono',monospace" : "inherit",
       ls: t.mono ? ".05em" : "0",
-      tf: t.a === "l" ? "translate(0,-50%)" : t.a === "r" ? "translate(-100%,-50%)" : "translate(-50%,-50%)",
+      tf:
+        t.a === "l"
+          ? "translate(0,-50%)"
+          : t.a === "r"
+            ? "translate(-100%,-50%)"
+            : "translate(-50%,-50%)",
     }));
     const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
     const buildingChips = BUILDINGS.map((b) => ({
@@ -1155,7 +1224,8 @@ export class RoomEngine {
       pickNewPriv: () => this.setState({ newVis: "private" }),
       pickNewPub: () => this.setState({ newVis: "public" }),
       newMeetAt: s.newMeetAt,
-      onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) => this.setState({ newMeetAt: e.target.value }),
+      onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
+        this.setState({ newMeetAt: e.target.value }),
       newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + END_OFFSET),
       meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
       setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
@@ -1175,7 +1245,8 @@ export class RoomEngine {
       onName: (e: ChangeEvent<HTMLInputElement>) => this.setState({ name: e.target.value }),
       nameError: s.name.length > 20 ? "20文字以内で入力してください" : "",
       joinB: s.joinB,
-      onJoinB: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinB: e.target.value, joinF: "" }),
+      onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
+        this.setState({ joinB: e.target.value, joinF: "" }),
       joinF: s.joinF,
       onJoinF: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinF: e.target.value }),
       joinFloorOpts: floorsOf(s.joinB),
@@ -1233,7 +1304,9 @@ export class RoomEngine {
       meetingDistSelf: "あなたから " + selfDist,
       clearMeeting: this.clearMeeting,
       meetingByLabel:
-        s.meetingBy + "が設定" + (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
+        s.meetingBy +
+        "が設定" +
+        (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
       fabZoomIn: this.fabZoomIn,
       fabZoomOut: this.fabZoomOut,
       fabSelf: this.fabSelf,
@@ -1269,7 +1342,8 @@ export class RoomEngine {
       selfB: s.selfB || "",
       onSelfB: (e: ChangeEvent<HTMLSelectElement>) => this.setSelfFloor(e.target.value, ""),
       selfF: s.selfF || "",
-      onSelfF: (e: ChangeEvent<HTMLSelectElement>) => this.setSelfFloor(s.selfB || "", e.target.value),
+      onSelfF: (e: ChangeEvent<HTMLSelectElement>) =>
+        this.setSelfFloor(s.selfB || "", e.target.value),
       selfFloorOpts: floorsOf(s.selfB || ""),
 
       // building sheet
@@ -1291,7 +1365,8 @@ export class RoomEngine {
       mtPickPlace: this.mtPickPlace,
       memberChips,
       placeB: s.placeB,
-      onPlaceB: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ placeB: e.target.value, placeR: "" }),
+      onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
+        this.setState({ placeB: e.target.value, placeR: "" }),
       placeR: s.placeR,
       onPlaceR: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ placeR: e.target.value }),
       placeOpts,

@@ -5,7 +5,14 @@ export function CampusView() {
   const v = useRoom();
   return (
     <div>
-      <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, letterSpacing: ".14em", color: "#888888" }}>
+      <div
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 10.5,
+          letterSpacing: ".14em",
+          color: "#888888",
+        }}
+      >
         BUILDINGS
       </div>
       <div style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 12px" }}>建物から探す</div>
@@ -49,7 +56,10 @@ export function CampusView() {
       >
         <div style={{ fontSize: 13, fontWeight: 500, minWidth: 0 }}>
           <span style={{ whiteSpace: "nowrap" }}>{v.spotLabel}</span>
-          <span style={{ color: "#888888", fontWeight: 400, fontSize: 11.5, whiteSpace: "nowrap" }}> ・ 屋外ランドマーク</span>
+          <span style={{ color: "#888888", fontWeight: 400, fontSize: 11.5, whiteSpace: "nowrap" }}>
+            {" "}
+            ・ 屋外ランドマーク
+          </span>
         </div>
         <button
           onClick={v.spotMeet}
@@ -73,13 +83,36 @@ export function CampusView() {
       </div>
 
       {v.floorRows.map((f) => (
-        <div key={f.level} style={{ border: "1px solid #ebebeb", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+        <div
+          key={f.level}
+          style={{
+            border: "1px solid #ebebeb",
+            borderRadius: 8,
+            marginBottom: 8,
+            overflow: "hidden",
+          }}
+        >
           <div
             onClick={f.toggle}
             className="hv-bg-soft"
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer", background: "#fff" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 14px",
+              cursor: "pointer",
+              background: "#fff",
+            }}
           >
-            <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 12.5, fontWeight: 500, width: 26, flex: "none" }}>
+            <span
+              style={{
+                fontFamily: "'Geist Mono',monospace",
+                fontSize: 12.5,
+                fontWeight: 500,
+                width: 26,
+                flex: "none",
+              }}
+            >
               {f.level}
             </span>
             <span

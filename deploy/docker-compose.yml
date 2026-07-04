@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    ports: ["8000:8000"] # リバースプロキシ経由で 443 → 8000(TLS終端・WS中継)
+    environment:
+      # TTL 等の上書きが必要ならここで(docs/02 §3)
+      - IMASOKO_STATIC_DIR=static
