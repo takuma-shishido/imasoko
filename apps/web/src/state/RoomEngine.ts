@@ -27,6 +27,7 @@ import {
 } from "@/lib/campusData";
 import { END_OFFSET, SIM_MOVING, SIM_WALK_SPEED } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
+import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
@@ -67,7 +68,8 @@ export interface State {
   roomTitle: string;
   visibility: Visibility;
   isHost: boolean;
-  demoRooms: DemoRoom[];
+  /** 公開ルーム一覧(実サーバー /api/rooms/public 由来。issue #13)。 */
+  publicList: DemoRoom[];
   name: string;
   joinB: string;
   joinF: string;
@@ -163,10 +165,7 @@ export class RoomEngine {
       roomTitle: "",
       visibility: "private",
       isHost: true,
-      demoRooms: [
-        { id: "p1", title: "サッカー部 集合", members: 5, exp: now + 83 * 60000 },
-        { id: "p2", title: "軽音 新歓ランチ", members: 3, exp: now + 41 * 60000 },
-      ],
+      publicList: [],
       name: "",
       joinB: "",
       joinF: "",
@@ -382,7 +381,7 @@ export class RoomEngine {
   // ── navigation ──
   goTop = () => {
     this.stopSim();
-    this.setState({ ...this.initialState(), demoRooms: this.state.demoRooms, now: Date.now() });
+    this.setState({ ...this.initialState(), publicList: this.state.publicList, now: Date.now() });
   };
   createRoom = () =>
     this.setState({
@@ -393,58 +392,106 @@ export class RoomEngine {
       demoOpen: false,
     });
   cancelCreate = () => this.setState({ createOpen: false });
-  submitCreate = () => {
+  submitCreate = async () => {
     if (this.state.creating) return;
     this.setState({ creating: true });
     const { newTitle, newVis, newMeetAt } = this.state;
-    const meetAt = fromLocalInput(newMeetAt);
-    setTimeout(() => {
-      const id = Math.random().toString(36).slice(2, 8);
+    const title = newTitle.trim();
+    const meetAtMs = fromLocalInput(newMeetAt);
+    try {
+      const res = await api.createRoom({
+        title: title || undefined,
+        visibility: newVis,
+        meet_at: new Date(meetAtMs).toISOString(),
+      });
+      saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
       this.stopSim();
       this.setState({
         ...this.initialState(),
         now: Date.now(),
-        demoRooms: this.state.demoRooms,
+        publicList: this.state.publicList,
         creating: false,
         createOpen: false,
         screen: "join",
-        roomId: id,
+        roomId: res.room_id,
         isHost: true,
-        roomTitle: newTitle.trim(),
-        visibility: newVis,
-        meetAt,
-        expiresAt: meetAt + END_OFFSET,
+        roomTitle: title,
+        visibility: res.visibility,
+        meetAt: Date.parse(res.meet_at),
+        expiresAt: Date.parse(res.expires_at),
       });
-      if (newVis === "public") this.toast("公開ルームとして作成しました");
-    }, 900);
+      if (res.visibility === "public") this.toast("公開ルームとして作成しました");
+    } catch {
+      this.setState({ creating: false });
+      this.toast("ルームを作成できませんでした。通信環境を確認してください");
+    }
   };
   setMeetAt = (v: string) => {
     const meetAt = fromLocalInput(v);
     this.setState({ meetAt, expiresAt: meetAt + END_OFFSET });
     this.toast("集合時間を " + fmtMeetLabel(meetAt) + " に変更しました");
   };
-  goPublic = () => this.setState({ screen: "public" });
-  refreshPublic = () => {
-    this.setState({ refreshing: true });
-    setTimeout(() => {
-      this.setState({ refreshing: false });
-      this.toast("一覧を更新しました");
-    }, 800);
+  goPublic = () => {
+    this.setState({ screen: "public" });
+    void this.loadPublicRooms();
   };
-  openPublicRoom(r: DemoRoom) {
-    this.stopSim();
-    this.setState({
-      ...this.initialState(),
-      now: Date.now(),
-      demoRooms: this.state.demoRooms,
-      screen: "join",
-      roomId: r.id,
-      roomTitle: r.title,
-      isHost: false,
-      meetAt: r.exp - END_OFFSET,
-      expiresAt: r.exp,
-    });
+  refreshPublic = () => void this.loadPublicRooms({ toast: true });
+  // 公開ルーム一覧を実サーバーから取得(issue #13)。
+  private async loadPublicRooms(opts?: { toast?: boolean }) {
+    this.setState({ refreshing: true });
+    try {
+      const rooms = await api.getPublicRooms();
+      this.setState({
+        refreshing: false,
+        publicList: rooms.map((r) => ({
+          id: r.room_id,
+          title: r.title,
+          members: r.members,
+          exp: Date.parse(r.expires_at),
+        })),
+      });
+      if (opts?.toast) this.toast("一覧を更新しました");
+    } catch {
+      this.setState({ refreshing: false });
+      this.toast("公開ルームを取得できませんでした");
+    }
   }
+  openPublicRoom(r: DemoRoom) {
+    void this.openRoomById(r.id, r.title);
+  }
+  // 参加前の存在チェック(共有リンク/公開一覧クリック)。404→NotFound / 410→期限切れ(issue #13)。
+  openRoomById = async (roomId: string, title = "") => {
+    this.stopSim();
+    try {
+      const res = await api.getRoom(roomId);
+      const expiresAt = Date.parse(res.expires_at);
+      this.setState({
+        ...this.initialState(),
+        now: Date.now(),
+        publicList: this.state.publicList,
+        screen: "join",
+        roomId,
+        roomTitle: title,
+        isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
+        meetAt: expiresAt - END_OFFSET,
+        expiresAt,
+      });
+    } catch (e) {
+      // 404→NotFound / 410→期限切れ。それ以外(通信エラー・5xx 等)は"存在しない"と
+      // 誤認させないよう、再試行できるトップへ戻してトーストで知らせる(issue #13 レビュー対応)。
+      const status = e instanceof HttpError ? e.status : 0;
+      const screen: Screen = status === 410 ? "expired" : status === 404 ? "notfound" : "top";
+      this.setState({
+        ...this.initialState(),
+        now: Date.now(),
+        publicList: this.state.publicList,
+        screen,
+        roomId,
+      });
+      if (screen === "top")
+        this.toast("接続できませんでした。通信環境を確認して、もう一度お試しください");
+    }
+  };
 
   // ── join ──
   tapJoin = () => {
@@ -836,18 +883,43 @@ export class RoomEngine {
   };
   pickPrivate = () => {
     if (this.state.visibility === "private") return;
-    this.setState({ visibility: "private" });
-    this.toast("ルームを非公開にしました");
+    void this.applyVisibility("private", "ルームを非公開にしました");
   };
   pickPublic = () => {
     if (this.state.visibility === "public") return;
     this.setState({ warnPublic: true });
   };
   confirmPublic = () => {
-    this.setState({ warnPublic: false, visibility: "public" });
-    this.toast("ルームを公開しました。一覧に表示されます");
+    this.setState({ warnPublic: false });
+    void this.applyVisibility("public", "ルームを公開しました。一覧に表示されます");
   };
   cancelPublic = () => this.setState({ warnPublic: false });
+  // 公開範囲を実サーバーへ反映(x-host-token)。403=権限なし、失敗時は楽観更新を戻す(issue #13)。
+  private async applyVisibility(visibility: Visibility, successMsg: string) {
+    const token = getHostToken(this.state.roomId);
+    if (!token) {
+      this.toast("公開範囲を変更できるのはホストのみです");
+      return;
+    }
+    const prev = this.state.visibility;
+    this.setState({ visibility }); // 楽観更新
+    try {
+      await api.patchVisibility(
+        this.state.roomId,
+        token,
+        visibility,
+        this.state.roomTitle.trim() || undefined
+      );
+      this.toast(successMsg);
+    } catch (e) {
+      this.setState({ visibility: prev }); // 失敗したら元に戻す
+      this.toast(
+        e instanceof HttpError && e.status === 403
+          ? "権限がありません(ホストのみ変更できます)"
+          : "公開範囲を変更できませんでした"
+      );
+    }
+  }
   tapLeave = () => this.setState({ leaveOpen: true, demoOpen: false });
   cancelLeave = () => this.setState({ leaveOpen: false });
   doLeave = () => {
@@ -1165,30 +1237,24 @@ export class RoomEngine {
       adopt: () => this.adoptSuggestion(sg),
     }));
 
-    // public rooms
-    const pubs: DemoRoom[] = [...s.demoRooms];
-    if (s.visibility === "public" && s.expiresAt)
-      pubs.unshift({
-        id: s.roomId,
-        title: s.roomTitle || "無名のルーム",
-        members: s.members.length || 1,
-        exp: s.expiresAt,
-        own: true,
-      });
-    const publicRooms = pubs
+    // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
+    const publicRooms = s.publicList
       .filter((r) => r.exp > s.now)
-      .map((r) => ({
-        title: r.title + (r.own ? "(あなたのルーム)" : ""),
-        members: r.members,
-        remaining: fmtShort(r.exp - s.now),
-        open: () => {
-          if (r.own) {
-            this.toast("自分のルームです");
-            return;
-          }
-          this.openPublicRoom(r);
-        },
-      }));
+      .map((r) => {
+        const own = getHostToken(r.id) !== null;
+        return {
+          title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
+          members: r.members,
+          remaining: fmtShort(r.exp - s.now),
+          open: () => {
+            if (own) {
+              this.toast("自分のルームです");
+              return;
+            }
+            this.openPublicRoom(r);
+          },
+        };
+      });
 
     const meetingLabel = this.meetingLabelOf(s.meeting);
     const selfDist = selfM ? this.distTo(selfM, mp) : "—";
@@ -1213,6 +1279,7 @@ export class RoomEngine {
       createRoom: this.createRoom,
       goPublic: this.goPublic,
       goTop: this.goTop,
+      openRoomById: this.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
       createOpen: s.createOpen,
       cancelCreate: this.cancelCreate,
       submitCreate: this.submitCreate,
