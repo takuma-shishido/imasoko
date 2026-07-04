@@ -106,7 +106,7 @@ export const BUILDINGS: Building[] = [
     id: "b2",
     name: "2号館",
     fl: "5F",
-    cap: "図書館・CLS",
+    cap: "図書館",
     x: 300,
     y: 200,
     w: 130,
