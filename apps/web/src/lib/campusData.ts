@@ -207,14 +207,8 @@ export interface MapText {
 }
 
 export const MAP_TEXTS: Record<AreaId, MapText[]> = {
-  campus: [
-    { x: 258, y: 552, t: "正門", size: 12, w: 600, c: "#4d4d4d", a: "c" },
-    { x: 440, y: 388, t: "モニュメント門", size: 10, c: "#4d4d4d", a: "c" },
-    { x: 14, y: 16, t: "← 至 りんかい線 東京テレポート", size: 10, c: "#888888", a: "l" },
-    { x: 786, y: 16, t: "至 りんかい線 国際展示場 →", size: 10, c: "#888888", a: "r" },
-    { x: 262, y: 628, t: "↓ 至 ゆりかもめ 東京ビッグサイト", size: 10, c: "#888888", a: "l" },
-    { x: 778, y: 624, t: "N ↑", size: 11, c: "#888888", a: "r", mono: true },
-  ],
+  // キャンパスは実地理マップ(campusGeo)に置換したため、模式の注記(正門・東京ビッグサイト等)は表示しない(issue #3)。
+  campus: [],
   station_1: [
     { x: 18, y: 116, t: "りんかい線", size: 10, c: "#888888", a: "l", mono: true },
     { x: 300, y: 232, t: "国際展示場駅", size: 16, w: 600, c: "#171717", a: "c" },
