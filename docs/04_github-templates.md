@@ -36,7 +36,7 @@ Closes #
 ## 確認したこと
 - [ ] ローカルで動作確認した(frontは `npm run dev`, backは `uvicorn --reload`)
 - [ ] Lint / 型 / テストが通る(CI緑)
-- [ ] WS/RESTのメッセージ型を変えた場合、front(`types/messages.ts`)と back(`models.py`)の**両方**を更新した([02 §4](../docs/02_technical-design.md))
+- [ ] WS/RESTのメッセージ型を変えた場合、web(`apps/web/src/types/messages.ts`)と server(`apps/server/app/models.py`)の**両方**を更新した([02 §4](../docs/02_technical-design.md))
 
 ## スクリーンショット / 動画(UI変更時)
 
@@ -75,7 +75,7 @@ body:
     id: area
     attributes:
       label: 対象領域
-      options: [frontend, backend, docs, infra/CI]
+      options: [web, server, docs, infra/CI]
     validations:
       required: true
   - type: textarea
@@ -158,22 +158,22 @@ contact_links:
 
 ```gitignore
 # デフォルト(明示が無い変更)はホストがレビュー
-*                           @HOST_HANDLE
+*                            @HOST_HANDLE
 
-# フロント全般
-/frontend/                  @HOST_HANDLE
+# web 全般
+/apps/web/                    @HOST_HANDLE
 
-# バックエンド:担当ごと
-/backend/app/rooms.py       @DEV_A_HANDLE @HOST_HANDLE
-/backend/app/expiry.py      @DEV_B_HANDLE @HOST_HANDLE
-/backend/app/handlers.py    @DEV_C_HANDLE @HOST_HANDLE
-/backend/app/ws.py          @HOST_HANDLE
-/backend/app/main.py        @HOST_HANDLE
-/backend/app/config.py      @HOST_HANDLE
+# server:担当ごと
+/apps/server/app/rooms.py     @DEV_A_HANDLE @HOST_HANDLE
+/apps/server/app/expiry.py    @DEV_B_HANDLE @HOST_HANDLE
+/apps/server/app/handlers.py  @DEV_C_HANDLE @HOST_HANDLE
+/apps/server/app/ws.py        @HOST_HANDLE
+/apps/server/app/main.py      @HOST_HANDLE
+/apps/server/app/config.py    @HOST_HANDLE
 
 # ドキュメント・CI
-/docs/                      @HOST_HANDLE
-/.github/                   @HOST_HANDLE
+/docs/                       @HOST_HANDLE
+/.github/                    @HOST_HANDLE
 ```
 
 > 初心者PRは「本人 + ホスト」でレビューする体制。ホストが必ず入るのでブロックにならない。
@@ -222,7 +222,7 @@ docs(dev): TTLの決定値を反映
 | ラベル | 用途 |
 |---|---|
 | `task` / `bug` / `enhancement` | Issue種別(テンプレで自動付与) |
-| `frontend` / `backend` / `infra` / `docs` | 対象領域 |
+| `web` / `server` / `infra` / `docs` | 対象領域 |
 | `good first issue` | 初心者が着手しやすいもの |
 | `priority:high` | 当日までに必須 |
 | `blocked` | 他タスク待ち |
@@ -246,8 +246,8 @@ docs(dev): TTLの決定値を反映
 5. CIが緑・レビュー承認1件でマージ(Squash)
 
 ## セットアップ
-- frontend: `cd frontend && npm install && npm run dev`
-- backend: `cd backend && pip install -r requirements.txt -r requirements-dev.txt && uvicorn app.main:app --reload`
+- web: `cd apps/web && npm install && npm run dev`
+- server: `cd apps/server && pip install -r requirements.txt -r requirements-dev.txt && uvicorn app.main:app --reload`
 - 実機テスト: cloudflared/ngrok でHTTPS公開(位置情報はHTTPS必須。→ dev-docs §9)
 
 ## 困ったら
@@ -263,10 +263,10 @@ docs(dev): TTLの決定値を反映
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /frontend
+    directory: /apps/web
     schedule: { interval: weekly }
   - package-ecosystem: pip
-    directory: /backend
+    directory: /apps/server
     schedule: { interval: weekly }
   - package-ecosystem: github-actions
     directory: /
@@ -282,7 +282,7 @@ updates:
 - [ ] `.github/CODEOWNERS` を作成し、`@HANDLE` を実ユーザー名に置換(担当:ホスト。要:全員のGitHubアカウント収集)
 - [ ] ルートに `CONTRIBUTING.md` を作成(担当:ホスト)
 - [ ] リポジトリ設定:Squash mergeのみ許可 / head branch自動削除を有効化(担当:ホスト)
-- [ ] ラベルを作成(`task`/`bug`/`enhancement`/`frontend`/`backend`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)(担当:ホスト)
+- [ ] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)(担当:ホスト)
 - [ ] `config.yml` / `CONTRIBUTING.md` 内のチームチャットURLを実URLに差し替え(担当:ホスト)
 - [ ] `.github/dependabot.yml` を作成(任意・後回し)(担当:ホスト)
 - [ ] キックオフで全員にこのルール(ブランチ命名・PRフロー)を共有(担当:ホスト)

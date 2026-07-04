@@ -37,6 +37,8 @@
 
 ## 3. ディレクトリ構成(案)
 
+> **確定版のディレクトリ構成は [docs/01](./01_directory-design.md) を参照**(`apps/web` / `apps/server`。トップレベルに frontend/backend を並べない方針に更新)。以下は初期の素案。
+
 ```
 imasoko/
 ├ frontend/
@@ -64,10 +66,12 @@ imasoko/
 
 | パス | 画面 |
 |---|---|
-| `/` | トップ。「ルームを作る」ボタンのみ |
+| `/` | トップ。「ルームを作る」+「公開ルームを探す」 |
+| `/public` | 公開ルーム一覧(active な public ルーム) |
 | `/r/{roomId}` | ルーム画面。未参加なら名前・階数の入力フォーム → 参加後はマップ |
 
 SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォールバックさせる。
+**画面ごとの詳細設計は [docs/design/](./design/00_index.md)。**
 
 ## 5. REST API
 
@@ -91,6 +95,8 @@ SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォール
 
 期限切れ・存在しない場合は `410 Gone` / `404 Not Found`。
 
+> 公開範囲(private/public)・`host_token`・`GET /api/rooms/public`・`GET /api/campus` などのREST拡張は [docs/05 §6](./05_feature-design.md) を参照。
+
 ## 6. WebSocket設計
 
 エンドポイント:`/ws/{room_id}`
@@ -106,14 +112,14 @@ SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォール
 ### クライアント → サーバー
 
 ```json
-{ "type": "join", "name": "たくま", "floor": null }
+{ "type": "join", "name": "たくま", "building_id": null, "floor": null }
 { "type": "position", "lat": 35.6581, "lng": 139.5432, "accuracy": 12.0 }
-{ "type": "floor", "floor": "3F" }
+{ "type": "floor", "building_id": "b1", "floor": "3F" }
 { "type": "meeting_point", "lat": 35.6579, "lng": 139.5440 }
 ```
 
 - `position` は `watchPosition` のコールバックから送るが、最短送信間隔を設けてスロットリングする(間隔は要調整。案:2秒)
-- `floor` は自己申告の階数変更。`null` で「階数なし」に戻す
+- `floor` は自己申告の階数変更。`building_id` は屋内で建物を選んだ場合に付き、**建物ごと・階ごとのメンバー表示**([05 §2](./05_feature-design.md))に使う。どちらも `null` で解除(屋外/未設定)
 - `meeting_point` は誰でも送信可能(企画書4.4)
 
 ### サーバー → クライアント
@@ -122,7 +128,7 @@ SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォール
 { "type": "room_state",
   "self_id": "a1b2",
   "members": [
-    { "id": "a1b2", "name": "たくま", "floor": "3F",
+    { "id": "a1b2", "name": "たくま", "building_id": null, "floor": "3F",
       "lat": 35.6581, "lng": 139.5432, "updated_at": "..." }
   ],
   "meeting_point": { "lat": 35.6579, "lng": 139.5440 },
@@ -139,6 +145,8 @@ SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォール
 - `room_expired` 送信後、サーバーは全接続を切断する
 - 位置は**最新値のみ**保持し、履歴はサーバーに残さない
 
+> 明示退出(`leave`)・集合場所の3タイプ(`meeting_point` union)・空き教室候補(`add_place_suggestion` / `place_suggestions`)などのWS拡張は [docs/05 §6](./05_feature-design.md) を参照。
+
 ## 7. 座標変換(緯度経度 → 自作マップ座標)
 
 ### 前提(重要)
@@ -154,7 +162,7 @@ SPA(React Router)。FastAPI側は未知のパスを `index.html` にフォール
 - 画像の左上端に対応する実座標:`(lat0, lng0)`(北西角)
 - 画像の右下端に対応する実座標:`(lat1, lng1)`(南東角)
 
-この2組を `frontend/src/lib/coords.ts` に定数として置く。緯度経度の実測はスマホの地図アプリ等で行える。
+この2組を `apps/web/src/lib/mapAreas.ts` に**エリアごと**の定数として置く(マップは駅×2 + キャンパスの3エリア。[docs/05 §1](./05_feature-design.md))。緯度経度の実測はスマホの地図アプリ等で行える。
 
 ### 変換式
 
@@ -175,19 +183,19 @@ L.latLng((1 - v) * H, u * W)
 
 ### 範囲外の扱い
 
-キャンパス外にいる参加者(`u, v` が 0..1 の外)の表示方法は未決定。案:マップ端にクランプして「圏外」表示を付ける/一覧に名前だけ出す。
+**決定:キャンパス外にいる参加者(`u, v` が 0..1 の外)は、`u, v` を 0..1 にクランプしてマップ端にピンを表示し、「圏外」ラベルを付ける。** マップ端のどの位置に出るかで、はぐれた相手がどの方向にいるかの目安になる。実装は座標変換側でクランプと「圏外フラグ」を返し、UIはフラグを見てピンを「圏外」表示(ラベル付き・色替え等)に切り替える。
 
 ## 8. ルームの有効期限(企画書4.5)
 
-- ルーム作成時に `expires_at` を記録する
+- ルーム作成時に `expires_at` を記録する。TTLは**既定2時間・設定可**([docs/02 §2](./02_technical-design.md) の `config.py`)
 - REST・WS接続時の両方で期限をチェックし、期限切れなら拒否する
 - サーバー側で定期実行するバックグラウンドタスク(asyncioループ)が期限切れルームを検出し、`room_expired` を全員に送って切断・ルーム削除する
 
 ## 9. 開発環境
 
 ```
-backend :  uvicorn app.main:app --reload        # :8000
-frontend:  npm run dev                          # :5173
+server (apps/server):  uvicorn app.main:app --reload   # :8000
+web    (apps/web)   :  npm run dev                     # :5173
 ```
 
 - Viteの `server.proxy` で `/api` と `/ws` を `:8000` に転送する(`/ws` は `ws: true` を指定)
@@ -214,8 +222,15 @@ WebSocketの接続管理(参加者リスト保持・切断処理・ブロード�
 
 ## 12. 未決定事項
 
-- マップ画像の形式(SVG推奨:ズームで滲まない/PNG)と、作画の担当者
-- ルームTTLの具体値
-- `position` 送信のスロットリング間隔
-- キャンパス外にいる参加者の表示方法(§7)
-- 途中退出機能の要否(企画書8章)
+- `position` 送信のスロットリング間隔(案:2秒。実機で確定)
+
+### 決定済み(旧・未決定事項)
+
+- キャンパス外の表示(§7):マップ端にクランプして「圏外」表示
+- マップ:形式=**SVG** / 対象=**有明キャンパス** / 作画=**ホスト**。**3エリア切替**(駅×2 + キャンパス)
+- ルームTTL:**既定2時間**(設定可)
+- 途中退出:**可能**(明示退出 + 切断)
+- ルーム公開範囲:**private / public 切替・既定 private**
+- 集合場所:**座標 / メンバー / 場所**の3タイプ + 空き教室のユーザー追加(当面CSV)
+
+新機能(マップ3エリア・建物ドリルダウン・公開範囲・集合場所拡張・空き教室CSV)の詳細設計は [docs/05_feature-design.md](./05_feature-design.md)。

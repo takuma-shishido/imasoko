@@ -1,0 +1,88 @@
+{
+  "buildings": [
+    {
+      "id": "b1",
+      "name": "1号館",
+      "svgRegionId": "region-b1",
+      "spots": [{ "id": "b1-front", "label": "1号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        { "level": "5F", "rooms": [{ "id": "b1-501", "name": "501" }, { "id": "b1-502", "name": "502" }] },
+        { "level": "4F", "rooms": [{ "id": "b1-401", "name": "401" }, { "id": "b1-402", "name": "402" }] },
+        { "level": "3F", "rooms": [{ "id": "b1-301", "name": "301" }, { "id": "b1-302", "name": "302" }] },
+        { "level": "2F", "rooms": [{ "id": "b1-201", "name": "201" }, { "id": "b1-202", "name": "202" }] }
+      ]
+    },
+    {
+      "id": "b2",
+      "name": "2号館",
+      "svgRegionId": "region-b2",
+      "spots": [{ "id": "b2-front", "label": "2号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        {
+          "level": "4F",
+          "rooms": [
+            { "id": "b2-401", "name": "401", "type": "マルチメディア教室" },
+            { "id": "b2-404", "name": "404", "type": "ゼミ室" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "b3",
+      "name": "3号館",
+      "svgRegionId": "region-b3",
+      "spots": [{ "id": "b3-front", "label": "3号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        {
+          "level": "3F",
+          "rooms": [
+            { "id": "b3-301", "name": "301", "type": "大教室" },
+            { "id": "b3-302", "name": "302", "type": "大教室" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "b4",
+      "name": "4号館",
+      "svgRegionId": "region-b4",
+      "spots": [{ "id": "b4-front", "label": "4号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        { "level": "4F", "rooms": [{ "id": "b4-403", "name": "403" }, { "id": "b4-410", "name": "410" }] },
+        { "level": "3F", "rooms": [{ "id": "b4-301", "name": "301" }, { "id": "b4-302", "name": "302" }] }
+      ]
+    },
+    {
+      "id": "b5",
+      "name": "5号館",
+      "svgRegionId": "region-b5",
+      "spots": [{ "id": "b5-front", "label": "5号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        {
+          "level": "5F",
+          "rooms": [
+            { "id": "b5-501", "name": "501", "type": "アクティブラーニング" },
+            { "id": "b5-502", "name": "502", "type": "アクティブラーニング" }
+          ]
+        },
+        { "level": "1F", "rooms": [{ "id": "b5-101", "name": "101" }] }
+      ]
+    },
+    {
+      "id": "b6",
+      "name": "6号館",
+      "svgRegionId": "region-b6",
+      "spots": [{ "id": "b6-front", "label": "6号館前", "area": "campus", "lat": 0, "lng": 0 }],
+      "floors": [
+        {
+          "level": "2F",
+          "rooms": [
+            { "id": "b6-201", "name": "201", "type": "シミュレーション室" },
+            { "id": "b6-202", "name": "202", "type": "実習室" }
+          ]
+        },
+        { "level": "1F", "rooms": [{ "id": "b6-101", "name": "101" }] }
+      ]
+    }
+  ]
+}

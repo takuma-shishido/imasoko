@@ -1,0 +1,67 @@
+import type { CSSProperties } from "react";
+import { useRoom } from "@/state/RoomContext";
+import { Button } from "@/components/ui/Button";
+import { MeshGradient } from "@/components/MeshGradient";
+
+const FEATURES = [
+  ["01", "ログイン・アカウント登録は不要"],
+  ["02", "アプリのインストールも不要"],
+  ["03", "ルームは2時間で自動的に消滅"],
+];
+
+// トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線。
+export function TopPage() {
+  const v = useRoom();
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+      <MeshGradient height="58%" opacity={0.45} />
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", padding: "22px 28px 24px", minHeight: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 11, letterSpacing: ".14em", color: "#171717", fontWeight: 500 }}>
+            IMASOKO
+          </div>
+          <div style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10, letterSpacing: ".12em", color: "#888888" }}>
+            有明キャンパス
+          </div>
+        </div>
+
+        <div style={{ marginTop: 44 }}>
+          <h1 style={{ fontSize: 56, fontWeight: 600, letterSpacing: -2.8, lineHeight: 1.05, margin: 0 }}>いまそこ</h1>
+          <p style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.6, margin: "12px 0 0", lineHeight: 1.4 }}>
+            集合、リンク一本で。
+          </p>
+          <p style={{ fontSize: 14, color: "#4d4d4d", margin: "10px 0 0", lineHeight: 1.75, textWrap: "pretty" } as CSSProperties}>
+            URLを共有するだけで、全員の現在地が
+            <br />
+            キャンパスマップに表示されます。
+          </p>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ borderTop: "1px solid #ebebeb" }}>
+          {FEATURES.map(([n, label]) => (
+            <div key={n} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: "1px solid #ebebeb" }}>
+              <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: "#888888" }}>{n}</span>
+              <span style={{ fontSize: 13, color: "#171717" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Button variant="primary" size="lg" onClick={v.createRoom}>
+            ルームを作る
+          </Button>
+          <Button variant="secondary" size="lg" onClick={v.goPublic}>
+            公開ルームを探す
+          </Button>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 11.5, color: "#888888", textAlign: "center" }}>
+          参加すると、現在地がルーム内で共有されます。
+        </div>
+      </div>
+    </div>
+  );
+}

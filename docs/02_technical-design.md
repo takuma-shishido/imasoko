@@ -10,18 +10,20 @@
 
 | 項目 | 推奨値 | 根拠 | 状態 |
 |---|---|---|---|
-| ルームTTL | **3時間** | 「今日のこの集合」に十分・メモリ肥大を防ぐ。`config.py` の定数1つで変更可 | 要合意 |
+| ルームTTL | **2時間(既定・設定可)** | 「今日のこの集合」に十分・メモリ肥大を防ぐ。`config.py` の定数1つで変更可 | 決定 |
 | `position` throttle | **2秒**(移動が無ければ送らない距離しきい値 5m 併用) | UXとサーバ負荷の妥協点。dev-docsの案を採用 | 要合意 |
 | floor(階数)UI | 自己申告のセレクタ。既定は「未設定(null)」 | GPSで階数不可([企画書 §4.2](./imasoko-kikakusho.md)) | 決定 |
-| 圏外(u,vが0..1外)表示 | **マップ端にクランプ + 一覧に「圏外」バッジ** | はぐれ検知に一覧が有用。実装が軽い | 要合意 |
-| 途中退出機能 | **v1では自動のみ**(WS切断=`member_left`)。明示退出ボタンは任意 | スコープ最小化。切断検知で十分 | 要合意 |
+| 圏外(u,vが0..1外)表示 | **`u,v` を 0..1 にクランプしてマップ端にピンを表示し「圏外」ラベルを付ける** | 端の位置で相手の方向が分かる。実装が軽い([dev-docs §7](./imasoko-dev-docs.md)) | 決定 |
+| 途中退出機能 | **可能**(明示退出ボタン + WS切断の両方で `member_left`) | 参加者が能動的に抜けられる([05](./05_feature-design.md)) | 決定 |
 | 位置履歴 | **最新値のみ保持・履歴を残さない**を明文化 | プライバシー設計([企画書 §8](./imasoko-kikakusho.md)) | 決定 |
+| ルーム公開範囲 | **private / public 切替・既定 private**（[05 §3](./05_feature-design.md)） | 既定は使い捨て前提、public は opt-in | 決定 |
+| マップ | **SVG / 有明キャンパス / 作画=ホスト**。3エリア切替([05 §1](./05_feature-design.md)) | ズームで滲まない・実地理に忠実 | 決定 |
 
 ## 2. 設定・定数の一元管理
 
-マジックナンバーは散らさず、**backend / frontend それぞれ1モジュール**にまとめる。
+マジックナンバーは散らさず、**server / web それぞれ1モジュール**にまとめる。
 
-### backend `app/config.py`
+### server 側 `apps/server/app/config.py`
 
 ```python
 from datetime import timedelta
@@ -29,7 +31,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # ルーム
-    room_ttl: timedelta = timedelta(hours=3)      # TTL(§1)
+    room_ttl: timedelta = timedelta(hours=2)      # TTL 既定2h・設定可(§1, 05)
     room_id_bytes: int = 8                         # secrets.token_urlsafe(bytes) → 11文字程度
     # 掃除タスク
     cleanup_interval_seconds: int = 60             # 期限切れ掃除の実行間隔(§8/dev-docs)
@@ -46,7 +48,7 @@ settings = Settings()
 
 > `pydantic-settings` を使うと環境変数上書きが無料で付く。導入したくなければ素の定数モジュールでもよい。**TTLはここ1箇所で変える**という原則だけ守る。
 
-### frontend `src/lib/constants.ts`
+### web 側 `apps/web/src/lib/constants.ts`
 
 ```ts
 export const POSITION_THROTTLE_MS = 2000;   // §1
@@ -57,25 +59,25 @@ export const WS_RECONNECT_MAX_MS = 15000;
 
 ## 3. 環境変数
 
-`.env.example` をコミットし、実 `.env` は `.gitignore`([01](./01_directory-design.md))。
+`apps/server/.env.example` をコミットし、実 `.env` は `.gitignore`([01](./01_directory-design.md))。
 
 | 変数 | 対象 | 例 | 用途 |
 |---|---|---|---|
-| `IMASOKO_ROOM_TTL` | backend | `PT3H` 相当/秒指定 | TTL上書き(任意) |
-| `IMASOKO_STATIC_DIR` | backend | `static` | 静的配信先 |
-| `VITE_WS_PATH` | frontend | `/ws` | WSパス(基本固定) |
+| `IMASOKO_ROOM_TTL` | server | `PT3H` 相当/秒指定 | TTL上書き(任意) |
+| `IMASOKO_STATIC_DIR` | server | `static` | 静的配信先 |
+| `VITE_WS_PATH` | web | `/ws` | WSパス(基本固定) |
 
 ハッカソン規模では環境変数は最小限でよい。**同一オリジン配信のため API/WS のホスト指定は不要**(相対パス `/api` `/ws` を使う)。
 
 ## 4. 型・メッセージ契約の共有
 
-WS/RESTのメッセージ形は front(TS)と back(Pydantic)で**二重定義**になる。ズレると実行時に壊れるため、**単一の真実(dev-docs §5/§6)を基準に、両者を突き合わせる**。
+WS/RESTのメッセージ形は web(TS)と server(Pydantic)で**二重定義**になる。ズレると実行時に壊れるため、**単一の真実(dev-docs §5/§6)を基準に、両者を突き合わせる**。
 
-- back:`app/models.py` に Pydantic モデルを定義(`type` でタグ付けした Discriminated Union)
-- front:`src/types/messages.ts` に対応する型を定義
+- server:`apps/server/app/models.py` に Pydantic モデルを定義(`type` でタグ付けした Discriminated Union)
+- web:`apps/web/src/types/messages.ts` に対応する型を定義
 - 変更時は**必ず両方を同じPRで更新**する(レビュー観点にする → [04](./04_github-templates.md) のPRテンプレに項目化)
 
-### `app/models.py`(骨子)
+### `apps/server/app/models.py`(骨子)
 
 ```python
 from typing import Literal, Optional, Union
@@ -94,6 +96,7 @@ class PositionMsg(BaseModel):
 
 class FloorMsg(BaseModel):
     type: Literal["floor"]
+    building_id: Optional[str] = None   # 屋内で建物を選んだ場合(05 §2, design)
     floor: Optional[str] = None
 
 class MeetingPointMsg(BaseModel):
@@ -107,6 +110,8 @@ ClientMsg = Union[JoinMsg, PositionMsg, FloorMsg, MeetingPointMsg]
 ```
 
 `type` フィールドで分岐(`Field(discriminator="type")` を使うと安全にパースできる)。
+
+> 公開範囲(`visibility`/`host_token`)・集合場所の3タイプ(`MeetingPoint` union)・空き教室候補(`PlaceSuggestion`)・退出(`leave`)などの拡張メッセージ/モデルは [05 §6](./05_feature-design.md) に定義。web/server の二重定義を同じPRで揃える原則は同じ。
 
 ## 5. WebSocket 再接続・エラーハンドリング
 
@@ -145,8 +150,8 @@ dev-docs §6 の正常系に加え、実機(スマホ・不安定なWi-Fi)で必
 
 | 対象 | ツール | 最低限やること |
 |---|---|---|
-| backend | **pytest**(+`httpx`/`TestClient`) | `rooms`:作成→取得→期限切れ(410)。`expiry`:掃除タスクが期限切れを消す。`ws`:join→room_state→position→broadcastの疎通 |
-| frontend | **Vitest** | `coords.ts` の変換(§6)。可能なら `useRoomSocket` の状態遷移 |
+| server | **pytest**(+`httpx`/`TestClient`) | `rooms`:作成→取得→期限切れ(410)。`expiry`:掃除タスクが期限切れを消す。`ws`:join→room_state→position→broadcastの疎通 |
+| web | **Vitest** | `coords.ts` の変換(§6)。可能なら `useRoomSocket` の状態遷移 |
 | 手動 | 実機スマホ | HTTPS/WSS疎通・位置許可・複数端末での同時表示([dev-docs §9](./imasoko-dev-docs.md)) |
 
 CIでこれらを回す設定は [03](./03_cicd.md)。**まずは coords と rooms のテストだけでも入れる**(壊れやすい箇所優先)。
@@ -158,12 +163,12 @@ CIでこれらを回す設定は [03](./03_cicd.md)。**まずは coords と roo
 
 ## TODO
 
-- [ ] §1の未決定6項目をチームで確定(TTL/throttle/圏外/退出)(担当:全員, ミーティング1回)
-- [ ] `backend/app/config.py` を作成し、確定した定数を反映(担当:ホスト)
-- [ ] `frontend/src/lib/constants.ts` を作成(担当:ホスト)
-- [ ] `.env.example` を作成([01](./01_directory-design.md) の.gitignoreと対で)(担当:ホスト)
-- [ ] `backend/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義(担当:ホスト)
-- [ ] `frontend/src/types/messages.ts` に対応TS型を定義(担当:ホスト)
+- [ ] §1で残る「要合意」は **`position` スロットリング間隔のみ**。実機で実測して確定(TTL・途中退出・圏外・公開範囲・マップは決定済み)(担当:ホスト/初心者C)
+- [ ] `apps/server/app/config.py` を作成し、確定した定数を反映(担当:ホスト)
+- [ ] `apps/web/src/lib/constants.ts` を作成(担当:ホスト)
+- [ ] `apps/server/.env.example` を作成([01](./01_directory-design.md) の.gitignoreと対で)(担当:ホスト)
+- [ ] `apps/server/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義(担当:ホスト)
+- [ ] `apps/web/src/types/messages.ts` に対応TS型を定義(担当:ホスト)
 - [ ] `useRoomSocket` に再接続バックオフ + join再送を実装(担当:ホスト, §5)
 - [ ] `useGeolocation` に「拒否時=閲覧のみ」モードを実装(担当:ホスト)
 - [ ] `coords.ts` の変換ユニットテストを作成(担当:ホスト, §6)

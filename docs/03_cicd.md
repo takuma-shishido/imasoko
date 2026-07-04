@@ -6,7 +6,7 @@
 
 ## 方針
 
-- モノレポなので**path filter**で「触った側だけ」CIを回す(frontend変更でbackend CIは走らせない)
+- モノレポなので**path filter**で「触った側だけ」CIを回す(`apps/web` 変更で server CIは走らせない)
 - `concurrency` で古い実行をキャンセルし、無料枠を節約
 - 依存キャッシュ(npm / pip)でCI高速化
 - **まずCIの器を空でも通る状態で先に入れる**([00 フェーズ0](./00_overview.md))→ 以降のPRで自動的にゲートが効く
@@ -15,16 +15,16 @@
 
 | 対象 | ツール | コマンド | 備考 |
 |---|---|---|---|
-| frontend Lint | ESLint | `npm run lint` | Vite react-ts テンプレに同梱 |
-| frontend 整形 | Prettier | `npm run format:check` | 差分チェックのみCIで実行 |
-| frontend 型 | TypeScript | `npm run typecheck`(`tsc --noEmit`) | |
-| frontend テスト | Vitest | `npm test`(`vitest run`) | 無い間は `--if-present` でスキップ |
-| frontend ビルド | Vite | `npm run build` | 壊れていないことの担保 |
-| backend Lint+整形 | **Ruff** | `ruff check .` / `ruff format --check .` | black+flake8+isort を1つで代替、高速 |
-| backend 型 | mypy | `mypy app` | 最初は `continue-on-error` で緩く |
-| backend テスト | pytest | `pytest -q` | [02 §8](./02_technical-design.md) |
+| web Lint | ESLint | `npm run lint` | Vite react-ts テンプレに同梱 |
+| web 整形 | Prettier | `npm run format:check` | 差分チェックのみCIで実行 |
+| web 型 | TypeScript | `npm run typecheck`(`tsc --noEmit`) | |
+| web テスト | Vitest | `npm test`(`vitest run`) | 無い間は `--if-present` でスキップ |
+| web ビルド | Vite | `npm run build` | 壊れていないことの担保 |
+| server Lint+整形 | **Ruff** | `ruff check .` / `ruff format --check .` | black+flake8+isort を1つで代替、高速 |
+| server 型 | mypy | `mypy app` | 最初は `continue-on-error` で緩く |
+| server テスト | pytest | `pytest -q` | [02 §8](./02_technical-design.md) |
 
-### 必要な `frontend/package.json` scripts
+### 必要な `apps/web/package.json` scripts
 
 ```jsonc
 {
@@ -41,7 +41,7 @@
 }
 ```
 
-### `backend/requirements-dev.txt`
+### `apps/server/requirements-dev.txt`
 
 ```
 ruff==0.6.*
@@ -50,7 +50,7 @@ httpx==0.27.*
 mypy==1.*
 ```
 
-### `backend/pyproject.toml`(Ruff/pytest設定・抜粋)
+### `apps/server/pyproject.toml`(Ruff/pytest設定・抜粋)
 
 ```toml
 [tool.ruff]
@@ -67,20 +67,20 @@ testpaths = ["tests"]
 
 ---
 
-## CI: `.github/workflows/frontend-ci.yml`
+## CI: `.github/workflows/web-ci.yml`
 
 ```yaml
-name: frontend-ci
+name: web-ci
 
 on:
   pull_request:
-    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml"]
   push:
     branches: [main]
-    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml"]
 
 concurrency:
-  group: frontend-ci-${{ github.ref }}
+  group: web-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -88,14 +88,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
@@ -104,20 +104,20 @@ jobs:
       - run: npm run build
 ```
 
-## CI: `.github/workflows/backend-ci.yml`
+## CI: `.github/workflows/server-ci.yml`
 
 ```yaml
-name: backend-ci
+name: server-ci
 
 on:
   pull_request:
-    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+    paths: ["apps/server/**", ".github/workflows/server-ci.yml"]
   push:
     branches: [main]
-    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+    paths: ["apps/server/**", ".github/workflows/server-ci.yml"]
 
 concurrency:
-  group: backend-ci-${{ github.ref }}
+  group: server-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -125,14 +125,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: apps/server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements*.txt
+          cache-dependency-path: apps/server/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
@@ -153,20 +153,20 @@ jobs:
 ### パッケージング:`deploy/Dockerfile`(マルチステージ・同一オリジン配信)
 
 ```dockerfile
-# 1) フロントをビルド
+# 1) web をビルド
 FROM node:20-slim AS front
 WORKDIR /front
-COPY frontend/package*.json ./
+COPY apps/web/package*.json ./
 RUN npm ci
-COPY frontend/ ./
+COPY apps/web/ ./
 RUN npm run build            # → /front/dist
 
-# 2) バックエンド + 静的配信
+# 2) server + 静的配信
 FROM python:3.12-slim AS app
 WORKDIR /app
-COPY backend/requirements.txt ./
+COPY apps/server/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/ ./
+COPY apps/server/ ./
 COPY --from=front /front/dist ./static      # FastAPI StaticFiles で配信
 EXPOSE 8000
 # 位置状態はインメモリのため 1 ワーカー固定([02 §9](../docs/02_technical-design.md))
@@ -200,7 +200,7 @@ services:
 ### 手動デプロイ手順(最小)
 
 1. サーバーに `git pull`
-2. `docker compose -f deploy/docker-compose.yml up -d --build`(または `npm run build` → `backend/static/` へコピー → `uvicorn` を systemd 再起動)
+2. `docker compose -f deploy/docker-compose.yml up -d --build`(または `apps/web` で `npm run build` → `apps/server/static/` へコピー → `uvicorn` を systemd 再起動)
 3. Caddy/リバースプロキシで 443 → 8000 を中継、TLS終端
 4. スマホ実機で `https://<ドメイン>/` を開き、**位置許可 + WSS疎通**を確認
 
@@ -258,11 +258,11 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 
 ## TODO
 
-- [ ] `frontend/package.json` に上記 scripts を追加(担当:ホスト)
+- [ ] `apps/web/package.json` に上記 scripts を追加(担当:ホスト)
 - [ ] Prettier / ESLint の設定ファイルを追加(Viteテンプレのeslintを流用可)(担当:ホスト)
-- [ ] `backend/requirements-dev.txt` と `backend/pyproject.toml`(ruff/pytest)を作成(担当:ホスト)
-- [ ] `.github/workflows/frontend-ci.yml` を作成(担当:ホスト)
-- [ ] `.github/workflows/backend-ci.yml` を作成(担当:ホスト)
+- [ ] `apps/server/requirements-dev.txt` と `apps/server/pyproject.toml`(ruff/pytest)を作成(担当:ホスト)
+- [ ] `.github/workflows/web-ci.yml` を作成(担当:ホスト)
+- [ ] `.github/workflows/server-ci.yml` を作成(担当:ホスト)
 - [ ] ダミーPRを1本作り、両CIが緑になることを確認(担当:ホスト)
 - [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)(担当:ホスト)
 - [ ] `deploy/Dockerfile` / `docker-compose.yml` / `Caddyfile` を作成(担当:デプロイ担当=ホスト, 後回し可)

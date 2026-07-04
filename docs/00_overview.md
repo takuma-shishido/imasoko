@@ -11,6 +11,8 @@
 | 02 | [02_technical-design.md](./02_technical-design.md) | 技術設計(未決定事項の確定・設定/型/エラー/テスト/セキュリティ) |
 | 03 | [03_cicd.md](./03_cicd.md) | CI/CD整備(GitHub Actions・Lint/Test・デプロイ) |
 | 04 | [04_github-templates.md](./04_github-templates.md) | GitHubテンプレート設計(PR/Issue/CODEOWNERS/ブランチ・コミット規約) |
+| 05 | [05_feature-design.md](./05_feature-design.md) | 機能・データ設計(マップ3エリア/建物ドリルダウン/公開範囲/集合場所/空き教室CSV) |
+| — | [design/](./design/00_index.md) | 画面ごとの詳細設計(トップ/公開一覧/参加/地図/各パネル/状態) |
 
 > 本ドキュメント群は「設計と手順」をまとめたもの。各ドキュメントには**そのままコピペして使える成果物(ツリー / YAML / テンプレート本文)**を掲載しているので、TODOに沿ってファイル化すればリポジトリ整備が完了する。
 
@@ -19,7 +21,7 @@
 ## 前提・現状
 
 - リポジトリ:`imasoko`(ブランチ `main` のみ、初期コミット済み)
-- 現状のファイル:`README.md` と `docs/` のみ。**アプリ実体(frontend / backend)は未作成**
+- 現状のファイル:`README.md` と `docs/` のみ。**アプリ実体(`apps/web` / `apps/server`)は未作成**
 - チーム:4人(ホスト=フルスタック、初心者A/B/C)。分担は [imasoko-dev-docs.md §11](./imasoko-dev-docs.md) を基準にする
 - ホスティング:チームメンバーの個人サーバー + リバースプロキシ(TLS終端・WS中継)
 
@@ -29,12 +31,12 @@
 
 ```
 フェーズ0: リポジトリ整備      ← 本ドキュメント群でカバー(01→04)
-  ├ 01 ディレクトリ骨格 & .gitignore
+  ├ 01 ディレクトリ骨格(apps/web・apps/server)& .gitignore
   ├ 04 GitHubテンプレート & ブランチ保護 & 命名規約(先に決めると全PRに効く)
   ├ 02 技術決定(TTL/throttle等の定数確定)
   └ 03 CI(空でも通る状態で先に用意 → 以降のPRで品質ゲートが効く)
         ↓
-フェーズ1: 骨格実装           ← ホストが frontend/backend の起動可能な最小構成を用意
+フェーズ1: 骨格実装           ← ホストが apps/web・apps/server の起動可能な最小構成を用意
         ↓
 フェーズ2: 機能実装(並行)     ← 分担に沿って各自ブランチ + PR
         ↓
@@ -48,10 +50,11 @@
 
 各項目の詳細チェックリストは各ドキュメント末尾にある。ここは全体の進捗把握用。
 
-- [ ] **01 ディレクトリ設計**:`frontend/` `backend/` `.github/` の骨格と `.gitignore` を作成
+- [ ] **01 ディレクトリ設計**:`apps/web/` `apps/server/` `.github/` の骨格と `.gitignore` を作成
 - [ ] **04 GitHubテンプレート**:PR/Issueテンプレート・CODEOWNERS・CONTRIBUTING・ラベル・ブランチ保護
-- [ ] **03 CI整備**:`frontend-ci` / `backend-ci` ワークフロー、Lint/Format/Test/Build ゲート
-- [ ] **02 技術設計の確定**:TTL・throttle間隔・floor UI・退出・圏外表示の意思決定と定数化、設定/型/テスト方針
+- [ ] **03 CI整備**:`web-ci` / `server-ci` ワークフロー、Lint/Format/Test/Build ゲート
+- [ ] **02 技術設計の確定**:定数化(TTL既定2h等)、設定/型/テスト方針。残る要合意は throttle 間隔のみ
+- [ ] **05 機能・データ設計**:マップ3エリア/建物ドリルダウン/public・private/集合場所3タイプ/空き教室CSV の実装
 - [ ] **03 CD整備(任意・後回し可)**:Dockerfile / リバースプロキシ / デプロイ手順
 - [ ] フェーズ1着手のGate:上記が揃い、`main` ブランチ保護が有効化されていること
 
