@@ -258,14 +258,16 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 
 ## TODO
 
-- [ ] `apps/web/package.json` に上記 scripts を追加(担当:ホスト)
-- [ ] Prettier / ESLint の設定ファイルを追加(Viteテンプレのeslintを流用可)(担当:ホスト)
-- [ ] `apps/server/requirements-dev.txt` と `apps/server/pyproject.toml`(ruff/pytest)を作成(担当:ホスト)
-- [ ] `.github/workflows/web-ci.yml` を作成(担当:ホスト)
-- [ ] `.github/workflows/server-ci.yml` を作成(担当:ホスト)
-- [ ] ダミーPRを1本作り、両CIが緑になることを確認(担当:ホスト)
-- [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)(担当:ホスト)
-- [ ] `deploy/Dockerfile` / `docker-compose.yml` / `Caddyfile` を作成(担当:デプロイ担当=ホスト, 後回し可)
-- [ ] サーバーで手動デプロイを一度成功させ、**HTTPS + WSS疎通を実機確認**(担当:サーバー運用者, 最優先)
-- [ ] 自動デプロイ `deploy.yml` + Secrets 登録(任意)(担当:ホスト)
-- [ ] mypy を `continue-on-error` から必須へ格上げ(型が整ってきたら)(担当:ホスト)
+> 実際に採用した値は本文の設計スニペットと一部異なる(例:web `build` は `tsc --noEmit && vite build`、`requirements-dev` は `>=` 指定、status check job 名は `build`/`test`)。現状は [06 実装ステータス §4.3](./06_implementation-status.md) を参照。
+
+- [x] `apps/web/package.json` に scripts(`lint`/`typecheck`/`format`/`format:check`/`test`/`build`)を追加
+- [x] Prettier / ESLint(flat config)の設定ファイルを追加
+- [x] `apps/server/requirements-dev.txt` と `apps/server/pyproject.toml`(ruff/pytest)を作成
+- [x] `.github/workflows/web-ci.yml` を作成
+- [x] `.github/workflows/server-ci.yml` を作成
+- [ ] ダミーPRを1本作り、両CIが緑になることを確認(GitHub上・未)
+- [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)
+- [x] `deploy/Dockerfile` / `docker-compose.yml` を作成(**Caddyfile は不採用**、リバースプロキシは各自運用)
+- [ ] サーバーで手動デプロイを一度成功させ、**HTTPS + WSS疎通を実機確認**(最優先)
+- [x] 自動デプロイ `deploy.yml` を作成(**Secrets 登録は未**:`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`)
+- [ ] mypy を `continue-on-error` から必須へ格上げ(型が整ってきたら)

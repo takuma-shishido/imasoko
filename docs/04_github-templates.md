@@ -277,12 +277,15 @@ updates:
 
 ## TODO
 
-- [ ] `.github/pull_request_template.md` を作成(担当:ホスト)
-- [ ] `.github/ISSUE_TEMPLATE/` に `task.yml` / `bug_report.yml` / `feature_request.yml` / `config.yml` を作成(担当:ホスト)
-- [ ] `.github/CODEOWNERS` を作成し、`@HANDLE` を実ユーザー名に置換(担当:ホスト。要:全員のGitHubアカウント収集)
-- [ ] ルートに `CONTRIBUTING.md` を作成(担当:ホスト)
-- [ ] リポジトリ設定:Squash mergeのみ許可 / head branch自動削除を有効化(担当:ホスト)
-- [ ] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)(担当:ホスト)
-- [ ] `config.yml` / `CONTRIBUTING.md` 内のチームチャットURLを実URLに差し替え(担当:ホスト)
-- [ ] `.github/dependabot.yml` を作成(任意・後回し)(担当:ホスト)
-- [ ] キックオフで全員にこのルール(ブランチ命名・PRフロー)を共有(担当:ホスト)
+> 現状の詳細は [06 実装ステータス §4.4](./06_implementation-status.md)。
+
+- [x] `.github/pull_request_template.md` を作成
+- [x] `.github/ISSUE_TEMPLATE/` に `task.yml` / `bug_report.yml` / `feature_request.yml` / `config.yml` を作成
+- [x] `.github/CODEOWNERS` を作成(暫定でホスト `@takuma-shishido` に集約)
+- [ ] `.github/CODEOWNERS` に初心者A/B/C の GitHub ハンドルを追記
+- [x] ルートに `CONTRIBUTING.md` を作成
+- [ ] リポジトリ設定:Squash mergeのみ許可 / head branch自動削除を有効化
+- [ ] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)
+- [x] `config.yml` のチームチャットURLを実URLに差し替え(Discord)
+- [x] `.github/dependabot.yml` を作成
+- [ ] キックオフで全員にこのルール(ブランチ命名・PRフロー)を共有

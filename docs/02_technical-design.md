@@ -163,17 +163,19 @@ CIでこれらを回す設定は [03](./03_cicd.md)。**まずは coords と roo
 
 ## TODO
 
-- [ ] §1で残る「要合意」は **`position` スロットリング間隔のみ**。実機で実測して確定(TTL・途中退出・圏外・公開範囲・マップは決定済み)(担当:ホスト/初心者C)
-- [ ] `apps/server/app/config.py` を作成し、確定した定数を反映(担当:ホスト)
-- [ ] `apps/web/src/lib/constants.ts` を作成(担当:ホスト)
-- [ ] `apps/server/.env.example` を作成([01](./01_directory-design.md) の.gitignoreと対で)(担当:ホスト)
-- [ ] `apps/server/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義(担当:ホスト)
-- [ ] `apps/web/src/types/messages.ts` に対応TS型を定義(担当:ホスト)
-- [ ] `useRoomSocket` に再接続バックオフ + join再送を実装(担当:ホスト, §5)
-- [ ] `useGeolocation` に「拒否時=閲覧のみ」モードを実装(担当:ホスト)
-- [ ] `coords.ts` の変換ユニットテストを作成(担当:ホスト, §6)
-- [ ] キャリブレーション2点の実測 → `coords.ts` 定数差し替え(担当:マップ担当, §6)
-- [ ] Pydanticで lat/lng・name・floor のバリデーションを実装(担当:初心者A/C, §7)
-- [ ] 人数上限 join 拒否を実装(担当:初心者B, §7)
-- [ ] pytest / vitest の最小テストを追加(担当:各自, §8)
+> 現状の詳細は [06 実装ステータス §4.1/§4.2](./06_implementation-status.md)。
+
+- [ ] 残る「要合意」:**`position` スロットリング間隔**(実測)+ **有効期限モデルの統一**(集合時間+3h ⇔ 作成+2h, [06 §2](./06_implementation-status.md))
+- [x] `apps/server/app/config.py` を作成(※ `room_ttl` は `timedelta` ではなく `room_ttl_seconds: int` で実装)
+- [x] `apps/web/src/lib/constants.ts` を作成
+- [x] `apps/server/.env.example` を作成
+- [x] `apps/server/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義
+- [x] `apps/web/src/types/messages.ts` に対応TS型を定義
+- [x] `useRoomSocket` に再接続バックオフ + join再送を実装(雛形, §5)
+- [x] `useGeolocation` に「拒否時=閲覧のみ」モードを実装(雛形, §5)
+- [x] `coords.ts` の変換ユニットテストを作成(§6)
+- [ ] キャリブレーション2点の実測 → `coords.ts`/`mapAreas.ts` 定数差し替え(現状プレースホルダ, §6)
+- [x] Pydanticで lat/lng・name・floor のバリデーションを実装(§7)
+- [x] 人数上限 join 拒否を実装(§7)
+- [x] pytest / vitest の最小テストを追加(§8)
 - [ ] 決定事項を [imasoko-dev-docs.md](./imasoko-dev-docs.md) の §12 に反映(担当:ホスト)

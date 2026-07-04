@@ -230,35 +230,37 @@ server → client(既存に追加):
 
 ## TODO
 
+> 実装状況の詳細は [06 実装ステータス §4.6](./06_implementation-status.md)。**フロントはシミュレーション自走・サーバーは雛形で、両者の実配線は未接続。**
+
 ### マップ(§1・§2)
-- [ ] 各エリア(国際展示場駅 / 東京テレポート駅 / 有明キャンパス)の**対象範囲**を確定(エリア名は確定済み)(担当:ホスト)
-- [ ] 3エリアのSVGを作画(`station-1.svg` / `station-2.svg` / `campus.svg`)(担当:ホスト)
-- [ ] 各エリアのキャリブレーション2点を実測 → `mapAreas.ts` に反映(担当:ホスト)
-- [ ] `coords.ts` を**エリア別**に変更 + `resolveArea()` 実装 + ユニットテスト([02 §6](./02_technical-design.md))(担当:ホスト)
-- [ ] `AreaSwitcher.tsx` 実装(手動切替 + 現在地から自動選択)(担当:ホスト)
-- [ ] `campus.svg` に建物クリック領域(`svgRegionId`)を作り込み(担当:ホスト)
-- [ ] `buildings.json` に建物→階→教室 + ランドマークを入力(担当:ホスト)
-- [ ] `CampusView.tsx`(建物メニュー + 詳細ドリルダウン)実装(担当:ホスト)
+- [ ] 各エリアの**対象範囲**を確定(現状は模式・エリア名のみ確定)
+- [ ] 3エリアのSVGを実地理トレースで作画 → **現状はインライン模式SVG**(`src/components/map/*Svg.tsx`)で代替([06 §2](./06_implementation-status.md))
+- [ ] 各エリアのキャリブレーション2点を実測 → `mapAreas.ts` に反映(現状プレースホルダ値)
+- [x] `coords.ts` を**エリア別**に変更 + `resolveArea()` 実装 + ユニットテスト([02 §6](./02_technical-design.md))
+- [x] `AreaSwitcher.tsx` 実装(手動切替 + 現在地から自動選択)
+- [ ] `campus.svg` に建物クリック領域(`svgRegionId`)→ **現状はインラインの建物 div クリックで代替**
+- [x] `buildings.json` に建物→階→教室 + ランドマークを入力(server `data/` + front `campusData.ts`)
+- [x] `CampusView.tsx`(建物メニュー + 詳細ドリルダウン)実装
 
 ### ルーム公開範囲(§3)
-- [ ] `Room` に `visibility`(既定 private)・`title`・`host_token` を追加(担当:初心者A)
-- [ ] `POST /api/rooms` を `visibility`/`title` 受付・`host_token` 返却に拡張(担当:初心者A)
-- [ ] `GET /api/rooms/public` 実装(担当:初心者A)
-- [ ] `PATCH /api/rooms/{id}/visibility`(`host_token` 検証)実装(担当:初心者A)
-- [ ] フロント:public化の**警告UI** + 公開一覧画面(担当:ホスト)
+- [x] `Room` に `visibility`(既定 private)・`title`・`host_token` を追加
+- [x] `POST /api/rooms` を `visibility`/`title` 受付・`host_token` 返却に拡張
+- [x] `GET /api/rooms/public` 実装
+- [x] `PATCH /api/rooms/{id}/visibility`(`host_token` 検証)実装
+- [x] フロント:public化の**警告UI** + 公開一覧画面
 
 ### 集合場所・空き教室(§4・§5)
-- [ ] `MeetingPoint` union / `PlaceRef` / `PlaceSuggestion` の型を定義(TS: `types/campus.ts`, Py: `models.py`)(担当:初心者C)
-- [ ] `handlers.py`:`meeting_point`(3タイプ)・`add_place_suggestion`・`leave` を実装(担当:初心者C)
-- [ ] `MeetingPointPicker.tsx`(座標/メンバー/場所の選択)実装(担当:ホスト)
-- [ ] `PlaceSuggestions.tsx`(候補の追加・一覧・採用)実装(担当:ホスト)
-- [ ] `classrooms.csv` を手入力で用意(担当:初心者B/ホスト)
-- [ ] `campus.py`:CSV/JSON をメモリロードし `GET /api/campus` で配信(**差し替え点を1関数に**)(担当:初心者B)
-- [ ] 各参加者→集合場所の距離表示(担当:ホスト)
+- [x] `MeetingPoint` / `PlaceRef` / `PlaceSuggestion` の型を定義(TS: `types/campus.ts`・`types/messages.ts`, Py: `models.py`)
+- [x] `handlers.py`:`meeting_point`(3タイプ)・`add_place_suggestion`・`leave` を実装
+- [x] `MeetingPointPicker.tsx`(座標/メンバー/場所の選択)実装
+- [x] `PlaceSuggestions.tsx`(候補の追加・一覧・採用)実装
+- [x] `classrooms.csv` を手入力で用意
+- [x] `campus.py`:CSV/JSON をメモリロードし `GET /api/campus` で配信(差し替え点を1関数に)
+- [x] 各参加者→集合場所の距離表示
 
 ### 退出・TTL(§0)
-- [ ] 明示退出ボタン + `leave` メッセージ、切断時と共通の `member_left` 処理(担当:初心者C)
-- [ ] `config.py` の `room_ttl` を**既定2時間**に設定([02 §2](./02_technical-design.md))(担当:ホスト)
+- [x] 明示退出ボタン + `leave` メッセージ、切断時と共通の `member_left` 処理
+- [x] `config.py` の TTL を**既定2時間**に設定([02 §2](./02_technical-design.md))※ フロントは「集合時間+3h」で相違([06 §2](./06_implementation-status.md))
 
 ### 決定の反映
-- [ ] 本ドキュメントの決定を [dev-docs](./imasoko-dev-docs.md)(§5/§6/§7/§8/§12)と[企画書](./imasoko-kikakusho.md)に反映(担当:ホスト) ※本コミットで実施済み
+- [x] 本ドキュメントの決定を [dev-docs](./imasoko-dev-docs.md) と[企画書](./imasoko-kikakusho.md)に反映済み

@@ -176,21 +176,24 @@ apps/server/static/*
 
 ## TODO
 
-- [ ] ルート `.gitignore` を上記内容で作成(担当:ホスト) ※`.DS_Store` が現在追跡外か確認し、必要なら `git rm --cached`
-- [ ] `apps/web/` を Vite + React + TS で初期化(`npm create vite@latest apps/web -- --template react-ts`)(担当:ホスト)
-- [ ] `apps/web/src/` 配下に上記ディレクトリ(components/hooks/lib/types/pages)を作成し、各ファイルの空スタブを配置(担当:ホスト)
-- [ ] `apps/web/public/map/` に3エリアSVGの置き場を用意(`.gitkeep`、SVG作画は[05](./05_feature-design.md))(担当:ホスト)
-- [ ] `apps/web/vite.config.ts` に `server.proxy`(`/api`・`/ws`, `ws:true`)を設定([dev-docs §9](./imasoko-dev-docs.md))(担当:ホスト)
-- [ ] `apps/server/app/` に `__init__.py` と各モジュールの空スタブ(`main/config/rooms/expiry/ws/handlers/campus/models`)を作成(担当:ホスト)
-- [ ] `apps/server/data/` に `buildings.json` / `classrooms.csv` の雛形を配置([05](./05_feature-design.md))(担当:初心者B)
-- [ ] `apps/server/requirements.txt`(fastapi, uvicorn[standard], pydantic, pydantic-settings)を作成(担当:ホスト)
-- [ ] `apps/server/static/.gitkeep` を作成(担当:ホスト)
-- [ ] `apps/server/tests/` に空テストファイルを配置(担当:各自)
-- [ ] `.editorconfig` を作成(任意)(担当:ホスト)
-- [ ] `README.md` に「起動手順・ディレクトリ概要・docsへのリンク」を追記(担当:ホスト)
-- [ ] `.github/` ディレクトリは [03](./03_cicd.md) / [04](./04_github-templates.md) で作成
-- [ ] `deploy/` は [03](./03_cicd.md) で作成(後回し可)
+> 現状の詳細は [06 実装ステータス §4.1/§4.2](./06_implementation-status.md)。
+
+- [x] ルート `.gitignore` を上記内容で作成(`.DS_Store` は追跡外・ignore 済み)
+- [x] `apps/web/` を Vite + React + TS で初期化
+- [x] `apps/web/src/` 配下にディレクトリ(components/hooks/lib/types/**state**/pages)を作成(空スタブではなく**実装済み**)
+- [ ] `apps/web/public/map/` に3エリアSVG置き場 → **不採用**:`src/components/map/*Svg.tsx` のインライン模式SVGで実装([06 §2](./06_implementation-status.md))
+- [x] `apps/web/vite.config.ts` に `server.proxy`(`/api`・`/ws`, `ws:true`)を設定
+- [x] `apps/server/app/` に `__init__.py` と各モジュール(`main/config/rooms/expiry/ws/handlers/campus/models`)を作成(実装済み)
+- [x] `apps/server/data/` に `buildings.json` / `classrooms.csv` を配置
+- [x] `apps/server/requirements.txt`(fastapi, uvicorn[standard], pydantic, pydantic-settings)を作成
+- [x] `apps/server/static/.gitkeep` を作成
+- [x] `apps/server/tests/` にテスト(rooms/expiry/ws)を配置
+- [x] `.editorconfig` を作成
+- [x] `README.md` に「起動手順・ディレクトリ概要・docsへのリンク」を追記
+- [x] `.github/` ディレクトリを [03](./03_cicd.md) / [04](./04_github-templates.md) で作成
+- [x] `deploy/` を [03](./03_cicd.md) で作成(Caddyは不採用)
 
 ### 完了の目安(Gate)
 
-`apps/web/` `apps/server/` の骨格が置かれ、`.gitignore` が有効で、`uvicorn app.main:app --reload`(`apps/server` 内)と `npm run dev`(`apps/web` 内)が(中身は空でも)起動できる状態。
+✅ 達成:`apps/web/` `apps/server/` の骨格(=実装)が置かれ、`.gitignore` が有効で、`uvicorn app.main:app --reload` と `npm run dev` が起動できる。
+※ サーバーは **Python 3.12** が必要(`uv venv --python 3.12`。詳細は README)。
