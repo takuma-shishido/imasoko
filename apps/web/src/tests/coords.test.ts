@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { project, projectClamped, resolveArea, unproject } from "@/lib/coords";
+import { clampToEdge, project, projectClamped, resolveArea, unproject } from "@/lib/coords";
 import { MAP_AREAS } from "@/lib/mapAreas";
 import { CAMPUS_GEO_BOUNDS } from "@/lib/campusGeo";
 import type { MapArea } from "@/types/campus";
@@ -86,5 +86,19 @@ describe("campus 回転投影 (issue #3)", () => {
     expect(p.x).toBeLessThanOrEqual(800);
     expect(p.y).toBeGreaterThanOrEqual(0);
     expect(p.y).toBeLessThanOrEqual(640);
+  });
+});
+
+describe("clampToEdge — 範囲外の方向 (issue #3)", () => {
+  it("右方向の点は右端に寄る", () => {
+    const e = clampToEdge(400, 320, 2000, 320, 20, 20, 780, 620);
+    expect(e.x).toBeCloseTo(780);
+    expect(e.y).toBeCloseTo(320);
+  });
+
+  it("斜め方向は方向(傾き)を保って端に乗る", () => {
+    const e = clampToEdge(400, 320, 1200, 1200, 0, 0, 800, 640);
+    expect(e.x === 800 || e.y === 640).toBe(true);
+    expect((e.y - 320) / (e.x - 400)).toBeCloseTo((1200 - 320) / (1200 - 400), 5);
   });
 });

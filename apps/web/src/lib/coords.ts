@@ -60,6 +60,30 @@ export function metersBetween(
   return Math.sqrt(x * x + dLat * dLat) * R;
 }
 
+/** 基点(rx,ry)から点(px,py)へ向かう方向で、矩形 [xmin,xmax]×[ymin,ymax] の端へ寄せる。
+ *  範囲外メンバーを「その人がいる実方向」で表示領域の端に出すのに使う(issue #3)。 */
+export function clampToEdge(
+  rx: number,
+  ry: number,
+  px: number,
+  py: number,
+  xmin: number,
+  ymin: number,
+  xmax: number,
+  ymax: number
+): { x: number; y: number } {
+  const dx = px - rx;
+  const dy = py - ry;
+  if (dx === 0 && dy === 0) return { x: rx, y: ry };
+  let t = Infinity;
+  if (dx > 0) t = Math.min(t, (xmax - rx) / dx);
+  else if (dx < 0) t = Math.min(t, (xmin - rx) / dx);
+  if (dy > 0) t = Math.min(t, (ymax - ry) / dy);
+  else if (dy < 0) t = Math.min(t, (ymin - ry) / dy);
+  if (!isFinite(t) || t < 0) t = 0;
+  return { x: rx + dx * t, y: ry + dy * t };
+}
+
 export interface ClampedProjected {
   x: number;
   y: number;

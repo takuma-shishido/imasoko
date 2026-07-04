@@ -14,7 +14,7 @@ import type {
   Room,
   Toast,
 } from "@/types/campus";
-import { AREAS, AREA_ORDER } from "@/lib/mapAreas";
+import { AREAS, AREA_ORDER, MAP_AREAS } from "@/lib/mapAreas";
 import {
   BUILDINGS,
   CLAMP,
@@ -30,7 +30,7 @@ import {
 import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
-import { metersBetween } from "@/lib/coords";
+import { clampToEdge, metersBetween, project } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
   locate,
@@ -508,7 +508,7 @@ export class RoomEngine {
     this.setState((s) => ({
       members: s.members.map((m) =>
         m.id === s.selfId
-          ? { ...m, area: loc.area, x: loc.x, y: loc.y, lost: loc.lost, viewer: false }
+          ? { ...m, area: loc.area, x: loc.x, y: loc.y, lost: loc.lost, viewer: false, lat, lng }
           : m
       ),
     }));
@@ -1018,15 +1018,50 @@ export class RoomEngine {
   }
 
   // ── render helpers ──
-  private clampedPos(m: Member, idxMap: Record<string, number>) {
+  // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
+  private viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
+    const A = AREAS[this.state.area];
+    const vp = this.vpRef.current;
+    if (!vp) return { xmin: 26, ymin: 26, xmax: A.w - 26, ymax: A.h - 26 };
+    const r = vp.getBoundingClientRect();
+    const { tx, ty, k } = this.state.view;
+    const m = 34 / k; // 画面端からのマージン(px 換算)
+    return {
+      xmin: -tx / k + m,
+      ymin: -ty / k + m,
+      xmax: (r.width - tx) / k - m,
+      ymax: (r.height - ty) / k - m,
+    };
+  }
+
+  private clampedPos(
+    m: Member,
+    idxMap: Record<string, number>,
+    vr: { xmin: number; ymin: number; xmax: number; ymax: number }
+  ) {
     const cur = this.state.area;
     const A = AREAS[cur];
-    if (m.lost) {
-      const [x, y] = CLAMP[cur].lost;
-      const i = idxMap.lost++;
-      return { x: x + i * 44, y, out: true };
-    }
-    if (m.area !== cur) {
+    if (m.lost || m.area !== cur) {
+      // 実 GPS があれば「その人がいる実方向」で表示領域の端に寄せる(現在地=self を基点。issue #3)。
+      if (m.lat != null && m.lng != null) {
+        const P = project(MAP_AREAS[cur], m.lat, m.lng);
+        const self = this.state.members.find((x) => x.id === this.state.selfId);
+        const sp =
+          self && self.area === cur && self.lat != null && self.lng != null
+            ? project(MAP_AREAS[cur], self.lat, self.lng)
+            : { x: (vr.xmin + vr.xmax) / 2, y: (vr.ymin + vr.ymax) / 2 };
+        // 基点は表示領域内にクランプ(必ず内側から方向を出す)。
+        const rx = Math.min(Math.max(sp.x, vr.xmin), vr.xmax);
+        const ry = Math.min(Math.max(sp.y, vr.ymin), vr.ymax);
+        const e = clampToEdge(rx, ry, P.x, P.y, vr.xmin, vr.ymin, vr.xmax, vr.ymax);
+        return { x: e.x, y: e.y, out: true };
+      }
+      // 位置不明はフォールバック(従来の固定 CLAMP)。
+      if (m.lost) {
+        const [x, y] = CLAMP[cur].lost;
+        const i = idxMap.lost++;
+        return { x: x + i * 44, y, out: true };
+      }
       const c = CLAMP[cur][m.area] || [30, A.h / 2];
       const i = (idxMap[m.area] = (idxMap[m.area] || 0) + 1);
       return { x: c[0], y: c[1] + (i - 1) * 42, out: true };
@@ -1061,10 +1096,11 @@ export class RoomEngine {
     // pins
     const meetTargetId = s.meeting && s.meeting.kind === "member" ? s.meeting.memberId : null;
     const idxMap: Record<string, number> = { lost: 0 };
+    const vr = this.viewportRect();
     const pinList = [];
     for (const m of s.members) {
       if (m.viewer) continue;
-      const pos = this.clampedPos(m, idxMap);
+      const pos = this.clampedPos(m, idxMap, vr);
       const self = m.id === s.selfId;
       const isMeet = m.id === meetTargetId && !pos.out;
       const floorTag = m.building

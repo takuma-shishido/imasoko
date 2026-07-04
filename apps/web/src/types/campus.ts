@@ -75,6 +75,8 @@ export interface Member {
   floor: string | null;
   viewer: boolean; // 閲覧のみ(位置非共有)
   lost: boolean; // 全エリア範囲外(圏外)
+  lat: number | null; // 実 GPS(範囲外の方向計算に使う。位置非共有は null)
+  lng: number | null;
 }
 
 /**
