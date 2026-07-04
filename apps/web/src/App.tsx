@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RoomProvider, useRoom } from "@/state/RoomContext";
 import { TopPage } from "@/pages/TopPage";
@@ -14,9 +14,23 @@ function Frame() {
   const v = useRoom();
   const navigate = useNavigate();
   const loc = useLocation();
+  const bootRef = useRef(false);
+  const leftTop = useRef(false);
+
+  // 共有リンク(/r/:id)で開かれたら、初回だけ実サーバーへ存在チェック(issue #13)。
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const m = loc.pathname.match(/^\/r\/([^/]+)$/);
+    if (m) v.openRoomById(decodeURIComponent(m[1]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 画面状態を URL に反映(/, /public, /r/:id)。design/00 の SPA ルーティング。
   useEffect(() => {
+    if (!v.isTop) leftTop.current = true;
+    // 共有リンク起動直後(まだ一度も top を離れず存在チェック中)は URL を潰さない。
+    if (v.isTop && !leftTop.current && /^\/r\//.test(loc.pathname)) return;
     const path = v.isTop ? "/" : v.isPublic ? "/public" : `/r/${v.roomId}`;
     if (loc.pathname !== path) navigate(path, { replace: true });
   }, [v.screen, v.roomId, loc.pathname, navigate, v.isTop, v.isPublic]);
