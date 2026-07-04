@@ -12,6 +12,18 @@ export interface AreaDef {
   mpp: number; // meters per pixel(おおよその距離表示用)
 }
 
+/** 緯度経度→描画座標(x,y)のアフィン係数(回転込み)。x=ax*(lng-lon0)+bx*(lat-lat0)+cx, y=同様。 */
+export interface AreaProjection {
+  lon0: number;
+  lat0: number;
+  ax: number;
+  bx: number;
+  cx: number;
+  ay: number;
+  by: number;
+  cy: number;
+}
+
 /** docs/dev-docs §7:実測キャリブレーション付きエリア(実緯度経度→map座標変換用)。 */
 export interface MapArea {
   id: AreaId;
@@ -25,6 +37,8 @@ export interface MapArea {
     lat1: number; // 画像右下=南東角
     lng1: number;
   };
+  /** あれば bounds 線形ではなく回転付きアフィンで投影(campus・issue #3)。 */
+  matrix?: AreaProjection;
 }
 
 export interface Room {

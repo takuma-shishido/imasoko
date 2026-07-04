@@ -16,6 +16,13 @@ export interface Projected {
 
 /** 緯度経度を、そのエリアの画像 px 座標(左上原点)へ投影する。 */
 export function project(area: MapArea, lat: number, lng: number): Projected {
+  if (area.matrix) {
+    // 回転込みアフィン(campus・issue #3)。campusGeo.ts の生成器と同じ係数。
+    const m = area.matrix;
+    const x = m.ax * (lng - m.lon0) + m.bx * (lat - m.lat0) + m.cx;
+    const y = m.ay * (lng - m.lon0) + m.by * (lat - m.lat0) + m.cy;
+    return { x, y, u: x / area.width, v: y / area.height };
+  }
   const { lat0, lng0, lat1, lng1 } = area.bounds;
   const u = (lng - lng0) / (lng1 - lng0);
   const v = (lat0 - lat) / (lat0 - lat1);
@@ -24,6 +31,16 @@ export function project(area: MapArea, lat: number, lng: number): Projected {
 
 /** project の逆変換:エリア画像 px 座標(左上原点)→ 緯度経度。meeting_point(coords)送信で使う。 */
 export function unproject(area: MapArea, x: number, y: number): { lat: number; lng: number } {
+  if (area.matrix) {
+    const m = area.matrix;
+    const det = m.ax * m.by - m.bx * m.ay;
+    const dx = x - m.cx;
+    const dy = y - m.cy;
+    return {
+      lng: m.lon0 + (m.by * dx - m.bx * dy) / det,
+      lat: m.lat0 + (-m.ay * dx + m.ax * dy) / det,
+    };
+  }
   const { lat0, lng0, lat1, lng1 } = area.bounds;
   const u = x / area.width;
   const v = y / area.height;
@@ -58,9 +75,14 @@ export function projectClamped(area: MapArea, lat: number, lng: number): Clamped
   return { x: cu * area.width, y: cv * area.height, out };
 }
 
+// エリア判定は実測 bbox(緯度経度)で直接行う(回転投影と切り離す)。
 const inBounds = (area: MapArea, lat: number, lng: number): boolean => {
-  const { u, v } = project(area, lat, lng);
-  return u >= 0 && u <= 1 && v >= 0 && v <= 1;
+  const { lat0, lng0, lat1, lng1 } = area.bounds;
+  const laMin = Math.min(lat0, lat1);
+  const laMax = Math.max(lat0, lat1);
+  const loMin = Math.min(lng0, lng1);
+  const loMax = Math.max(lng0, lng1);
+  return lat >= laMin && lat <= laMax && lng >= loMin && lng <= loMax;
 };
 
 /**

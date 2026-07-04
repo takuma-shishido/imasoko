@@ -1,5 +1,5 @@
 import type { AreaId, AreaDef, MapArea } from "@/types/campus";
-import { CAMPUS_GEO_BOUNDS } from "./campusGeo";
+import { CAMPUS_GEO_BOUNDS, CAMPUS_PROJECTION } from "./campusGeo";
 
 // プロトタイプ実行時のエリア定義(模式SVGのワールドサイズ + 距離換算)。
 export const AREAS: Record<AreaId, AreaDef> = {
@@ -21,7 +21,8 @@ export const MAP_AREAS: Record<AreaId, MapArea> = {
     svg: "/map/campus.svg",
     width: AREAS.campus.w,
     height: AREAS.campus.h,
-    bounds: { ...CAMPUS_GEO_BOUNDS }, // 実地理データ由来(issue #3)
+    bounds: { ...CAMPUS_GEO_BOUNDS }, // 実地理データ由来(エリア判定用・issue #3)
+    matrix: { ...CAMPUS_PROJECTION }, // 回転込みアフィン投影(GPS→x/y)
   },
   station_1: {
     id: "station_1",
