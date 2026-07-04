@@ -1,5 +1,9 @@
-// 自動生成: scripts/build_campus_geo.py が data/キャンパス.json(OSM)から生成。手編集しない。
-// 街区の傾き(建物主方向)で回転し 800x640 へフィットした実地理フットプリント(issue #3)。
+// data/campus.geojson.json(OSM/Overpass の GeoJSON)を実行時に投影して実地理マップを生成する(issue #3)。
+// build 時の baked SVG をやめ、GeoJSON を読み込み→回転・フィット→SVG パスをここで動的に組み立てる。
+// GPS 投影(coords.project)も同じアフィン CAMPUS_PROJECTION を使う。号館(b1〜b6)を大きく中心に配置する。
+
+import rawGeojson from "@/data/campus.geojson.json";
+
 export type CampusShapeKind = "building" | "land" | "other";
 export interface CampusShape {
   d: string;
@@ -9,68 +13,152 @@ export interface CampusShape {
   ref: string;
 }
 
-/** 号館(b1〜b6)の実地図上の矩形(投影後 x/y/w/h)。建物オーバーレイの配置に使う。 */
-export const CAMPUS_BUILDINGS: Record<string, { x: number; y: number; w: number; h: number }> = {
-  b1: { x: 214.3, y: 227.1, w: 115.6, h: 42.1 },
-  b2: { x: 295.3, y: 274.5, w: 34.6, h: 57.3 },
-  b3: { x: 214.3, y: 348.7, w: 57.9, h: 50.6 },
-  b4: { x: 473.2, y: 350.5, w: 116.8, h: 56.5 },
-  b5: { x: 409.7, y: 355.7, w: 49.7, h: 57.2 },
-  b6: { x: 210.0, y: 282.1, w: 47.6, h: 57.8 },
+interface GeoFeature {
+  properties: Record<string, unknown>;
+  geometry: { type: string; coordinates: number[][][] };
+}
+
+const W = 800;
+const H = 640;
+const MARGIN = 20;
+const PAD = 0.15; // 号館の外側の余白(小さいほど号館が大きく表示される)
+
+// OSM way ID → 号館(ユーザー提供の対応)。
+const BUILDING_WAYS: Record<string, string> = {
+  "387067017": "b1",
+  "387067018": "b2",
+  "387067016": "b3",
+  "184604665": "b4",
+  "1075948950": "b5",
+  "1031355647": "b6",
 };
 
-/** 緯度経度 → 描画座標(x,y)のアフィン係数(回転込み)。GPS 投影 coords.project が使う。 */
-export const CAMPUS_PROJECTION = {
-  lon0: 139.786586717, lat0: 35.630043983,
-  ax: 114676.345850599, bx: 95165.61193607, cx: 187.00800714,
-  ay: 77350.171956596, by: -141088.821801048, cy: 455.681687417,
-} as const;
+const features = (rawGeojson as unknown as { features: GeoFeature[] }).features.filter(
+  (f) => f.geometry.type === "Polygon"
+);
 
-/** エリア判定用の実測 bbox(号館一帯・北西=lat0/lng0, 南東=lat1/lng1)。 */
-export const CAMPUS_GEO_BOUNDS = {
-  lat0: 35.6325813, lng0: 139.7843428,
-  lat1: 35.6296901, lng1: 139.7902912,
-} as const;
+const refOf = (f: GeoFeature): string =>
+  BUILDING_WAYS[String(f.properties["@id"] ?? "").replace("way/", "")] ?? "";
+const kindOf = (f: GeoFeature): CampusShapeKind => {
+  const p = f.properties;
+  if (p.building) return "building";
+  if (p.landuse || p.leisure || p.amenity) return "land";
+  return "other";
+};
+const vertices = (fs: GeoFeature[]): [number, number][] => {
+  const out: [number, number][] = [];
+  for (const f of fs)
+    for (const ring of f.geometry.coordinates) for (const c of ring) out.push([c[0], c[1]]);
+  return out;
+};
 
-export const CAMPUS_GEO_SIZE = { width: 800, height: 640 } as const;
+const allPts = vertices(features);
+const lon0 = allPts.reduce((s, p) => s + p[0], 0) / allPts.length;
+const lat0 = allPts.reduce((s, p) => s + p[1], 0) / allPts.length;
+const mLat = 111320;
+const mLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
 
-export const CAMPUS_GEO: CampusShape[] = [
-  { kind: "building", ref: "", name: "", d: "M127.7 545.7L122.2 540.7L117.7 545.4L113.3 541.3L109.3 540.6L105.1 545.2L101.0 540.7L97.2 543.9L94.9 541.7L92.8 543.9L90.6 541.5L81.7 550.0L83.9 552.4L82.0 554.2L84.3 556.5L82.3 558.3L92.7 568.9L83.2 579.9L86.9 583.1L83.3 586.7L86.6 590.2L83.4 593.5L93.1 603.8L90.0 607.1L95.0 612.2L94.8 616.8L87.5 617.0L86.9 622.2L83.1 622.8L82.3 636.4L86.7 636.4L86.2 642.1L94.3 642.5L94.2 647.3L89.3 652.5L92.3 655.4L83.2 666.3L89.2 672.8L82.4 679.6L89.5 687.7L64.4 711.7L64.2 747.7L72.6 748.0L72.2 756.9L147.8 757.5L148.1 753.5L151.8 753.3L151.5 747.5L163.5 747.8L163.3 714.3L155.9 714.7L155.9 710.4L151.0 705.2L138.7 692.1L141.5 688.9L138.0 685.5L144.1 679.4L143.9 664.5L125.5 646.0L126.0 613.3L137.8 601.5L134.9 598.2L139.2 593.8L136.2 590.6L140.0 586.9L136.5 583.2L139.6 579.7L128.8 568.8L132.9 564.9L120.9 552.5L127.7 545.7ZM114.0 699.6L132.8 717.4L132.4 736.9L120.7 736.6L120.9 733.8L99.7 733.6L99.3 737.6L87.0 737.5L87.6 717.4L105.9 700.2L109.6 703.8L114.0 699.6Z" },
-  { kind: "land", ref: "", name: "夢の大橋", d: "M-130.1 506.1L-126.1 510.3L-122.7 513.0L-119.5 515.3L-115.4 517.5L-110.9 519.4L-104.2 521.3L-98.9 522.0L-88.9 521.7L-88.6 521.7L-83.9 520.8L-76.9 518.3L-71.0 515.2L-66.2 511.8L-63.1 509.0L-60.7 506.3L79.3 506.8L110.8 505.3L110.7 516.6L110.3 536.2L168.9 536.1L169.0 526.9L169.4 507.3L169.5 476.8L170.1 444.6L-61.4 445.5L-63.5 443.2L-66.6 440.5L-70.9 437.4L-75.3 435.0L-79.0 433.4L-84.8 431.7L-88.5 430.9L-93.7 430.5L-99.6 430.6L-105.8 431.7L-110.6 433.3L-113.9 434.4L-119.0 437.0L-121.6 438.7L-126.7 442.9L-128.9 445.1L-249.4 444.5L-262.8 444.5L-264.6 442.5L-266.2 441.1L-267.6 439.8L-272.0 436.7L-276.3 434.3L-280.0 432.7L-285.8 430.9L-289.6 430.2L-294.8 429.8L-300.7 429.9L-306.9 431.0L-314.9 433.7L-320.0 436.3L-322.7 438.1L-326.0 440.8L-327.8 442.2L-329.6 444.1L-455.6 441.4L-456.2 503.7L-356.9 505.3L-331.2 505.4L-330.8 505.9L-327.2 509.6L-323.8 512.3L-320.6 514.6L-316.5 516.9L-312.0 518.7L-305.3 520.6L-300.0 521.3L-289.7 521.0L-285.0 520.1L-278.0 517.7L-272.1 514.6L-267.3 511.1L-264.2 508.3L-261.8 505.7L-130.1 506.1ZM115.6 507.4L169.4 507.3L169.0 526.9L115.3 526.0L115.6 507.4Z" },
-  { kind: "building", ref: "", name: "水の科学館", d: "M162.8 228.7L113.5 228.1L112.2 296.4L161.9 297.2L162.8 228.7Z" },
-  { kind: "land", ref: "", name: "", d: "M422.9 502.8L429.6 506.5L429.5 513.0L432.2 513.0L432.2 520.3L429.5 520.3L429.5 529.9L435.8 530.1L435.8 526.2L432.6 525.9L432.9 503.8L430.9 501.4L428.4 501.4L425.6 501.4L425.5 499.7L423.0 499.7L422.9 502.8Z" },
-  { kind: "land", ref: "", name: "", d: "M369.1 360.5L369.4 396.9L368.7 415.8L366.8 445.4L365.7 547.5L365.1 585.0L365.2 614.5L364.1 643.6L362.4 666.5L359.5 688.1L354.1 714.4L346.0 744.2L341.6 756.6L341.4 757.4L341.8 758.0L342.3 758.4L342.8 758.4L343.4 758.0L347.5 747.5L353.2 727.3L360.3 696.9L365.5 673.0L367.6 654.0L369.5 587.0L371.4 361.0L371.3 360.2L370.7 359.8L370.0 359.8L369.6 360.0L369.1 360.5Z" },
-  { kind: "land", ref: "", name: "", d: "M400.7 452.5L427.8 453.0L427.6 459.9L444.9 460.4L468.7 459.3L482.1 452.6L490.9 444.6L496.7 436.2L499.3 424.7L499.7 414.7L463.7 414.7L402.6 414.7L400.7 452.5Z" },
-  { kind: "land", ref: "", name: "", d: "M400.5 538.6L434.5 538.7L434.6 535.1L400.6 535.8L400.5 538.6Z" },
-  { kind: "land", ref: "", name: "", d: "M382.4 452.6L388.0 460.0L418.1 460.1L421.7 453.0L382.4 452.6Z" },
-  { kind: "land", ref: "", name: "", d: "M318.8 452.2L326.7 459.9L352.8 459.9L358.3 452.7L318.8 452.2Z" },
-  { kind: "land", ref: "", name: "", d: "M383.1 497.2L400.1 497.3L421.8 497.3L417.6 492.4L387.8 492.3L383.1 497.2Z" },
-  { kind: "land", ref: "", name: "", d: "M319.2 496.9L336.4 497.0L357.9 497.1L352.6 492.1L324.0 491.9L319.2 496.9Z" },
-  { kind: "land", ref: "", name: "", d: "M512.5 451.2L512.3 474.1L467.0 473.9L466.9 500.0L469.5 503.0L586.4 503.6L590.3 500.1L590.6 454.4L588.0 451.6L512.5 451.2Z" },
-  { kind: "building", ref: "b4", name: "有明センタービル", d: "M473.2 406.1L589.8 407.0L590.0 383.7L587.2 383.7L587.4 353.3L487.1 352.5L487.1 350.6L477.7 350.5L477.7 352.4L476.4 352.4L476.2 382.8L473.3 382.8L473.3 390.8L473.2 406.1Z" },
-  { kind: "building", ref: "b3", name: "", d: "M272.2 349.7L215.1 348.7L214.3 398.4L271.3 399.3L272.2 349.7Z" },
-  { kind: "building", ref: "b1", name: "", d: "M329.9 229.2L214.9 227.1L214.3 263.4L262.6 264.3L262.6 268.8L283.2 269.2L283.3 263.4L329.3 264.2L329.9 229.2Z" },
-  { kind: "building", ref: "b2", name: "", d: "M329.9 274.9L295.9 274.5L295.3 331.4L300.0 331.5L329.3 331.8L329.9 274.9Z" },
-  { kind: "building", ref: "", name: "東京ドリームパーク", d: "M207.7 544.9L205.5 760.2L290.4 761.7L306.4 750.3L313.0 705.7L308.2 655.9L325.1 596.1L324.9 545.1L207.7 544.9Z" },
-  { kind: "land", ref: "", name: "水の広場公園", d: "M781.5 832.2L348.6 829.2L339.4 836.0L302.3 896.5L239.7 896.6L229.0 896.6L261.1 846.8L252.1 829.8L248.8 829.8L66.3 829.3L64.2 747.7L64.4 711.7L66.1 537.0L78.8 536.6L78.5 441.3L78.4 410.0L170.4 412.0L171.9 347.6L76.0 347.2L78.8 220.8L171.5 220.7L172.0 201.7L161.5 191.4L21.1 190.5L9.2 190.3L-33.5 188.9L-33.9 186.8L-40.8 186.9L-41.7 325.2L17.0 326.0L17.0 347.5L-44.5 346.4L-44.9 388.0L15.4 390.0L12.3 443.0L-61.4 445.5L-63.5 443.2L-66.6 440.5L-75.3 435.0L-84.8 431.7L-93.7 430.5L-105.8 431.7L-113.9 434.4L-119.0 437.0L-126.7 442.9L-128.9 445.1L-249.4 444.5L-262.8 444.5L-264.6 442.5L-267.6 439.8L-272.0 436.7L-280.0 432.7L-285.8 430.9L-289.6 430.2L-300.7 429.9L-314.9 433.7L-320.0 436.3L-327.8 442.2L-329.6 444.1L-348.6 443.8L-346.5 184.7L-395.2 428.3L-396.1 506.1L-352.4 764.5L-349.0 505.9L-331.2 505.4L-330.8 505.9L-327.2 509.6L-320.6 514.6L-316.5 516.9L-305.3 520.6L-289.7 521.0L-272.1 514.6L-264.2 508.3L-261.8 505.7L-130.1 506.1L-122.7 513.0L-115.4 517.5L-104.2 521.3L-88.9 521.7L-83.9 520.8L-71.0 515.2L-63.1 509.0L-60.7 506.3L4.9 506.8L2.8 633.5L-2.3 642.1L-4.6 653.1L-2.9 662.4L2.4 668.2L6.9 828.4L10.2 897.7L791.5 901.1L781.5 832.2Z" },
-  { kind: "building", ref: "b6", name: "", d: "M210.0 282.1L210.0 339.9L257.6 339.9L257.6 282.1L210.0 282.1Z" },
-  { kind: "building", ref: "b5", name: "", d: "M459.4 356.4L417.4 355.7L417.2 366.3L410.3 365.9L409.7 411.9L455.5 412.8L458.9 412.9L459.4 356.4Z" },
-  { kind: "land", ref: "", name: "", d: "M170.7 316.0L82.9 317.1L82.4 344.4L170.7 345.8L170.7 316.0Z" },
-  { kind: "land", ref: "", name: "", d: "M20.9 191.1L18.5 193.7L18.0 218.0L76.8 217.5L171.0 217.2L171.4 201.9L160.7 191.8L20.9 191.1Z" },
-  { kind: "land", ref: "", name: "", d: "M18.0 218.0L15.2 306.2L18.2 314.4L24.4 318.8L33.5 322.3L40.3 327.8L43.4 344.0L47.9 354.6L59.8 362.9L74.4 364.7L76.8 217.5L18.0 218.0Z" },
-  { kind: "land", ref: "", name: "", d: "M-17.6 377.3L23.7 381.4L24.3 414.7L44.6 413.3L44.5 406.3L45.5 400.5L48.2 394.0L56.5 378.4L56.0 371.7L55.0 367.4L47.2 360.9L42.9 361.1L38.0 365.4L27.6 370.8L-17.6 377.3Z" },
-  { kind: "land", ref: "", name: "", d: "M63.1 368.8L62.0 375.4L58.6 387.0L53.6 394.6L50.0 405.5L50.2 410.3L73.1 410.7L73.2 406.6L71.3 406.4L72.0 369.2L63.1 368.8Z" },
-  { kind: "land", ref: "", name: "", d: "M336.4 497.0L315.1 497.1L303.0 511.6L336.8 513.3L336.4 497.0Z" },
-  { kind: "land", ref: "", name: "", d: "M303.0 515.8L303.1 532.2L337.4 532.8L337.0 518.3L303.0 515.8Z" },
-  { kind: "land", ref: "", name: "", d: "M338.8 413.9L303.7 413.3L303.7 431.9L338.2 432.9L338.8 413.9Z" },
-  { kind: "land", ref: "", name: "", d: "M303.8 436.0L303.8 437.5L315.0 452.3L318.8 452.2L337.6 452.4L338.0 437.8L303.8 436.0Z" },
-  { kind: "land", ref: "", name: "", d: "M115.6 507.4L115.3 526.0L169.0 526.9L169.4 507.3L115.6 507.4Z" },
-  { kind: "land", ref: "", name: "", d: "M210.9 523.7L289.6 523.7L289.7 500.5L210.4 500.1L210.9 523.7Z" },
-  { kind: "land", ref: "", name: "", d: "M283.3 452.4L283.6 425.0L208.9 424.3L208.7 452.6L283.3 452.4Z" },
-  { kind: "building", ref: "", name: "", d: "M276.4 501.8L276.3 507.3L281.5 507.4L281.6 513.5L276.3 513.5L276.2 519.0L285.7 519.0L285.7 513.6L288.8 513.6L288.7 507.1L285.7 507.1L285.7 501.6L276.4 501.8Z" },
-  { kind: "land", ref: "", name: "", d: "M67.6 447.4L57.2 449.5L45.8 449.8L32.6 448.8L21.2 447.2L24.3 453.0L27.1 456.3L35.7 453.7L45.4 452.8L54.0 454.0L62.0 456.1L64.9 452.8L67.6 447.4Z" },
-  { kind: "building", ref: "", name: "TOC有明", d: "M728.1 199.7L517.1 198.0L424.1 197.2L423.7 235.0L516.8 235.7L516.7 255.9L499.1 255.8L498.7 294.8L510.5 294.9L510.4 305.7L727.5 307.5L727.6 294.1L731.6 294.1L731.7 277.9L727.4 277.9L727.6 257.7L728.1 199.7Z" },
-  { kind: "building", ref: "", name: "", d: "M421.9 257.5L421.6 293.2L441.1 293.3L441.2 280.1L437.2 280.1L437.4 257.6L421.9 257.5Z" },
-  { kind: "building", ref: "", name: "", d: "M516.8 235.7L423.7 235.0L420.2 234.9L420.0 255.6L484.8 256.1L484.7 271.9L498.9 272.0L499.1 255.8L516.7 255.9L516.8 235.7Z" },
-  { kind: "land", ref: "", name: "", d: "M423.0 499.7L400.2 499.8L400.5 530.4L429.5 529.9L429.5 520.3L432.2 520.3L432.2 513.0L429.5 513.0L429.6 506.5L422.9 502.8L423.0 499.7Z" },
+// 建物エッジの主方向(mod 90°・長さ重み)→ 回転角(街区の傾きを打ち消す)。
+const hist: Record<number, number> = {};
+for (const f of features) {
+  if (!f.properties.building) continue;
+  for (const ring of f.geometry.coordinates) {
+    for (let i = 0; i + 1 < ring.length; i++) {
+      const dx = (ring[i + 1][0] - ring[i][0]) * mLon;
+      const dy = (ring[i + 1][1] - ring[i][1]) * mLat;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const a = Math.round(((((Math.atan2(dy, dx) * 180) / Math.PI) % 90) + 90) % 90);
+      hist[a] = (hist[a] ?? 0) + len;
+    }
+  }
+}
+let peak = 0;
+for (const a in hist) if ((hist[Number(a)] ?? 0) > (hist[peak] ?? 0)) peak = Number(a);
+const th = ((peak <= 45 ? peak : peak - 90) * Math.PI) / 180;
+const cs = Math.cos(th);
+const sn = Math.sin(th);
+const rot = (lon: number, lat: number): [number, number] => {
+  const e = (lon - lon0) * mLon;
+  const n = (lat - lat0) * mLat;
+  return [e * cs + n * sn, -e * sn + n * cs];
+};
+
+// フィット窓は号館(b1〜b6)基準にして、キャンパスを大きく中心に置く。
+const campusFs = features.filter((f) => refOf(f) !== "");
+const fitPts = vertices(campusFs.length ? campusFs : features);
+const frx = fitPts.map((p) => rot(p[0], p[1])[0]);
+const fry = fitPts.map((p) => rot(p[0], p[1])[1]);
+const rxMin = Math.min(...frx);
+const ryMin = Math.min(...fry);
+const winW = (Math.max(...frx) - rxMin) * (1 + 2 * PAD);
+const winH = (Math.max(...fry) - ryMin) * (1 + 2 * PAD);
+const winXMin = rxMin - (Math.max(...frx) - rxMin) * PAD;
+const winYMin = ryMin - (Math.max(...fry) - ryMin) * PAD;
+const sc = Math.min((W - 2 * MARGIN) / winW, (H - 2 * MARGIN) / winH);
+const ox = (W - winW * sc) / 2;
+const oy = (H - winH * sc) / 2;
+
+// (lon,lat) -> (x,y) の1アフィン: x=ax*(lon-lon0)+bx*(lat-lat0)+cx, y=ay*..+by*..+cy
+const ax = mLon * cs * sc;
+const bx = mLat * sn * sc;
+const cx = ox - winXMin * sc;
+const ay = mLon * sn * sc;
+const by = -mLat * cs * sc;
+const cy = (winYMin + winH) * sc + oy;
+
+const r1 = (v: number): number => Math.round(v * 10) / 10;
+const px = (lon: number, lat: number): [number, number] => [
+  r1(ax * (lon - lon0) + bx * (lat - lat0) + cx),
+  r1(ay * (lon - lon0) + by * (lat - lat0) + cy),
 ];
+
+const shapes: CampusShape[] = [];
+const buildings: Record<string, { x: number; y: number; w: number; h: number }> = {};
+for (const f of features) {
+  const ref = refOf(f);
+  const proj: [number, number][] = [];
+  let d = "";
+  for (const ring of f.geometry.coordinates) {
+    const pr = ring.map((c) => px(c[0], c[1]));
+    proj.push(...pr);
+    d +=
+      `M${pr[0][0]} ${pr[0][1]}` +
+      pr
+        .slice(1)
+        .map(([x, y]) => `L${x} ${y}`)
+        .join("") +
+      "Z";
+  }
+  shapes.push({ d, kind: kindOf(f), name: String(f.properties.name ?? ""), ref });
+  if (ref) {
+    const xs = proj.map((p) => p[0]);
+    const ys = proj.map((p) => p[1]);
+    const mnx = Math.min(...xs);
+    const mny = Math.min(...ys);
+    buildings[ref] = {
+      x: r1(mnx),
+      y: r1(mny),
+      w: r1(Math.max(...xs) - mnx),
+      h: r1(Math.max(...ys) - mny),
+    };
+  }
+}
+
+// エリア判定用 bbox(号館一帯の緯度経度 + 余白)。
+const clat = fitPts.map((p) => p[1]);
+const clon = fitPts.map((p) => p[0]);
+const bpadLa = (Math.max(...clat) - Math.min(...clat)) * PAD;
+const bpadLo = (Math.max(...clon) - Math.min(...clon)) * PAD;
+
+export const CAMPUS_GEO: CampusShape[] = shapes;
+export const CAMPUS_BUILDINGS: Record<string, { x: number; y: number; w: number; h: number }> =
+  buildings;
+export const CAMPUS_PROJECTION = { lon0, lat0, ax, bx, cx, ay, by, cy };
+export const CAMPUS_GEO_SIZE = { width: W, height: H };
+export const CAMPUS_GEO_BOUNDS = {
+  lat0: Math.max(...clat) + bpadLa,
+  lng0: Math.min(...clon) - bpadLo,
+  lat1: Math.min(...clat) - bpadLa,
+  lng1: Math.max(...clon) + bpadLo,
+};
