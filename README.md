@@ -17,6 +17,10 @@ docs/       企画書・技術文書・画面設計
 - ディレクトリ設計:[docs/01](./docs/01_directory-design.md) / 技術設計:[docs/02](./docs/02_technical-design.md) / 機能設計:[docs/05](./docs/05_feature-design.md) / 画面設計:[docs/design/](./docs/design/00_index.md)
 - **実装状況・プロトタイプ↔docsの差分・残課題:[docs/06_implementation-status.md](./docs/06_implementation-status.md)**
 
+## 開発への参加
+
+**Issue駆動開発**。作業は Issue から始める。フロー・ブランチ/コミット規約・Issue の書き方(担当・優先度・絵文字ルール)は [CONTRIBUTING.md](./CONTRIBUTING.md) と [docs/04](./docs/04_github-templates.md) を参照。AI(Claude Code 等)向けの運用ガイドは [CLAUDE.md](./CLAUDE.md)。
+
 ## 起動手順
 
 ### web(フロント)

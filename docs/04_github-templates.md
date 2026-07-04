@@ -52,25 +52,38 @@ GitHubのIssue Formは `.yml`。フォームで必須項目を強制でき、初
 
 ### `.github/ISSUE_TEMPLATE/task.yml`(通常の開発タスク・メイン)
 
+見出しは絵文字付きで固定し、実際の Issue(例:#4)と書式を揃える。優先度は `p0/p1/p2` を選ばせ、対応する `priority:*` ラベルは担当が付与する(→ [§5.5 Issue運用ルール](#55-issue運用ルール絵文字担当優先度))。
+
 ```yaml
 name: "🛠 タスク"
 description: 実装・調査などの作業タスク
 title: "[Task] "
 labels: ["task"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        タイトルは `<内容の絵文字> [Task] <日本語>`(例:`🔌 [Task] WebSocket 実配線`)にしてください。
   - type: textarea
     id: goal
     attributes:
-      label: ゴール
+      label: 🎯 ゴール
       description: このタスクで達成したいこと
     validations:
       required: true
   - type: textarea
     id: todo
     attributes:
-      label: やること(チェックリスト)
+      label: 🧩 やること(チェックリスト)
       value: |
         - [ ]
+  - type: textarea
+    id: done
+    attributes:
+      label: 🏁 完了条件
+      description: これが満たせたら完了(受け入れ条件)
+      value: |
+        - ✅
   - type: dropdown
     id: area
     attributes:
@@ -78,10 +91,17 @@ body:
       options: [web, server, docs, infra/CI]
     validations:
       required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      description: "p0=当日必須/ブロッカー, p1=高, p2=中(対応する priority:* ラベルは担当が付与)"
+      options: [p0, p1, p2]
   - type: textarea
     id: notes
     attributes:
-      label: 補足 / 関連ドキュメント
+      label: 📚 参考 / 補足
+      description: 関連ドキュメント・ファイルへのリンクなど
 ```
 
 ### `.github/ISSUE_TEMPLATE/bug_report.yml`
@@ -223,11 +243,41 @@ docs(dev): TTLの決定値を反映
 |---|---|
 | `task` / `bug` / `enhancement` | Issue種別(テンプレで自動付与) |
 | `web` / `server` / `infra` / `docs` | 対象領域 |
-| `good first issue` | 初心者が着手しやすいもの |
-| `priority:high` | 当日までに必須 |
-| `blocked` | 他タスク待ち |
+| `good first issue` | 🌱 難易度が低いもの(初心者が着手しやすい) |
+| `priority:p0` | 🔴 最優先:当日までに必須・ブロッカー |
+| `priority:p1` | 🟠 高:主要機能・優先着手 |
+| `priority:p2` | 🟡 中:余裕があれば・改善系 |
+| `blocked` | ⛔ 他タスク待ち |
 
+> ラベルの説明文には**絵文字を付ける**(既存に合わせる。例:`task` = 🛠 作業タスク、`web` = 💻 フロント、`server` = 🖥 バックエンド)。
+> 旧 `priority:high` は `priority:p0` に統合(新規は p0/p1/p2 を使う)。
 > ラベルは Issues → Labels から手動作成でよい。数が増えたら `.github/labels.yml` + label-syncアクションで管理(任意)。
+
+---
+
+## 5.5 Issue運用ルール(絵文字・担当・優先度)
+
+このプロジェクトは **Issue駆動開発**。作業は必ず Issue から始める(→ [CONTRIBUTING.md](../CONTRIBUTING.md))。書式は既存 Issue(#1〜#10)に合わせる。
+
+### 担当・難易度のトリアージ
+
+| 条件 | 担当 | ラベル |
+|---|---|---|
+| **干渉範囲が広い**(複数モジュールに波及)**または 2時間以上**かかりそう | **`@takuma-shishido` に割り当て** | 通常ラベルのみ |
+| 難易度が低く・影響が閉じている | 無担当(誰でも着手可) | **`good first issue`** を付与 |
+
+> 実績:`good first issue` = 建物/教室データ入力・pytest追加・ヘルスチェック・ロギング(#5〜#10)。`@takuma-shishido` = WS実配線・実位置取得・地図SVG実測・有効期限モデル統一(#1〜#4)。迷ったら重い側に寄せる。
+
+### 絵文字ルール
+
+- **タイトル**:`<内容を表す絵文字> [<種別>] <日本語>`。種別は `[Task]` / `[Bug]` / `[Feature]`。
+  - 例:`🔌 [Task] WebSocket 実配線` / `📍 [Task] 実位置取得の有効化` / `🗺️ [Task] 3エリアの実地理SVG化` / `🧪 [Task] pytest 追加`
+- **本文の見出しは絵文字付きで固定**:
+  - 🎯 **ゴール** — 達成したいこと
+  - 🧩 **やること** — `- [ ]` のチェックリスト
+  - 🏁 **完了条件** — ✅ で満たす受け入れ条件
+  - 📚 **参考** — 関連ドキュメント・ファイル
+- **ラベルの説明文**にも絵文字を付ける(上表・既存ラベル参照)。
 
 ---
 
@@ -285,7 +335,8 @@ updates:
 - [ ] `.github/CODEOWNERS` に初心者A/B/C の GitHub ハンドルを追記
 - [x] ルートに `CONTRIBUTING.md` を作成
 - [ ] リポジトリ設定:Squash mergeのみ許可 / head branch自動削除を有効化
-- [ ] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)
+- [x] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`blocked`)
+- [ ] 優先度ラベル `priority:p0` / `priority:p1` / `priority:p2` を作成し、旧 `priority:high` を p0 へ統合
 - [x] `config.yml` のチームチャットURLを実URLに差し替え(Discord)
 - [x] `.github/dependabot.yml` を作成
 - [ ] キックオフで全員にこのルール(ブランチ命名・PRフロー)を共有

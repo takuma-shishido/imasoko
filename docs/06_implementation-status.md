@@ -108,7 +108,8 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 - [x] ルート `CONTRIBUTING.md`
 - [ ] CODEOWNERS に初心者A/B/C の GitHub ハンドルを追記
 - [ ] リポジトリ設定:Squash merge のみ許可 / head branch 自動削除
-- [ ] ラベル作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`priority:high`/`blocked`)
+- [x] ラベル作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`blocked`/`priority:p0`/`priority:p1`/`priority:p2`)
+- [ ] 旧 `priority:high` を `priority:p0` へ統合(issue #1 の付け替え + 旧ラベル削除)
 
 ### 4.5 デプロイ
 - [x] `deploy/Dockerfile`(web ビルド → FastAPI 静的配信・1ワーカー)
