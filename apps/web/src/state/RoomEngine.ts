@@ -29,7 +29,7 @@ import {
 } from "@/lib/campusData";
 import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
-import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
+import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
@@ -172,7 +172,7 @@ export class RoomEngine {
       isHost: true,
       selfId: "",
       publicList: [],
-      name: "",
+      name: getName(), // 前回入力した表示名を初期値に(issue #22)
       joinB: "",
       joinF: "",
       permModal: false,
@@ -459,6 +459,8 @@ export class RoomEngine {
   };
   enterRoom(viewerOnly: boolean) {
     const s = this.state;
+    const n = s.name.trim();
+    if (n) saveName(n); // 参加時に表示名を保存し、次回の初期値にする(issue #22)
     // 位置送信スロットリング・初回測位フラグをリセット(issue #2)。
     this.lastPosSentAt = 0;
     this.lastSentPos = null;
@@ -870,7 +872,8 @@ export class RoomEngine {
 
   // ── settings ──
   shareUrl() {
-    return "https://imasoko.app/r/" + this.state.roomId;
+    // 実オリジンから生成(ハードコードの imasoko.app だと共有/再参加リンクが実環境で機能しない・issue #21)。
+    return location.origin + "/r/" + this.state.roomId;
   }
   copyLink = () => {
     const url = this.shareUrl();
@@ -1284,6 +1287,7 @@ export class RoomEngine {
     }));
 
     // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
+    // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
     const publicRooms = s.publicList
       .filter((r) => r.exp > s.now)
       .map((r) => {
@@ -1292,13 +1296,7 @@ export class RoomEngine {
           title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
           members: r.members,
           remaining: fmtShort(r.exp - s.now),
-          open: () => {
-            if (own) {
-              this.toast("自分のルームです");
-              return;
-            }
-            this.openPublicRoom(r);
-          },
+          open: () => this.openPublicRoom(r),
         };
       });
 
