@@ -1,8 +1,8 @@
-import { CAMPUS_GEO, CAMPUS_GEO_SIZE, type CampusShapeKind } from "@/lib/campusGeo";
+import { CAMPUS_GEO, CAMPUS_GEO_SIZE } from "@/lib/campusGeo";
 
-// 有明キャンパスの実地理マップ(data/キャンパス.json = OSM を投影・issue #3)。
-// 建物/土地の実フットプリントを描画する(旧・模式SVGを置換)。b1〜b6 の当たり判定とピンは別オーバーレイ。
-const STYLE: Record<CampusShapeKind, { fill: string; stroke: string }> = {
+// 有明キャンパスの実地理マップ(data/campus.geojson.json = OSM を実行時投影・issue #3)。
+// 建物/土地は面、道(footway 等)は線で描画する。b1〜b6 の当たり判定とピンは別オーバーレイ。
+const FILL: Record<"building" | "land" | "other", { fill: string; stroke: string }> = {
   building: { fill: "#e3e3e3", stroke: "#bcbcbc" },
   land: { fill: "#eef2ec", stroke: "#dde6d9" },
   other: { fill: "#f0f0f0", stroke: "#e4e4e4" },
@@ -19,7 +19,20 @@ export function CampusSvg() {
     >
       <rect width={width} height={height} fill="#f7f7f7" />
       {CAMPUS_GEO.map((s, i) => {
-        const c = STYLE[s.kind];
+        if (s.kind === "road") {
+          return (
+            <path
+              key={i}
+              d={s.d}
+              fill="none"
+              stroke="#dadada"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        }
+        const c = FILL[s.kind];
         return (
           <path
             key={i}

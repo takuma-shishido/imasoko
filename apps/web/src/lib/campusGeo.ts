@@ -1,10 +1,11 @@
 // data/campus.geojson.json(OSM/Overpass の GeoJSON)を実行時に投影して実地理マップを生成する(issue #3)。
 // build 時の baked SVG をやめ、GeoJSON を読み込み→回転・フィット→SVG パスをここで動的に組み立てる。
+// 建物/土地(Polygon・MultiPolygon)は面、道(LineString=footway 等)は線として描画する。
 // GPS 投影(coords.project)も同じアフィン CAMPUS_PROJECTION を使う。号館(b1〜b6)を大きく中心に配置する。
 
 import rawGeojson from "@/data/campus.geojson.json";
 
-export type CampusShapeKind = "building" | "land" | "other";
+export type CampusShapeKind = "building" | "land" | "road" | "other";
 export interface CampusShape {
   d: string;
   kind: CampusShapeKind;
@@ -15,7 +16,7 @@ export interface CampusShape {
 
 interface GeoFeature {
   properties: Record<string, unknown>;
-  geometry: { type: string; coordinates: number[][][] };
+  geometry: { type: string; coordinates: unknown };
 }
 
 const W = 800;
@@ -33,9 +34,16 @@ const BUILDING_WAYS: Record<string, string> = {
   "1031355647": "b6",
 };
 
-const features = (rawGeojson as unknown as { features: GeoFeature[] }).features.filter(
-  (f) => f.geometry.type === "Polygon"
-);
+const features = (rawGeojson as unknown as { features: GeoFeature[] }).features;
+
+// 面ジオメトリ(Polygon/MultiPolygon)を「ポリゴン(=リング配列)の配列」に正規化。
+const polygonsOf = (g: GeoFeature["geometry"]): number[][][][] => {
+  if (g.type === "Polygon") return [g.coordinates as number[][][]];
+  if (g.type === "MultiPolygon") return g.coordinates as number[][][][];
+  return [];
+};
+const lineOf = (g: GeoFeature["geometry"]): number[][] | null =>
+  g.type === "LineString" ? (g.coordinates as number[][]) : null;
 
 const refOf = (f: GeoFeature): string =>
   BUILDING_WAYS[String(f.properties["@id"] ?? "").replace("way/", "")] ?? "";
@@ -45,14 +53,17 @@ const kindOf = (f: GeoFeature): CampusShapeKind => {
   if (p.landuse || p.leisure || p.amenity) return "land";
   return "other";
 };
-const vertices = (fs: GeoFeature[]): [number, number][] => {
+const polyVertices = (fs: GeoFeature[]): [number, number][] => {
   const out: [number, number][] = [];
   for (const f of fs)
-    for (const ring of f.geometry.coordinates) for (const c of ring) out.push([c[0], c[1]]);
+    for (const poly of polygonsOf(f.geometry))
+      for (const ring of poly) for (const c of ring) out.push([c[0], c[1]]);
   return out;
 };
 
-const allPts = vertices(features);
+// 投影の基準は面ジオメトリ(建物/土地)のみで決める(道の線は基準に含めない)。
+const polyFeats = features.filter((f) => polygonsOf(f.geometry).length > 0);
+const allPts = polyVertices(polyFeats);
 const lon0 = allPts.reduce((s, p) => s + p[0], 0) / allPts.length;
 const lat0 = allPts.reduce((s, p) => s + p[1], 0) / allPts.length;
 const mLat = 111320;
@@ -60,16 +71,18 @@ const mLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
 
 // 建物エッジの主方向(mod 90°・長さ重み)→ 回転角(街区の傾きを打ち消す)。
 const hist: Record<number, number> = {};
-for (const f of features) {
+for (const f of polyFeats) {
   if (!f.properties.building) continue;
-  for (const ring of f.geometry.coordinates) {
-    for (let i = 0; i + 1 < ring.length; i++) {
-      const dx = (ring[i + 1][0] - ring[i][0]) * mLon;
-      const dy = (ring[i + 1][1] - ring[i][1]) * mLat;
-      const len = Math.hypot(dx, dy);
-      if (len < 1) continue;
-      const a = Math.round(((((Math.atan2(dy, dx) * 180) / Math.PI) % 90) + 90) % 90);
-      hist[a] = (hist[a] ?? 0) + len;
+  for (const poly of polygonsOf(f.geometry)) {
+    for (const ring of poly) {
+      for (let i = 0; i + 1 < ring.length; i++) {
+        const dx = (ring[i + 1][0] - ring[i][0]) * mLon;
+        const dy = (ring[i + 1][1] - ring[i][1]) * mLat;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) continue;
+        const a = Math.round(((((Math.atan2(dy, dx) * 180) / Math.PI) % 90) + 90) % 90);
+        hist[a] = (hist[a] ?? 0) + len;
+      }
     }
   }
 }
@@ -85,8 +98,8 @@ const rot = (lon: number, lat: number): [number, number] => {
 };
 
 // フィット窓は号館(b1〜b6)基準にして、キャンパスを大きく中心に置く。
-const campusFs = features.filter((f) => refOf(f) !== "");
-const fitPts = vertices(campusFs.length ? campusFs : features);
+const campusFs = polyFeats.filter((f) => refOf(f) !== "");
+const fitPts = polyVertices(campusFs.length ? campusFs : polyFeats);
 const frx = fitPts.map((p) => rot(p[0], p[1])[0]);
 const fry = fitPts.map((p) => rot(p[0], p[1])[1]);
 const rxMin = Math.min(...frx);
@@ -108,28 +121,40 @@ const by = -mLat * cs * sc;
 const cy = (winYMin + winH) * sc + oy;
 
 const r1 = (v: number): number => Math.round(v * 10) / 10;
-const px = (lon: number, lat: number): [number, number] => [
-  r1(ax * (lon - lon0) + bx * (lat - lat0) + cx),
-  r1(ay * (lon - lon0) + by * (lat - lat0) + cy),
+const px = (c: number[]): [number, number] => [
+  r1(ax * (c[0] - lon0) + bx * (c[1] - lat0) + cx),
+  r1(ay * (c[0] - lon0) + by * (c[1] - lat0) + cy),
 ];
+const pathOf = (ring: number[][], close: boolean): string => {
+  const pr = ring.map(px);
+  return (
+    `M${pr[0][0]} ${pr[0][1]}` +
+    pr
+      .slice(1)
+      .map(([x, y]) => `L${x} ${y}`)
+      .join("") +
+    (close ? "Z" : "")
+  );
+};
 
 const shapes: CampusShape[] = [];
 const buildings: Record<string, { x: number; y: number; w: number; h: number }> = {};
 for (const f of features) {
+  const line = lineOf(f.geometry);
+  if (line) {
+    if (line.length >= 2) shapes.push({ d: pathOf(line, false), kind: "road", name: "", ref: "" });
+    continue;
+  }
+  const polys = polygonsOf(f.geometry);
+  if (!polys.length) continue;
   const ref = refOf(f);
   const proj: [number, number][] = [];
   let d = "";
-  for (const ring of f.geometry.coordinates) {
-    const pr = ring.map((c) => px(c[0], c[1]));
-    proj.push(...pr);
-    d +=
-      `M${pr[0][0]} ${pr[0][1]}` +
-      pr
-        .slice(1)
-        .map(([x, y]) => `L${x} ${y}`)
-        .join("") +
-      "Z";
-  }
+  for (const poly of polys)
+    for (const ring of poly) {
+      d += pathOf(ring, true);
+      for (const c of ring) proj.push(px(c));
+    }
   shapes.push({ d, kind: kindOf(f), name: String(f.properties.name ?? ""), ref });
   if (ref) {
     const xs = proj.map((p) => p[0]);
