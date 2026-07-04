@@ -870,7 +870,8 @@ export class RoomEngine {
 
   // ── settings ──
   shareUrl() {
-    return "https://imasoko.app/r/" + this.state.roomId;
+    // 実オリジンから生成(ハードコードの imasoko.app だと共有/再参加リンクが実環境で機能しない・issue #21)。
+    return location.origin + "/r/" + this.state.roomId;
   }
   copyLink = () => {
     const url = this.shareUrl();
