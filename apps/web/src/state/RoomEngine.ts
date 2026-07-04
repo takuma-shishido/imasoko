@@ -25,9 +25,11 @@ import {
   roomFull,
   roomLookup,
 } from "@/lib/campusData";
-import { END_OFFSET, SIM_MOVING, SIM_WALK_SPEED } from "@/lib/constants";
+import { END_OFFSET } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
+import type { ClientMsg, ServerMsg } from "@/types/messages";
+import { meetingFromWire, meetingToWire, memberFromWire, suggestionsFromWire } from "@/lib/wire";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
@@ -43,18 +45,6 @@ interface PendingPin {
   x: number;
   y: number;
 }
-interface PathSeg {
-  a: AreaId;
-  x: number;
-  y: number;
-}
-interface Path {
-  seg: PathSeg[];
-  i: number;
-  loopFrom?: number;
-  mult?: number;
-}
-
 export interface State {
   screen: Screen;
   creating: boolean;
@@ -68,6 +58,8 @@ export interface State {
   roomTitle: string;
   visibility: Visibility;
   isHost: boolean;
+  /** 自分の member_id(room_state の self_id。未参加時は空。issue #1)。 */
+  selfId: string;
   /** 公開ルーム一覧(実サーバー /api/rooms/public 由来。issue #13)。 */
   publicList: DemoRoom[];
   name: string;
@@ -123,11 +115,11 @@ export class RoomEngine {
   private drag: { sx: number; sy: number; tx: number; ty: number; moved: boolean } | null = null;
   private sheetDrag: { sy: number; dy?: number } | null = null;
   private toastN = 0;
-  private simTimers: ReturnType<typeof setTimeout>[] = [];
-  private paths: Record<string, Path> = {};
   private clock: ReturnType<typeof setInterval> | null = null;
-  private mover: ReturnType<typeof setInterval> | null = null;
-  private config = { simMoving: SIM_MOVING, walkSpeed: SIM_WALK_SPEED };
+  // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
+  private socketSend: ((msg: ClientMsg) => void) | null = null;
+  // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
+  private ignoreMeetingEcho = false;
 
   constructor() {
     this.state = this.initialState();
@@ -165,6 +157,7 @@ export class RoomEngine {
       roomTitle: "",
       visibility: "private",
       isHost: true,
+      selfId: "",
       publicList: [],
       name: "",
       joinB: "",
@@ -214,7 +207,6 @@ export class RoomEngine {
       if (expiresAt && now >= expiresAt) {
         if (screen === "map") {
           this.setState({ now, screen: "ended", sheet: null, demoOpen: false });
-          this.stopSim();
           return;
         }
         if (screen === "join") {
@@ -224,12 +216,9 @@ export class RoomEngine {
       }
       this.setState({ now });
     }, 1000);
-    this.mover = setInterval(() => this.tickSim(), 500);
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
-    if (this.mover) clearInterval(this.mover);
-    this.stopSim();
   }
 
   // ── toast ──
@@ -239,148 +228,94 @@ export class RoomEngine {
     setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
   }
 
-  // ── simulation ──
-  stopSim() {
-    this.simTimers.forEach(clearTimeout);
-    this.simTimers = [];
-    this.paths = {};
+  // ── WebSocket 実配線(issue #1)──
+  // RoomContext(useRoomSocket)から送信関数を注入/解除する。
+  attachSocket(send: ((msg: ClientMsg) => void) | null) {
+    this.socketSend = send;
   }
-  private after(ms: number, fn: () => void) {
-    this.simTimers.push(setTimeout(fn, ms));
+  private send(msg: ClientMsg) {
+    this.socketSend?.(msg);
   }
-
-  startRoom() {
-    this.stopSim();
-    this.paths = {};
-    this.after(2500, () => {
-      this.addMember({ id: "yuta", name: "ゆうた", area: "campus", x: 258, y: 545 });
-      this.paths.yuta = {
-        seg: [
-          { a: "campus", x: 258, y: 545 },
-          { a: "campus", x: 258, y: 353 },
-          { a: "campus", x: 400, y: 353 },
-          { a: "campus", x: 400, y: 480 },
-          { a: "campus", x: 300, y: 490 },
-          { a: "campus", x: 258, y: 420 },
-        ],
-        i: 0,
-        loopFrom: 1,
-        mult: 1,
-      };
-      this.toast("ゆうたさんが参加しました");
-    });
-    this.after(6000, () => {
-      this.addMember({
-        id: "saki",
-        name: "さき",
-        area: "campus",
-        x: 200,
-        y: 120,
-        building: "b1",
-        floor: "3F",
-      });
-      this.toast("さきさんが参加しました(1号館3F)");
-    });
-    this.after(10000, () => {
-      this.addMember({ id: "mia", name: "みお", area: "station_1", x: 300, y: 260 });
-      this.paths.mia = {
-        seg: [
-          { a: "station_1", x: 300, y: 260 },
-          { a: "station_1", x: 160, y: 330 },
-          { a: "station_1", x: 60, y: 380 },
-          { a: "campus", x: 258, y: 628 },
-          { a: "campus", x: 258, y: 540 },
-          { a: "campus", x: 258, y: 410 },
-          { a: "campus", x: 296, y: 362 },
-        ],
-        i: 0,
-        mult: 1.5,
-      };
-      this.toast("みおさんが参加しました(国際展示場駅)");
-    });
-    this.after(16000, () => {
-      if (this.state.screen !== "map") return;
-      this.setState((s) => ({
-        suggestions: [
-          ...s.suggestions,
-          { id: "sg1", kind: "room", ref: "b1-305", note: "空いてた", by: "さき" },
-        ],
-      }));
-      this.toast("さきさんが空き教室を追加しました");
-    });
-  }
-
-  addMember(m: {
-    id: string;
-    name: string;
-    area: AreaId;
-    x: number;
-    y: number;
-    building?: string;
-    floor?: string;
-  }) {
-    if (this.state.screen !== "map") return;
-    const nm: Member = {
-      id: m.id,
-      name: m.name,
-      area: m.area,
-      x: m.x,
-      y: m.y,
-      building: m.building ?? null,
-      floor: m.floor ?? null,
-      viewer: false,
-      lost: false,
+  /** 接続時に送る join(名前・建物・階)。再接続時も useRoomSocket が再送する。 */
+  joinMessage(): ClientMsg {
+    const s = this.state;
+    return {
+      type: "join",
+      name: s.name.trim() || "あなた",
+      building_id: s.joinB || null,
+      floor: s.joinF || null,
     };
-    this.setState((s) => ({ members: [...s.members, nm] }));
   }
+  /** socket status を再接続バー表示に反映する。 */
+  setSocketStatus(status: "connecting" | "open" | "reconnecting" | "closed") {
+    const reconnecting = status === "reconnecting";
+    if (this.state.reconnecting !== reconnecting) this.setState({ reconnecting });
+  }
+  private nameOf = (memberId: string): string =>
+    this.state.members.find((m) => m.id === memberId)?.name ?? "誰か";
 
-  tickSim() {
-    if (this.state.screen !== "map") return;
-    if (this.config.simMoving === false) return;
-    const speed = this.config.walkSpeed;
-    let changed = false;
-    const members = this.state.members.map((m) => {
-      const p = this.paths && this.paths[m.id];
-      if (!p || m.lost) return m;
-      const next = p.seg[p.i + 1];
-      if (!next) {
-        if (p.loopFrom != null) {
-          p.i = p.loopFrom - 1;
-          return m;
+  // サーバー → クライアントの各メッセージを内部状態へ反映する(dev-docs §6)。
+  onServerMsg = (msg: ServerMsg) => {
+    switch (msg.type) {
+      case "room_state":
+        this.setState({
+          selfId: msg.self_id,
+          members: msg.members.map(memberFromWire),
+          meeting: meetingFromWire(msg.meeting_point),
+          expiresAt: Date.parse(msg.expires_at),
+        });
+        break;
+      case "member_joined": {
+        const nm = memberFromWire(msg.member);
+        this.setState((s) => ({
+          members: s.members.some((m) => m.id === nm.id)
+            ? s.members.map((m) => (m.id === nm.id ? nm : m))
+            : [...s.members, nm],
+        }));
+        if (nm.id !== this.state.selfId) this.toast(nm.name + "さんが参加しました");
+        break;
+      }
+      case "member_update": {
+        const nm = memberFromWire(msg.member);
+        this.setState((s) => ({ members: s.members.map((m) => (m.id === nm.id ? nm : m)) }));
+        break;
+      }
+      case "member_left": {
+        const left = this.state.members.find((m) => m.id === msg.id);
+        this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
+        if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
+        break;
+      }
+      case "meeting_point":
+        // 自分が設定した分は setMeeting で反映済み。その echo は 1 回だけ無視して
+        // ローカルの meeting(coords の note など)と meetingBy「あなた」を保持する。
+        if (this.ignoreMeetingEcho) {
+          this.ignoreMeetingEcho = false;
+          break;
         }
-        return m;
-      }
-      const nm = { ...m };
-      if (next.a !== m.area) {
-        nm.area = next.a;
-        nm.x = next.x;
-        nm.y = next.y;
-        p.i++;
-        changed = true;
-        if (m.id === "mia" && next.a === "campus") this.toast("みおさんがキャンパスに到着");
-        return nm;
-      }
-      const dx = next.x - m.x;
-      const dy = next.y - m.y;
-      const d = Math.hypot(dx, dy);
-      const step = speed * (p.mult || 1);
-      if (d <= step) {
-        nm.x = next.x;
-        nm.y = next.y;
-        p.i++;
-      } else {
-        nm.x = m.x + (dx / d) * step;
-        nm.y = m.y + (dy / d) * step;
-      }
-      changed = true;
-      return nm;
-    });
-    if (changed) this.setState({ members });
-  }
+        this.setState({
+          meeting: meetingFromWire(msg.point),
+          meetingBy: msg.point ? "メンバー" : "",
+        });
+        break;
+      case "place_suggestions":
+        this.setState({ suggestions: suggestionsFromWire(msg.items, this.nameOf) });
+        break;
+      case "room_full":
+        // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
+        this.setState({ screen: "full", sheet: null, demoOpen: false });
+        break;
+      case "room_expired":
+        // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
+        if (this.state.screen === "map")
+          this.setState({ screen: "ended", sheet: null, demoOpen: false });
+        else if (this.state.screen === "join") this.setState({ screen: "expired" });
+        break;
+    }
+  };
 
   // ── navigation ──
   goTop = () => {
-    this.stopSim();
     this.setState({ ...this.initialState(), publicList: this.state.publicList, now: Date.now() });
   };
   createRoom = () =>
@@ -405,7 +340,6 @@ export class RoomEngine {
         meet_at: new Date(meetAtMs).toISOString(),
       });
       saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
-      this.stopSim();
       this.setState({
         ...this.initialState(),
         now: Date.now(),
@@ -461,7 +395,6 @@ export class RoomEngine {
   }
   // 参加前の存在チェック(共有リンク/公開一覧クリック)。404→NotFound / 410→期限切れ(issue #13)。
   openRoomById = async (roomId: string, title = "") => {
-    this.stopSim();
     try {
       const res = await api.getRoom(roomId);
       const expiresAt = Date.parse(res.expires_at);
@@ -501,23 +434,15 @@ export class RoomEngine {
   };
   enterRoom(viewerOnly: boolean) {
     const s = this.state;
-    const self: Member = {
-      id: "self",
-      name: s.name.trim() || "あなた",
-      area: "campus",
-      x: 258,
-      y: 320,
-      building: s.joinB || null,
-      floor: s.joinF || null,
-      viewer: viewerOnly,
-      lost: false,
-    };
+    // 参加者は WebSocket 接続後の room_state 受信で初期化する(issue #1)。
+    // screen を map にすると RoomContext(useRoomSocket)が接続し、join を送信する。
     this.setState(
       {
         permModal: false,
         viewerOnly,
         screen: "map",
-        members: [self],
+        members: [],
+        selfId: "",
         area: "campus",
         selfB: s.joinB,
         selfF: s.joinF,
@@ -526,7 +451,6 @@ export class RoomEngine {
         requestAnimationFrame(() => this.fitArea());
       }
     );
-    this.startRoom();
     this.toast(s.isHost ? "ルームを作成しました。「共有」からURLを送りましょう" : "参加しました");
     if (viewerOnly) this.toast("閲覧のみで参加しています");
   }
@@ -645,7 +569,7 @@ export class RoomEngine {
   fabZoomIn = () => this.zoomBy(1.35);
   fabZoomOut = () => this.zoomBy(1 / 1.35);
   fabSelf = () => {
-    const self = this.state.members.find((m) => m.id === "self");
+    const self = this.state.members.find((m) => m.id === this.state.selfId);
     if (!self || self.viewer) {
       this.toast("位置情報を共有していません");
       return;
@@ -723,9 +647,10 @@ export class RoomEngine {
       selfB: b,
       selfF: f,
       members: s.members.map((m) =>
-        m.id === "self" ? { ...m, building: b || null, floor: f || null } : m
+        m.id === s.selfId ? { ...m, building: b || null, floor: f || null } : m
       ),
     }));
+    this.send({ type: "floor", building_id: b || null, floor: f || null });
     const bn = b ? bById(b)!.name : null;
     this.toast(
       bn ? "自分の場所を「" + bn + " " + f + "」にしました" : "自分の場所を屋外にしました"
@@ -754,6 +679,11 @@ export class RoomEngine {
       ],
       selRoom: null,
     }));
+    this.send({
+      type: "add_place_suggestion",
+      place: { type: "classroom", roomId: rid },
+      note: "",
+    });
     this.toast("空き教室の候補に追加しました");
   };
   spotMeet = () => {
@@ -764,10 +694,14 @@ export class RoomEngine {
   // ── meeting point ──
   setMeeting(point: MeetingPoint, by: string) {
     this.setState({ meeting: point, meetingBy: by });
+    if (this.socketSend) this.ignoreMeetingEcho = true; // 接続時のみ echo が返る
+    this.send({ type: "meeting_point", point: meetingToWire(point) });
     this.toast("集合場所を設定しました:" + this.meetingLabelOf(point));
   }
   clearMeeting = () => {
     this.setState({ meeting: null });
+    if (this.socketSend) this.ignoreMeetingEcho = true;
+    this.send({ type: "meeting_point", point: null });
     this.toast("集合場所を解除しました");
   };
   meetingLabelOf(pt: MeetingPoint | null): string {
@@ -852,6 +786,9 @@ export class RoomEngine {
       addNote: "",
       addRs: [],
     });
+    fresh.forEach((rid) =>
+      this.send({ type: "add_place_suggestion", place: { type: "classroom", roomId: rid }, note })
+    );
     this.toast(
       fresh.length + "件の空き教室を追加しました" + (dupN ? "(" + dupN + "件は追加済み)" : "")
     );
@@ -923,6 +860,7 @@ export class RoomEngine {
   tapLeave = () => this.setState({ leaveOpen: true, demoOpen: false });
   cancelLeave = () => this.setState({ leaveOpen: false });
   doLeave = () => {
+    this.send({ type: "leave" });
     this.toast("退出しました");
     this.goTop();
   };
@@ -954,7 +892,6 @@ export class RoomEngine {
       {
         label: "⏹ ルームを即終了(room_expired)",
         run: needRoom(() => {
-          this.stopSim();
           this.setState({ screen: "ended", sheet: null });
         }),
       },
@@ -968,7 +905,9 @@ export class RoomEngine {
         run: needRoom(() =>
           this.setState((s) => ({
             viewerOnly: !s.viewerOnly,
-            members: s.members.map((m) => (m.id === "self" ? { ...m, viewer: !s.viewerOnly } : m)),
+            members: s.members.map((m) =>
+              m.id === s.selfId ? { ...m, viewer: !s.viewerOnly } : m
+            ),
           }))
         ),
       },
@@ -985,21 +924,18 @@ export class RoomEngine {
       {
         label: "🈵 満員エラー画面",
         run: () => {
-          this.stopSim();
           this.setState({ screen: "full", sheet: null, demoOpen: false });
         },
       },
       {
         label: "⌛ 期限切れ画面(410 Gone)",
         run: () => {
-          this.stopSim();
           this.setState({ screen: "expired", sheet: null, demoOpen: false });
         },
       },
       {
         label: "❓ Not Found 画面(404)",
         run: () => {
-          this.stopSim();
           this.setState({ screen: "notfound", sheet: null, demoOpen: false });
         },
       },
@@ -1055,7 +991,7 @@ export class RoomEngine {
     for (const m of s.members) {
       if (m.viewer) continue;
       const pos = this.clampedPos(m, idxMap);
-      const self = m.id === "self";
+      const self = m.id === s.selfId;
       const isMeet = m.id === meetTargetId && !pos.out;
       const floorTag = m.building
         ? " ・ " + bById(m.building)!.name.replace("号館", "") + "号館" + m.floor
@@ -1090,15 +1026,15 @@ export class RoomEngine {
     }
 
     // member rows
-    const selfM = s.members.find((m) => m.id === "self");
+    const selfM = s.members.find((m) => m.id === s.selfId);
     const memberRows = s.members.map((m) => ({
       id: m.id,
       initial: (m.name || "?")[0],
-      avBg: m.id === "self" ? "#171717" : "#ffffff",
-      avFg: m.id === "self" ? "#ffffff" : "#171717",
-      avBd: m.id === "self" ? "#171717" : "#a1a1a1",
+      avBg: m.id === s.selfId ? "#171717" : "#ffffff",
+      avFg: m.id === s.selfId ? "#ffffff" : "#171717",
+      avBd: m.id === s.selfId ? "#171717" : "#a1a1a1",
       name: m.name,
-      tag: m.id === "self" ? (s.isHost ? "あなた ・ host" : "あなた") : "",
+      tag: m.id === s.selfId ? (s.isHost ? "あなた ・ host" : "あなた") : "",
       loc: this.locLabel(m),
       dist: this.distTo(m, mp),
       focus: () => {
@@ -1214,7 +1150,7 @@ export class RoomEngine {
     // meeting sheet
     const others = s.members;
     const memberChips = others.map((m) => ({
-      name: m.name + (m.id === "self" ? "(自分)" : ""),
+      name: m.name + (m.id === s.selfId ? "(自分)" : ""),
       bg: s.mtMember === m.id ? "#171717" : "#ffffff",
       fg: s.mtMember === m.id ? "#ffffff" : "#171717",
       bd: s.mtMember === m.id ? "#171717" : "#ebebeb",

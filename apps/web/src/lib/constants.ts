@@ -12,9 +12,5 @@ export const WS_RECONNECT_MAX_MS = 15000;
 // サーバーも同モデル(expires_at = meet_at + end_offset_seconds, apps/server/app/config.py)で一致。
 export const END_OFFSET = 3 * 3600000;
 
-// デモ用シミュレーション設定
-export const SIM_MOVING = true;
-export const SIM_WALK_SPEED = 2.6;
-
 // WSパス(docs/02 §3)
 export const WS_PATH = "/ws";
