@@ -61,3 +61,8 @@ export const saveHostToken = (roomId: string, token: string) =>
   localStorage.setItem(hostTokenKey(roomId), token);
 export const getHostToken = (roomId: string): string | null =>
   localStorage.getItem(hostTokenKey(roomId));
+
+// 表示名の端末ローカル保存(一度入れた名前を次回も使い回す・issue #22)。
+export const nameKey = "imasoko.name";
+export const saveName = (name: string) => localStorage.setItem(nameKey, name);
+export const getName = (): string => localStorage.getItem(nameKey) ?? "";
