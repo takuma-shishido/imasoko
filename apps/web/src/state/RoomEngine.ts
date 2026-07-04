@@ -1399,6 +1399,7 @@ export class RoomEngine {
       worldH: A.h,
       mapTransform: "translate(" + s.view.tx + "px," + s.view.ty + "px) scale(" + s.view.k + ")",
       invScale,
+      area: s.area,
       isCampusArea: s.area === "campus",
       isSt1: s.area === "station_1",
       isSt2: s.area === "station_2",

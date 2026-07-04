@@ -89,6 +89,29 @@ describe("campus 回転投影 (issue #3)", () => {
   });
 });
 
+describe("駅の実地理投影 (issue #3)", () => {
+  it("station_1 / station_2 も回転アフィンで project→unproject が往復する", () => {
+    for (const id of ["station_1", "station_2"] as const) {
+      const area = MAP_AREAS[id];
+      expect(area.matrix).toBeDefined();
+      const b = area.bounds;
+      const lat = (b.lat0 + b.lat1) / 2;
+      const lng = (b.lng0 + b.lng1) / 2;
+      const p = project(area, lat, lng);
+      const back = unproject(area, p.x, p.y);
+      expect(back.lat).toBeCloseTo(lat, 5);
+      expect(back.lng).toBeCloseTo(lng, 5);
+    }
+  });
+
+  it("3エリアの中心はそれぞれ自エリアに解決する(bbox 非重複)", () => {
+    for (const id of ["campus", "station_1", "station_2"] as const) {
+      const b = MAP_AREAS[id].bounds;
+      expect(resolveArea((b.lat0 + b.lat1) / 2, (b.lng0 + b.lng1) / 2)).toBe(id);
+    }
+  });
+});
+
 describe("clampToEdge — 範囲外の方向 (issue #3)", () => {
   it("右方向の点は右端に寄る", () => {
     const e = clampToEdge(400, 320, 2000, 320, 20, 20, 780, 620);
