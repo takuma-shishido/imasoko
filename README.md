@@ -23,6 +23,8 @@ docs/       企画書・技術文書・画面設計
 
 ## 起動手順
 
+> Mac での環境構築(Node.js 導入含む)を最初から追う場合は **[requirements.md](./requirements.md)** を参照。
+
 ### web(フロント)
 
 ```bash
