@@ -3,9 +3,12 @@ name: deploy
 # 任意:main への push で個人サーバーへ SSH デプロイ(docs/03 CD)。
 # Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY)が揃っている時だけ動き、無ければ無害にスキップ。
 
+# ⚠️ 一時無効化中: main への自動デプロイを止めています。
+# 再開するときは下の workflow_dispatch を push トリガーに戻してください。
+#   push:
+#     branches: [main]
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: deploy
