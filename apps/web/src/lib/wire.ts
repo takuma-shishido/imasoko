@@ -33,6 +33,8 @@ export function memberFromWire(m: MemberState): Member {
     floor: m.floor,
     viewer: !hasPos, // 位置未共有は閲覧のみ扱い(実位置取得は #2 で有効化)
     lost: loc.lost,
+    lat: m.lat,
+    lng: m.lng,
   };
 }
 

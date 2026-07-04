@@ -1,5 +1,6 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
 import type { CampusRes } from "@/types/messages";
+import { CAMPUS_BUILDINGS } from "./campusGeo";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
 // docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
@@ -105,7 +106,7 @@ export const BUILDINGS: Building[] = [
     id: "b2",
     name: "2号館",
     fl: "5F",
-    cap: "図書館・CLS",
+    cap: "図書館",
     x: 300,
     y: 200,
     w: 130,
@@ -133,19 +134,23 @@ export const BUILDINGS: Building[] = [
   },
 ];
 
-// 建物レイアウト(模式マップ上の配置・キャプション・表示順)の安定スナップショット。
-// データはサーバー由来に差し替えるが、x/y/w/h は #3 の模式SVGに紐づくためフロントが保持する(issue #14)。
+// 建物レイアウト(マップ上の配置・キャプション・表示順)の安定スナップショット。
+// 号館(b1〜b6)の x/y/w/h は実地図データ(campusGeo.ts の CAMPUS_BUILDINGS)由来で、
+// 実フットプリントに整列する(issue #3)。未対応の建物は campusData の模式値をフォールバック。
 type BuildingLayout = Pick<Building, "id" | "x" | "y" | "w" | "h" | "fl" | "cap" | "fs">;
-const BUILDING_LAYOUTS: BuildingLayout[] = BUILDINGS.map((b) => ({
-  id: b.id,
-  x: b.x,
-  y: b.y,
-  w: b.w,
-  h: b.h,
-  fl: b.fl,
-  cap: b.cap,
-  fs: b.fs,
-}));
+const BUILDING_LAYOUTS: BuildingLayout[] = BUILDINGS.map((b) => {
+  const geo = CAMPUS_BUILDINGS[b.id];
+  return {
+    id: b.id,
+    x: geo?.x ?? b.x,
+    y: geo?.y ?? b.y,
+    w: geo?.w ?? b.w,
+    h: geo?.h ?? b.h,
+    fl: b.fl,
+    cap: b.cap,
+    fs: b.fs,
+  };
+});
 
 /** GET /api/campus のレスポンス → 内部 Building[](データ=サーバー / レイアウト=フロント)。 */
 export function mergeCampus(res: CampusRes): Building[] {
@@ -202,14 +207,8 @@ export interface MapText {
 }
 
 export const MAP_TEXTS: Record<AreaId, MapText[]> = {
-  campus: [
-    { x: 258, y: 552, t: "正門", size: 12, w: 600, c: "#4d4d4d", a: "c" },
-    { x: 440, y: 388, t: "モニュメント門", size: 10, c: "#4d4d4d", a: "c" },
-    { x: 14, y: 16, t: "← 至 りんかい線 東京テレポート", size: 10, c: "#888888", a: "l" },
-    { x: 786, y: 16, t: "至 りんかい線 国際展示場 →", size: 10, c: "#888888", a: "r" },
-    { x: 262, y: 628, t: "↓ 至 ゆりかもめ 東京ビッグサイト", size: 10, c: "#888888", a: "l" },
-    { x: 778, y: 624, t: "N ↑", size: 11, c: "#888888", a: "r", mono: true },
-  ],
+  // キャンパスは実地理マップ(campusGeo)に置換したため、模式の注記(正門・東京ビッグサイト等)は表示しない(issue #3)。
+  campus: [],
   station_1: [
     { x: 18, y: 116, t: "りんかい線", size: 10, c: "#888888", a: "l", mono: true },
     { x: 300, y: 232, t: "国際展示場駅", size: 16, w: 600, c: "#171717", a: "c" },

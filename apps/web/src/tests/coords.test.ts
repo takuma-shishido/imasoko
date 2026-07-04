@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { project, projectClamped, resolveArea } from "@/lib/coords";
+import { clampToEdge, project, projectClamped, resolveArea, unproject } from "@/lib/coords";
 import { MAP_AREAS } from "@/lib/mapAreas";
+import { CAMPUS_GEO_BOUNDS } from "@/lib/campusGeo";
 import type { MapArea } from "@/types/campus";
 
 // docs/02 §6:既知の対応点で座標変換をテストする。
@@ -54,7 +55,8 @@ describe("projectClamped", () => {
 
 describe("resolveArea", () => {
   it("キャンパス矩形内の点は campus", () => {
-    expect(resolveArea(35.632, 139.794)).toBe("campus");
+    // 実測 bbox(campusGeo.ts)内の点(中心付近)
+    expect(resolveArea(35.6303, 139.7858)).toBe("campus");
   });
 
   it("テレポート矩形内の点は station_2", () => {
@@ -64,5 +66,39 @@ describe("resolveArea", () => {
 
   it("全エリア外は null", () => {
     expect(resolveArea(35.0, 139.0)).toBeNull();
+  });
+});
+
+describe("campus 回転投影 (issue #3)", () => {
+  it("project → unproject が元の緯度経度に戻る", () => {
+    const lat = 35.6303;
+    const lng = 139.7858;
+    const p = project(MAP_AREAS.campus, lat, lng);
+    const back = unproject(MAP_AREAS.campus, p.x, p.y);
+    expect(back.lat).toBeCloseTo(lat, 5);
+    expect(back.lng).toBeCloseTo(lng, 5);
+  });
+
+  it("bbox 内の点は 800x640 の範囲に投影される", () => {
+    const b = CAMPUS_GEO_BOUNDS;
+    const p = project(MAP_AREAS.campus, (b.lat0 + b.lat1) / 2, (b.lng0 + b.lng1) / 2);
+    expect(p.x).toBeGreaterThanOrEqual(0);
+    expect(p.x).toBeLessThanOrEqual(800);
+    expect(p.y).toBeGreaterThanOrEqual(0);
+    expect(p.y).toBeLessThanOrEqual(640);
+  });
+});
+
+describe("clampToEdge — 範囲外の方向 (issue #3)", () => {
+  it("右方向の点は右端に寄る", () => {
+    const e = clampToEdge(400, 320, 2000, 320, 20, 20, 780, 620);
+    expect(e.x).toBeCloseTo(780);
+    expect(e.y).toBeCloseTo(320);
+  });
+
+  it("斜め方向は方向(傾き)を保って端に乗る", () => {
+    const e = clampToEdge(400, 320, 1200, 1200, 0, 0, 800, 640);
+    expect(e.x === 800 || e.y === 640).toBe(true);
+    expect((e.y - 320) / (e.x - 400)).toBeCloseTo((1200 - 320) / (1200 - 400), 5);
   });
 });

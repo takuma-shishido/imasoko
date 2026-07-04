@@ -35,33 +35,33 @@ describe("RoomEngine geolocation (issue #2)", () => {
   it("実測位置で自分ピンを反映し(閲覧のみ→共有)、初回は position を送信する", () => {
     const { e, sent } = joinedEngine();
     expect(e.state.members.find((m) => m.id === "me")!.viewer).toBe(true);
-    e.onGeoPosition(35.632, 139.794, 8);
+    e.onGeoPosition(35.6303, 139.7858, 8);
     const me = e.state.members.find((m) => m.id === "me")!;
     expect(me.viewer).toBe(false);
     expect(me.area).toBe("campus");
     expect(me.lost).toBe(false);
-    expect(sent).toEqual([{ type: "position", lat: 35.632, lng: 139.794, accuracy: 8 }]);
+    expect(sent).toEqual([{ type: "position", lat: 35.6303, lng: 139.7858, accuracy: 8 }]);
   });
 
   it("2秒以内・5m未満は再送しない(throttle)", () => {
     vi.useFakeTimers();
     const { e, sent } = joinedEngine();
-    e.onGeoPosition(35.632, 139.794, 8); // 初回送信
+    e.onGeoPosition(35.6303, 139.7858, 8); // 初回送信
     expect(sent).toHaveLength(1);
     vi.advanceTimersByTime(500);
-    e.onGeoPosition(35.63201, 139.79401, 8); // ~1m・0.5s → 送らない
+    e.onGeoPosition(35.63031, 139.78581, 8); // ~1m・0.5s → 送らない
     expect(sent).toHaveLength(1);
   });
 
   it("2秒経過かつ5m以上移動で再送する", () => {
     vi.useFakeTimers();
     const { e, sent } = joinedEngine();
-    e.onGeoPosition(35.632, 139.794, 8);
+    e.onGeoPosition(35.6303, 139.7858, 8);
     expect(sent).toHaveLength(1);
     vi.advanceTimersByTime(2100);
-    e.onGeoPosition(35.6323, 139.794, 8); // ~33m・2.1s → 送る
+    e.onGeoPosition(35.6306, 139.7858, 8); // ~33m・2.1s → 送る
     expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ type: "position", lat: 35.6323 });
+    expect(sent[1]).toMatchObject({ type: "position", lat: 35.6306 });
   });
 
   it("許可拒否は閲覧のみモードにフォールバックする", () => {
