@@ -1,13 +1,21 @@
 import type { ReactNode } from "react";
+import type { AreaId, AreaProjection } from "@/types/campus";
 import { useRoom } from "@/state/RoomContext";
 import { CAMPUS_PROJECTION } from "@/lib/campusGeo";
+import { STATION1_PROJECTION } from "@/lib/station1Geo";
+import { STATION2_PROJECTION } from "@/lib/station2Geo";
 import { CampusSvg } from "./map/CampusSvg";
 import { Station1Svg } from "./map/Station1Svg";
 import { Station2Svg } from "./map/Station2Svg";
 
-// 実地図(campus)は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)。
+// 実地図は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)をエリア別に用意。
 // 北方向の画面ベクトルは (bx, by)。上向き矢印をこの角度だけ時計回りに回すと北を指す。
-const CAMPUS_NORTH_DEG = (Math.atan2(CAMPUS_PROJECTION.bx, -CAMPUS_PROJECTION.by) * 180) / Math.PI;
+const northDegOf = (p: AreaProjection): number => (Math.atan2(p.bx, -p.by) * 180) / Math.PI;
+const NORTH_DEG: Record<AreaId, number> = {
+  campus: northDegOf(CAMPUS_PROJECTION),
+  station_1: northDegOf(STATION1_PROJECTION),
+  station_2: northDegOf(STATION2_PROJECTION),
+};
 
 // 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装した模式版)。
 // SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
@@ -315,8 +323,8 @@ export function MapView() {
         </div>
       )}
 
-      {/* 方位コンパス(実地図は街区に合わせ回転しているため北を示す) */}
-      {v.isCampusArea && (
+      {/* 方位コンパス(実地図は街区に合わせ回転しているため北を示す。3エリア共通) */}
+      {v.screen === "map" && (
         <div
           data-nopan="1"
           style={{
@@ -339,7 +347,7 @@ export function MapView() {
             width="36"
             height="36"
             viewBox="-18 -18 36 36"
-            style={{ transform: `rotate(${CAMPUS_NORTH_DEG}deg)` }}
+            style={{ transform: `rotate(${NORTH_DEG[v.area]}deg)` }}
           >
             <path d="M0 -12 L4 1 L0 -2 L-4 1 Z" fill="#ee0000" />
             <path d="M0 -2 L4 1 L0 12 L-4 1 Z" fill="#c8c8c8" />
