@@ -30,6 +30,19 @@ export function unproject(area: MapArea, x: number, y: number): { lat: number; l
   return { lng: lng0 + u * (lng1 - lng0), lat: lat0 - v * (lat0 - lat1) };
 }
 
+/** 2点間のおおよその距離(m)。位置送信スロットリング(5m 判定)に使う。 */
+export function metersBetween(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000; // 地球半径(m)
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const meanLat = (((a.lat + b.lat) / 2) * Math.PI) / 180;
+  const x = dLng * Math.cos(meanLat);
+  return Math.sqrt(x * x + dLat * dLat) * R;
+}
+
 export interface ClampedProjected {
   x: number;
   y: number;

@@ -25,11 +25,18 @@ import {
   roomFull,
   roomLookup,
 } from "@/lib/campusData";
-import { END_OFFSET } from "@/lib/constants";
+import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
+import { metersBetween } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
-import { meetingFromWire, meetingToWire, memberFromWire, suggestionsFromWire } from "@/lib/wire";
+import {
+  locate,
+  meetingFromWire,
+  meetingToWire,
+  memberFromWire,
+  suggestionsFromWire,
+} from "@/lib/wire";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
@@ -120,6 +127,10 @@ export class RoomEngine {
   private socketSend: ((msg: ClientMsg) => void) | null = null;
   // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
   private ignoreMeetingEcho = false;
+  // 位置送信スロットリング(2秒 / 5m。issue #2)。
+  private lastPosSentAt = 0;
+  private lastSentPos: { lat: number; lng: number } | null = null;
+  private geoFirstFix = true; // 最初の測位でビューを現在エリアへ合わせる
 
   constructor() {
     this.state = this.initialState();
@@ -434,6 +445,10 @@ export class RoomEngine {
   };
   enterRoom(viewerOnly: boolean) {
     const s = this.state;
+    // 位置送信スロットリング・初回測位フラグをリセット(issue #2)。
+    this.lastPosSentAt = 0;
+    this.lastSentPos = null;
+    this.geoFirstFix = true;
     // 参加者は WebSocket 接続後の room_state 受信で初期化する(issue #1)。
     // screen を map にすると RoomContext(useRoomSocket)が接続し、join を送信する。
     this.setState(
@@ -454,8 +469,15 @@ export class RoomEngine {
     this.toast(s.isHost ? "ルームを作成しました。「共有」からURLを送りましょう" : "参加しました");
     if (viewerOnly) this.toast("閲覧のみで参加しています");
   }
-  permAllow = () => this.enterRoom(false);
-  permDeny = () => this.enterRoom(true);
+  // 参加中(map)の再共有は enterRoom で作り直さず viewerOnly を切り替えるだけ(issue #2)。
+  permAllow = () => {
+    if (this.state.screen === "map") this.setState({ permModal: false, viewerOnly: false });
+    else this.enterRoom(false);
+  };
+  permDeny = () => {
+    if (this.state.screen === "map") this.setState({ permModal: false, viewerOnly: true });
+    else this.enterRoom(true);
+  };
   joinViewer = () => {
     if (!this.state.name.trim()) {
       this.toast("表示名を入力してください");
@@ -464,6 +486,44 @@ export class RoomEngine {
     this.enterRoom(true);
   };
   sharePosAgain = () => this.setState({ permModal: true });
+
+  // ── geolocation(issue #2)──
+  // RoomContext(useGeolocation)から実測位置を受け取る。自分ピンを即時反映し、送信は throttle する。
+  onGeoPosition = (lat: number, lng: number, accuracy: number) => {
+    const loc = locate(lat, lng);
+    this.setState((s) => ({
+      members: s.members.map((m) =>
+        m.id === s.selfId
+          ? { ...m, area: loc.area, x: loc.x, y: loc.y, lost: loc.lost, viewer: false }
+          : m
+      ),
+    }));
+    // 最初の測位でビューを現在エリアへ合わせる(現在エリアの自動選択)。
+    if (this.geoFirstFix && !loc.lost) {
+      this.geoFirstFix = false;
+      if (loc.area !== this.state.area) this.setState({ area: loc.area }, () => this.fitArea());
+    }
+    // throttle:初回は即送信、以降は 2秒 かつ 前回送信位置から 5m 以上動いたら送る(docs/02 §2)。
+    const now = Date.now();
+    const first = this.lastSentPos === null;
+    const movedEnough =
+      !first && metersBetween(this.lastSentPos!, { lat, lng }) >= POSITION_MIN_MOVE_M;
+    if (first || (now - this.lastPosSentAt >= POSITION_THROTTLE_MS && movedEnough)) {
+      this.send({ type: "position", lat, lng, accuracy });
+      this.lastPosSentAt = now;
+      this.lastSentPos = { lat, lng };
+    }
+  };
+  // 許可拒否/非対応 → 閲覧のみモードへフォールバック。
+  onGeoDenied = (unsupported: boolean) => {
+    if (this.state.viewerOnly) return;
+    this.setState({ viewerOnly: true });
+    this.toast(
+      unsupported
+        ? "この端末では位置情報を取得できません。閲覧のみで表示します"
+        : "位置情報が許可されなかったため、閲覧のみで表示します"
+    );
+  };
 
   // ── map view ──
   fitArea() {

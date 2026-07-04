@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useSyncExternalStore } fr
 import type { ReactNode } from "react";
 import { RoomEngine, type RoomVals } from "./RoomEngine";
 import { useRoomSocket } from "@/hooks/useRoomSocket";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 const RoomCtx = createContext<RoomVals | null>(null);
 
@@ -35,6 +36,16 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     engine.setSocketStatus(status);
   }, [engine, status]);
+
+  // 実位置取得(issue #2):参加中かつ位置共有(閲覧のみでない)ときだけ watchPosition。
+  // 実測値は engine.onGeoPosition(自分ピン反映 + throttle 送信)へ。
+  const geoEnabled = inRoom && !engine.state.viewerOnly;
+  const geo = useGeolocation(geoEnabled, engine.onGeoPosition);
+  useEffect(() => {
+    if (geoEnabled && (geo.status === "denied" || geo.status === "unsupported")) {
+      engine.onGeoDenied(geo.status === "unsupported");
+    }
+  }, [engine, geoEnabled, geo.status]);
 
   const vals = engine.renderVals();
   return <RoomCtx.Provider value={vals}>{children}</RoomCtx.Provider>;
