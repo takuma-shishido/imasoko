@@ -84,6 +84,16 @@ export interface State {
 
 export type Patch = Partial<State> | ((s: State) => Partial<State>);
 
+/**
+ * 役割別コントローラ(engine/*Controller.ts)から見たエンジン本体(RoomEngine が実装)。
+ * コントローラは state の読み取りと setState / toast だけに依存し、互いを直接参照しない。
+ */
+export interface EngineCore {
+  readonly state: State;
+  setState(patch: Patch, cb?: () => void): void;
+  toast(msg: string): void;
+}
+
 export function initialState(): State {
   const now = Date.now();
   return {
