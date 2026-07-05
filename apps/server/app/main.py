@@ -31,17 +31,20 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="いまそこ", lifespan=lifespan)
 
+
 @app.get("/api/config")
 def get_config() -> dict:
     return {
         "end_offset_seconds": settings.end_offset_seconds,
         "max_name_length": settings.max_name_length,
-        "max_members_per_room": settings.max_members_per_room
+        "max_members_per_room": settings.max_members_per_room,
     }
+
 
 @app.get("/api/health")
 def get_health() -> dict:
     return {"status": "ok"}
+
 
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
 @app.post("/api/rooms", response_model=CreateRoomRes)
@@ -76,7 +79,12 @@ def room_status(room_id: str) -> dict:
         raise HTTPException(status_code=404, detail="not found")
     if rooms.is_expired(room):
         raise HTTPException(status_code=410, detail="gone")
-    return {"status": "active", "expires_at": room.expires_at.isoformat()}
+    # 退出→再参加で UI が公開範囲を復元できるよう visibility も返す(issue #35)。
+    return {
+        "status": "active",
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
 
 
 @app.patch("/api/rooms/{room_id}/visibility")

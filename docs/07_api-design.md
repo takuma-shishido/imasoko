@@ -85,8 +85,10 @@ curl -X POST http://localhost:8000/api/rooms \
 **レスポンス `200`**
 
 ```json
-{ "status": "active", "expires_at": "2026-07-04T03:42:20.614529+00:00" }
+{ "status": "active", "expires_at": "2026-07-04T03:42:20.614529+00:00", "visibility": "public" }
 ```
+
+- `visibility`(`private` / `public`):ルームの公開範囲。退出→公開一覧から再参加した際に、クライアントがサーバー保持値から公開範囲を復元するために返す(issue #35)。
 
 **エラー**
 
@@ -99,7 +101,7 @@ curl -X POST http://localhost:8000/api/rooms \
 
 ```bash
 curl -i http://localhost:8000/api/rooms/XV1G7Y-_rDI
-# HTTP/1.1 200 OK … {"status":"active","expires_at":"…"}
+# HTTP/1.1 200 OK … {"status":"active","expires_at":"…","visibility":"private"}
 
 curl -i http://localhost:8000/api/rooms/unknown
 # HTTP/1.1 404 Not Found … {"detail":"not found"}

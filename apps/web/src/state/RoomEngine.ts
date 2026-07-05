@@ -443,6 +443,7 @@ export class RoomEngine {
         roomId,
         roomTitle: title,
         isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
+        visibility: res.visibility, // 公開範囲をサーバー実値から復元(public→退出→再参加で private に戻る不具合。issue #35)
         meetAt: expiresAt - serverConfig.endOffsetMs,
         expiresAt,
       });
