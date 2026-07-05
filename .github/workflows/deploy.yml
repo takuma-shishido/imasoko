@@ -50,3 +50,6 @@ jobs:
             git checkout ${BRANCH}
             git pull --ff-only origin ${BRANCH}
             APP_PORT=${APP_PORT} docker compose -p ${PROJECT} -f deploy/docker-compose.yml up -d --build
+      - name: Notice — Secrets 未登録でスキップ
+        if: ${{ secrets.DEPLOY_HOST == '' }}
+        run: echo "::warning::DEPLOY_HOST 未登録のためデプロイをスキップしました(docs/03 の Secrets 登録を参照)"
