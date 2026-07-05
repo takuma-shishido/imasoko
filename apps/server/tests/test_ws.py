@@ -5,6 +5,8 @@ from app.main import app
 
 client = TestClient(app)
 
+# 満員(room_full)の分岐は #7 に委譲するため、本ファイルでは扱わない。
+
 
 def test_ws_join_state_and_position():
     rooms_mod.clear()
@@ -71,3 +73,94 @@ def test_ws_member_left_clears_stale_member_meeting_point():
 
     # 集合先のあき本人が退出 → 解除される(再参加者に stale な追従が渡らない)
     assert rooms_mod.get_room(rid).meeting_point is None
+
+
+def test_ws_floor_updates_member_and_broadcasts():
+    """floor 送信 → member の building_id / floor が更新され member_update が流れる。"""
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+
+    with client.websocket_connect(f"/ws/{rid}") as ws:
+        ws.send_json({"type": "join", "name": "ふみ", "building_id": None, "floor": None})
+        ws.receive_json()  # room_state
+
+        ws.send_json({"type": "floor", "building_id": "B1", "floor": "3"})
+        upd = ws.receive_json()
+        assert upd["type"] == "member_update"
+        assert upd["member"]["building_id"] == "B1"
+        assert upd["member"]["floor"] == "3"
+        assert rooms_mod.get_room(rid).members[upd["member"]["id"]].floor == "3"
+
+
+def test_ws_add_place_suggestion_broadcasts_and_dedups():
+    """add_place_suggestion → place_suggestions を broadcast。同一 place の重複追加は拒否(#86)。"""
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+    place = {"type": "classroom", "roomId": "R101"}
+
+    with client.websocket_connect(f"/ws/{rid}") as ws:
+        ws.send_json({"type": "join", "name": "けい", "building_id": None, "floor": None})
+        ws.receive_json()  # room_state
+
+        # 初回追加 → place_suggestions が broadcast される
+        ws.send_json({"type": "add_place_suggestion", "place": place, "note": "ここ集合"})
+        res = ws.receive_json()
+        assert res["type"] == "place_suggestions"
+        assert len(res["items"]) == 1
+        assert res["items"][0]["place"] == place
+        assert res["items"][0]["note"] == "ここ集合"
+
+        # 同一 place の重複追加は拒否され broadcast されない(#86)。
+        # 拒否を確認するため続けて floor を送り、次の受信が place_suggestions ではなく
+        # member_update であること(=重複の broadcast が挟まらない)を見る。
+        ws.send_json({"type": "add_place_suggestion", "place": place, "note": "重複"})
+        ws.send_json({"type": "floor", "building_id": None, "floor": "2"})
+        nxt = ws.receive_json()
+        assert nxt["type"] == "member_update"
+        assert len(rooms_mod.get_room(rid).place_suggestions) == 1
+
+
+def test_ws_leave_broadcasts_member_left_and_removes_member():
+    """leave 送信 → member_left が broadcast され、ルームから当該 member が除去される。"""
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+
+    with client.websocket_connect(f"/ws/{rid}") as ws_a:
+        ws_a.send_json({"type": "join", "name": "あお", "building_id": None, "floor": None})
+        ws_a.receive_json()  # room_state
+
+        with client.websocket_connect(f"/ws/{rid}") as ws_b:
+            ws_b.send_json({"type": "join", "name": "みどり", "building_id": None, "floor": None})
+            b_id = ws_b.receive_json()["self_id"]  # room_state
+            ws_a.receive_json()  # member_joined
+            assert len(rooms_mod.get_room(rid).members) == 2
+
+            # みどりが leave → member_left が他メンバーへ broadcast される
+            ws_b.send_json({"type": "leave"})
+            left = ws_a.receive_json()
+            assert left["type"] == "member_left"
+            assert left["id"] == b_id
+
+        # leave した member はルームから除去されている
+        assert b_id not in rooms_mod.get_room(rid).members
+        assert len(rooms_mod.get_room(rid).members) == 1
+
+
+def test_ws_invalid_message_is_ignored_and_connection_survives():
+    """未知 type / 不正 payload は無視され、接続は落ちない(docs/02 §5)。"""
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+
+    with client.websocket_connect(f"/ws/{rid}") as ws:
+        ws.send_json({"type": "join", "name": "そら", "building_id": None, "floor": None})
+        ws.receive_json()  # room_state
+
+        # 未知 type と不正 payload(lat 範囲外)はどちらも parse で弾かれ、無視される
+        ws.send_json({"type": "totally_unknown", "foo": 1})
+        ws.send_json({"type": "position", "lat": 999, "lng": 0})
+
+        # 直後に正常な position を送ると member_update が返る = 接続が生きている
+        ws.send_json({"type": "position", "lat": 35.0, "lng": 139.0})
+        upd = ws.receive_json()
+        assert upd["type"] == "member_update"
+        assert upd["member"]["lat"] == 35.0
