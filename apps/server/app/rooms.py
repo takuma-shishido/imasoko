@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .config import settings
+from .models import MsgType
 
 
 class RoomError(ValueError):
@@ -59,6 +60,50 @@ class Room:
     members: dict[str, Member] = field(default_factory=dict)
     meeting_point: Optional[dict] = None
     place_suggestions: list[dict] = field(default_factory=list)
+
+
+# ── serialize(散在していた isoformat / dict 手組みを集約)──────────
+# 送出 JSON(キー・値・型)は従来と厳密一致。member 表現は Member.to_dict() を単一の真実とし、
+# room_state / member_joined / member_update すべてで共有する。
+def create_room_wire(room: Room) -> dict:
+    """POST /api/rooms のレスポンス(CreateRoomRes 相当)。"""
+    return {
+        "room_id": room.room_id,
+        "host_token": room.host_token,
+        "meet_at": room.meet_at.isoformat(),
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
+
+
+def public_room_wire(room: Room) -> dict:
+    """GET /api/rooms/public の1件。"""
+    return {
+        "room_id": room.room_id,
+        "title": room.title or "無名のルーム",
+        "members": len(room.members),
+        "expires_at": room.expires_at.isoformat(),
+    }
+
+
+def room_status_wire(room: Room) -> dict:
+    """GET /api/rooms/{room_id} の active レスポンス(issue #35)。"""
+    return {
+        "status": "active",
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
+
+
+def room_state_payload(room: Room, self_id: str) -> dict:
+    """WS 接続直後に本人へ送る room_state(dev-docs §6)。"""
+    return {
+        "type": MsgType.ROOM_STATE,
+        "self_id": self_id,
+        "members": [m.to_dict() for m in room.members.values()],
+        "meeting_point": room.meeting_point,
+        "expires_at": room.expires_at.isoformat(),
+    }
 
 
 _rooms: dict[str, Room] = {}
