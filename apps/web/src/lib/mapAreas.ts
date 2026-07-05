@@ -12,7 +12,7 @@ export const AREAS: Record<AreaId, AreaDef> = {
 };
 
 // 上部エリア切替の並び順(docs/05 §1)。
-export const AREA_ORDER: AreaId[] = ["station_1", "station_2", "campus"];
+export const AREA_ORDER: AreaId[] = ["station_2", "campus", "station_1"];
 
 // docs/dev-docs §7:実測キャリブレーション2点(北西角/南東角)。
 // campus は data/キャンパス.json(OSM)の実 bbox(campusGeo.ts で生成)。駅2つは実測待ちのプレースホルダ。
