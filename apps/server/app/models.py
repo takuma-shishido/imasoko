@@ -6,7 +6,7 @@ dev-docs §5/§6 + docs/05 §6 を単一の真実として、web(apps/web/src/ty
 
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -74,32 +74,32 @@ class PlaceSuggestion(BaseModel):
 class JoinMsg(BaseModel):
     type: Literal["join"]
     name: str = Field(min_length=1, max_length=20)
-    building_id: Optional[str] = None
-    floor: Optional[str] = None
+    building_id: str | None = None
+    floor: str | None = None
 
 
 class PositionMsg(BaseModel):
     type: Literal["position"]
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
-    accuracy: Optional[float] = None
+    accuracy: float | None = None
 
 
 class FloorMsg(BaseModel):
     type: Literal["floor"]
-    building_id: Optional[str] = None
-    floor: Optional[str] = None
+    building_id: str | None = None
+    floor: str | None = None
 
 
 class MeetingPointMsg(BaseModel):
     type: Literal["meeting_point"]
-    point: Optional[MeetingPoint] = None
+    point: MeetingPoint | None = None
 
 
 class AddPlaceSuggestionMsg(BaseModel):
     type: Literal["add_place_suggestion"]
     place: PlaceRef
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class LeaveMsg(BaseModel):
@@ -114,10 +114,10 @@ ClientMsg = Annotated[
 
 # ── REST ────────────────────────────────────────────────
 class CreateRoomReq(BaseModel):
-    title: Optional[str] = None
+    title: str | None = None
     visibility: Visibility = "private"
     # 集合時間(ISO 8601)。未指定なら作成時刻を集合時間とみなす(issue #4)
-    meet_at: Optional[datetime] = None
+    meet_at: datetime | None = None
 
 
 class CreateRoomRes(BaseModel):
@@ -130,7 +130,7 @@ class CreateRoomRes(BaseModel):
 
 class VisibilityReq(BaseModel):
     visibility: Visibility
-    title: Optional[str] = None
+    title: str | None = None
 
 
 # ── server → client メッセージ(手組み生 dict を型付きに置換・web の messages.ts と対応)──
@@ -142,7 +142,7 @@ class RoomStateMsg(BaseModel):
     type: MsgType = MsgType.ROOM_STATE
     self_id: str
     members: list[dict]
-    meeting_point: Optional[MeetingPoint] = None
+    meeting_point: MeetingPoint | None = None
     expires_at: str
 
 
@@ -163,7 +163,7 @@ class MemberLeftMsg(BaseModel):
 
 class MeetingPointBroadcastMsg(BaseModel):
     type: MsgType = MsgType.MEETING_POINT
-    point: Optional[MeetingPoint] = None
+    point: MeetingPoint | None = None
 
 
 class PlaceSuggestionsMsg(BaseModel):

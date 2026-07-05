@@ -7,7 +7,6 @@
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from .config import settings
 from .models import MeetingPoint, PlaceSuggestion, RoomStateMsg
@@ -30,10 +29,10 @@ def _as_utc(dt: datetime) -> datetime:
 class Member:
     id: str
     name: str
-    building_id: Optional[str] = None
-    floor: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    building_id: str | None = None
+    floor: str | None = None
+    lat: float | None = None
+    lng: float | None = None
     updated_at: datetime = field(default_factory=now)
 
     def to_dict(self) -> dict:
@@ -58,7 +57,7 @@ class Room:
     meet_at: datetime  # 集合時間(有効期限の起点・issue #4)
     expires_at: datetime
     members: dict[str, Member] = field(default_factory=dict)
-    meeting_point: Optional[MeetingPoint] = None
+    meeting_point: MeetingPoint | None = None
     place_suggestions: list[PlaceSuggestion] = field(default_factory=list)
 
 
@@ -109,7 +108,7 @@ _rooms: dict[str, Room] = {}
 
 
 def create_room(
-    title: str = "", visibility: str = "private", meet_at: Optional[datetime] = None
+    title: str = "", visibility: str = "private", meet_at: datetime | None = None
 ) -> Room:
     room_id = secrets.token_urlsafe(settings.room_id_bytes)
     host_token = secrets.token_urlsafe(settings.host_token_bytes)
@@ -131,7 +130,7 @@ def create_room(
     return room
 
 
-def get_room(room_id: str) -> Optional[Room]:
+def get_room(room_id: str) -> Room | None:
     return _rooms.get(room_id)
 
 
@@ -154,7 +153,7 @@ def all_rooms() -> list[Room]:
     return list(_rooms.values())
 
 
-def set_visibility(room: Room, visibility: str, title: Optional[str]) -> None:
+def set_visibility(room: Room, visibility: str, title: str | None) -> None:
     room.visibility = visibility
     if title is not None:
         room.title = title
