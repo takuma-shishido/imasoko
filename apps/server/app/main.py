@@ -39,6 +39,10 @@ def get_config() -> dict:
         "max_members_per_room": settings.max_members_per_room
     }
 
+@app.get("/api/health")
+def get_health() -> dict:
+    return {"status": "ok"}
+
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
 @app.post("/api/rooms", response_model=CreateRoomRes)
 def create_room(req: CreateRoomReq) -> CreateRoomRes:
