@@ -51,6 +51,15 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
+        already_exists = False
+        for item in room.place_suggestions:
+            if item["place"].get("roomId") == msg.place.roomId:
+                already_exists = True
+                break
+
+        if already_exists:
+            return True
+
         room.place_suggestions.append(
             {
                 "id": uuid.uuid4().hex[:8],
