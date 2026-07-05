@@ -9,7 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .. import handlers, rooms
 from ..config import settings
-from ..models import JoinMsg
+from ..models import JoinMsg, MsgType
 from ..rooms import Member
 from ..ws import manager
 
@@ -21,7 +21,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     await ws.accept()
     room = rooms.get_room(room_id)
     if room is None or rooms.is_expired(room):
-        await ws.send_json({"type": "room_expired"})
+        await ws.send_json({"type": MsgType.ROOM_EXPIRED})
         await ws.close()
         return
 
@@ -36,7 +36,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
         await ws.close()
         return
     if len(room.members) >= settings.max_members_per_room:
-        await ws.send_json({"type": "room_full"})
+        await ws.send_json({"type": MsgType.ROOM_FULL})
         await ws.close()
         return
 
@@ -47,7 +47,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
 
     await ws.send_json(
         {
-            "type": "room_state",
+            "type": MsgType.ROOM_STATE,
             "self_id": member_id,
             "members": [m.to_dict() for m in room.members.values()],
             "meeting_point": room.meeting_point,
@@ -55,7 +55,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
         }
     )
     await manager.broadcast(
-        room_id, {"type": "member_joined", "member": member.to_dict()}, exclude=member_id
+        room_id, {"type": MsgType.MEMBER_JOINED, "member": member.to_dict()}, exclude=member_id
     )
 
     try:
@@ -81,4 +81,4 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
         mp = room.meeting_point
         if mp and mp.get("kind") == "member" and mp.get("memberId") == member_id:
             room.meeting_point = None
-        await manager.broadcast(room_id, {"type": "member_left", "id": member_id})
+        await manager.broadcast(room_id, {"type": MsgType.MEMBER_LEFT, "id": member_id})
