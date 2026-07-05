@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { Modal } from "../ui/Modal";
+import { DialogButton } from "../ui/DialogButton";
 import { COLORS } from "@/lib/theme";
 
 // 位置情報許可ダイアログ(デモ)。許可=位置共有 / 拒否=閲覧のみ(docs/02 §5)。
@@ -29,40 +30,12 @@ export function PermModal() {
         許可すると、あなたの現在地がこのルームの参加者に共有されます。
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          onClick={v.permDeny}
-          className="hv-border"
-          style={{
-            flex: 1,
-            height: 38,
-            borderRadius: 9999,
-            border: `1px solid ${COLORS.BORDER}`,
-            background: COLORS.WHITE,
-            color: COLORS.INK,
-            fontSize: 13,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        <DialogButton variant="secondary" onClick={v.permDeny}>
           拒否
-        </button>
-        <button
-          onClick={v.permAllow}
-          style={{
-            flex: 1,
-            height: 38,
-            borderRadius: 9999,
-            border: 0,
-            background: COLORS.INK,
-            color: COLORS.WHITE,
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        </DialogButton>
+        <DialogButton variant="primary" onClick={v.permAllow}>
           許可
-        </button>
+        </DialogButton>
       </div>
     </Modal>
   );

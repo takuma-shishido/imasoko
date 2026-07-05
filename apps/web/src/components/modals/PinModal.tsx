@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { Modal } from "../ui/Modal";
+import { DialogButton } from "../ui/DialogButton";
 import { COLORS } from "@/lib/theme";
 
 // 地図タップ地点を集合場所にするモーダル(任意メモ付き)。
@@ -40,40 +41,12 @@ export function PinModal() {
         }}
       />
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          onClick={v.cancelPin}
-          className="hv-border"
-          style={{
-            flex: 1,
-            height: 38,
-            borderRadius: 9999,
-            border: `1px solid ${COLORS.BORDER}`,
-            background: COLORS.WHITE,
-            color: COLORS.INK,
-            fontSize: 13,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        <DialogButton variant="secondary" onClick={v.cancelPin}>
           キャンセル
-        </button>
-        <button
-          onClick={v.confirmPin}
-          style={{
-            flex: 1.4,
-            height: 38,
-            borderRadius: 9999,
-            border: 0,
-            background: COLORS.INK,
-            color: COLORS.WHITE,
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        </DialogButton>
+        <DialogButton variant="primary" flex={1.4} onClick={v.confirmPin}>
           ここに集合
-        </button>
+        </DialogButton>
       </div>
     </Modal>
   );
