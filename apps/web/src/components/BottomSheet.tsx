@@ -46,20 +46,25 @@ export function BottomSheet({
           animation: "ims-sheet-in .22s cubic-bezier(.3,.8,.4,1)",
         }}
       >
+        {/* ハンドル帯:携帯で下ドラッグして閉じる領域。タッチのヒット領域を 44px 確保する
+            (従来 ~22px は小さすぎて指で掴めず閉じられなかった。issue #71)。
+            touchAction:"none" で本文スクロールと競合させない。 */}
         <div
           onPointerDown={onHandleDown}
           onPointerMove={onHandleMove}
           onPointerUp={onHandleUp}
           style={{
-            padding: "10px 0 8px",
+            minHeight: 44,
+            paddingTop: 10,
             display: "flex",
+            alignItems: "flex-start",
             justifyContent: "center",
             cursor: "grab",
             touchAction: "none",
             flex: "none",
           }}
         >
-          <div style={{ width: 38, height: 4, borderRadius: 9999, background: "#d9d9d9" }} />
+          <div style={{ width: 40, height: 5, borderRadius: 9999, background: "#d9d9d9" }} />
         </div>
         <div style={{ overflowY: "auto", padding: "0 20px 24px", minHeight: 0 }}>{children}</div>
       </div>

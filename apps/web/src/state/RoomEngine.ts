@@ -124,7 +124,7 @@ export class RoomEngine {
 
   private listeners = new Set<() => void>();
   private drag: { sx: number; sy: number; tx: number; ty: number; moved: boolean } | null = null;
-  private sheetDrag: { sy: number; dy?: number } | null = null;
+  private sheetDrag: { sy: number; t0: number; dy?: number } | null = null;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
@@ -692,7 +692,7 @@ export class RoomEngine {
   closeSheet = () => this.setState({ sheet: null, selRoom: null, addOpen: false });
   hDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-    this.sheetDrag = { sy: e.clientY };
+    this.sheetDrag = { sy: e.clientY, t0: Date.now() };
   };
   hMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!this.sheetDrag) return;
@@ -704,7 +704,12 @@ export class RoomEngine {
     const d = this.sheetDrag;
     this.sheetDrag = null;
     if (this.sheetRef.current) this.sheetRef.current.style.transform = "";
-    if (d && d.dy && d.dy > 70) this.closeSheet();
+    if (!d || !d.dy) return;
+    // 距離(70px 超)で閉じる。加えて携帯での素早いフリック(短距離でも速い下ドラッグ)でも
+    // 閉じられるようにする(しきい値だけだと携帯でハンドルを掴んで軽く下ろしても閉じにくい。issue #71)。
+    const dt = Math.max(1, Date.now() - d.t0);
+    const velocity = d.dy / dt; // px/ms
+    if (d.dy > 70 || (d.dy > 24 && velocity > 0.5)) this.closeSheet();
   };
   openMembers = () => this.openSheet("members");
   openMeeting = () => this.openSheet("meeting");
