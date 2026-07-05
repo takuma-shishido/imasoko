@@ -49,7 +49,10 @@ def get_health() -> dict:
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
 @app.post("/api/rooms", response_model=CreateRoomRes)
 def create_room(req: CreateRoomReq) -> CreateRoomRes:
-    room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
+    try:
+        room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
+    except rooms.RoomError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return CreateRoomRes(
         room_id=room.room_id,
         host_token=room.host_token,
