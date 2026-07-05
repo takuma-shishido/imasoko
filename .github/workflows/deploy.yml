@@ -1,32 +1,52 @@
 name: deploy
 
-# 任意:main への push で個人サーバーへ SSH デプロイ(docs/03 CD)。
+# develop / main の push を、それぞれ dev(検証)/ 本番 の2環境へ SSH デプロイ(docs/03 CD・issue #40)。
+#   develop → imasoko-dev.reimpl.com(dir ~/imasoko-dev / -p imasoko-dev / port 8001)
+#   main    → imasoko.reimpl.com     (dir ~/imasoko     / -p imasoko     / port 8000)
 # Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY)が揃っている時だけ動き、無ければ無害にスキップ。
 
-# ⚠️ 一時無効化中: main への自動デプロイを止めています。
-# 再開するときは下の workflow_dispatch を push トリガーに戻してください。
-#   push:
-#     branches: [main]
 on:
-  workflow_dispatch:
+  push:
+    branches: [main, develop]
 
 concurrency:
-  group: deploy
+  # ブランチ別グループ。dev/本番のデプロイが互いをキャンセルしないよう分ける
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'develop' }}
     steps:
+      - name: Resolve target (branch → dir/project/port)
+        id: t
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "dir=imasoko"      >> "$GITHUB_OUTPUT"
+            echo "project=imasoko"  >> "$GITHUB_OUTPUT"
+            echo "port=8000"        >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=imasoko-dev"     >> "$GITHUB_OUTPUT"
+            echo "project=imasoko-dev" >> "$GITHUB_OUTPUT"
+            echo "port=8001"           >> "$GITHUB_OUTPUT"
+          fi
       - name: SSH deploy
         if: ${{ secrets.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_DIR: ${{ steps.t.outputs.dir }}
+          PROJECT: ${{ steps.t.outputs.project }}
+          APP_PORT: ${{ steps.t.outputs.port }}
+          BRANCH: ${{ github.ref_name }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_DIR,PROJECT,APP_PORT,BRANCH
           script: |
-            cd ~/imasoko
-            git pull --ff-only
-            docker compose -f deploy/docker-compose.yml up -d --build
+            cd ~/${DEPLOY_DIR}
+            git fetch origin ${BRANCH}
+            git checkout ${BRANCH}
+            git pull --ff-only origin ${BRANCH}
+            APP_PORT=${APP_PORT} docker compose -p ${PROJECT} -f deploy/docker-compose.yml up -d --build
