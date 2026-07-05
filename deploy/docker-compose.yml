@@ -4,7 +4,9 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
-    ports: ["8000:8000"] # リバースプロキシ経由で 443 → 8000(TLS終端・WS中継)
+    # host port は環境ごとに差し替え(本番8000 / dev8001)。リバースプロキシ経由で 443 → この port(TLS終端・WS中継)
+    # 2環境共存時は compose プロジェクト名で分離: 本番 `-p imasoko` / dev `APP_PORT=8001 -p imasoko-dev`(issue #40)
+    ports: ["${APP_PORT:-8000}:8000"]
     environment:
       # TTL 等の上書きが必要ならここで(docs/02 §3)
       - IMASOKO_STATIC_DIR=static
