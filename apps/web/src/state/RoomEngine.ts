@@ -12,7 +12,6 @@ import type {
   Member,
   PlaceSuggestion,
   Room,
-  Toast,
 } from "@/types/campus";
 import { AREAS, AREA_ORDER, MAP_AREAS } from "@/lib/mapAreas";
 import {
@@ -34,7 +33,7 @@ import {
   setServerConfig,
 } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
-import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
+import { api, HttpError, getHostToken, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
@@ -45,81 +44,13 @@ import {
   suggestionsFromWire,
 } from "@/lib/wire";
 
-type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
-type SheetName = "members" | "building" | "meeting" | "share" | "settings";
-type Visibility = "private" | "public";
+import { initialState } from "./engine/types";
+import type { Patch, Screen, SheetName, State, Visibility } from "./engine/types";
+
+export type { State } from "./engine/types";
 
 // ボトムシート退場アニメーションの長さ(ms)。global.css の ims-sheet-out / ims-fade-out と一致させる(issue #71)。
 const SHEET_EXIT_MS = 200;
-
-interface View {
-  tx: number;
-  ty: number;
-  k: number;
-}
-interface PendingPin {
-  area: AreaId;
-  x: number;
-  y: number;
-}
-export interface State {
-  screen: Screen;
-  creating: boolean;
-  refreshing: boolean;
-  createOpen: boolean;
-  newTitle: string;
-  newVis: Visibility;
-  newMeetAt: string;
-  meetAt: number;
-  roomId: string;
-  roomTitle: string;
-  visibility: Visibility;
-  isHost: boolean;
-  /** 自分の member_id(room_state の self_id。未参加時は空。issue #1)。 */
-  selfId: string;
-  /** 公開ルーム一覧(実サーバー /api/rooms/public 由来。issue #13)。 */
-  publicList: DemoRoom[];
-  name: string;
-  joinB: string;
-  joinF: string;
-  permModal: boolean;
-  viewerOnly: boolean;
-  area: AreaId;
-  view: View;
-  sheet: SheetName | null;
-  /** 退場アニメーション中フラグ。true の間もシートはマウントしたまま下スライドで閉じる(issue #71)。 */
-  sheetClosing: boolean;
-  selB: string;
-  openFloors: Record<string, boolean>;
-  selRoom: string | null;
-  meeting: MeetingPoint | null;
-  meetingBy: string;
-  pickMode: boolean;
-  pinModal: boolean;
-  pendingPin: PendingPin | null;
-  pinNote: string;
-  mtKind: "member" | "place";
-  mtMember: string | null;
-  placeB: string;
-  placeR: string;
-  suggestions: PlaceSuggestion[];
-  addOpen: boolean;
-  addB: string;
-  addF: string;
-  addRs: string[];
-  addNote: string;
-  expiresAt: number;
-  now: number;
-  reconnecting: boolean;
-  toasts: Toast[];
-  warnPublic: boolean;
-  leaveOpen: boolean;
-  members: Member[];
-  selfB?: string;
-  selfF?: string;
-}
-
-type Patch = Partial<State> | ((s: State) => Partial<State>);
 
 export class RoomEngine {
   state: State;
@@ -149,7 +80,7 @@ export class RoomEngine {
   private geoFirstFix = true; // 最初の測位でビューを現在エリアへ合わせる
 
   constructor() {
-    this.state = this.initialState();
+    this.state = initialState();
   }
 
   // ── external store glue ──
@@ -167,61 +98,6 @@ export class RoomEngine {
     this.state = { ...this.state, ...p };
     this.emit();
     if (cb) cb();
-  }
-
-  initialState(): State {
-    const now = Date.now();
-    return {
-      screen: "top",
-      creating: false,
-      refreshing: false,
-      createOpen: false,
-      newTitle: "",
-      newVis: "private",
-      newMeetAt: "",
-      meetAt: 0,
-      roomId: "k7m2pq",
-      roomTitle: "",
-      visibility: "private",
-      isHost: true,
-      selfId: "",
-      publicList: [],
-      name: getName(), // 前回入力した表示名を初期値に(issue #22)
-      joinB: "",
-      joinF: "",
-      permModal: false,
-      viewerOnly: false,
-      area: "campus",
-      view: { tx: 0, ty: 0, k: 0.5 },
-      sheet: null,
-      sheetClosing: false,
-      selB: "b1",
-      openFloors: {},
-      selRoom: null,
-      meeting: null,
-      meetingBy: "",
-      pickMode: false,
-      pinModal: false,
-      pendingPin: null,
-      pinNote: "",
-      mtKind: "member",
-      mtMember: null,
-      placeB: "b1",
-      placeR: "",
-      suggestions: [],
-      addOpen: false,
-      addB: "b1",
-      addF: "",
-      addRs: [],
-      addNote: "",
-      expiresAt: 0,
-      now,
-      reconnecting: false,
-      toasts: [],
-      warnPublic: false,
-      leaveOpen: false,
-      members: [],
-    };
   }
 
   // ── lifecycle (componentDidMount / WillUnmount 相当) ──
@@ -365,7 +241,7 @@ export class RoomEngine {
 
   // ── navigation ──
   goTop = () => {
-    this.setState({ ...this.initialState(), publicList: this.state.publicList, now: Date.now() });
+    this.setState({ ...initialState(), publicList: this.state.publicList, now: Date.now() });
   };
   createRoom = () =>
     this.setState({
@@ -389,7 +265,7 @@ export class RoomEngine {
       });
       saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
       this.setState({
-        ...this.initialState(),
+        ...initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
         creating: false,
@@ -447,7 +323,7 @@ export class RoomEngine {
       const res = await api.getRoom(roomId);
       const expiresAt = Date.parse(res.expires_at);
       this.setState({
-        ...this.initialState(),
+        ...initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
         screen: "join",
@@ -464,7 +340,7 @@ export class RoomEngine {
       const status = e instanceof HttpError ? e.status : 0;
       const screen: Screen = status === 410 ? "expired" : status === 404 ? "notfound" : "top";
       this.setState({
-        ...this.initialState(),
+        ...initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
         screen,
