@@ -271,8 +271,8 @@ export function MapView() {
         </div>
       )}
 
-      {/* 現在の集合場所バナー */}
-      {v.meetingSet && (
+      {/* 集合インフォバナー:集合時間は常時、集合場所は設定時に併記(いつ・どこに。issue #38) */}
+      {v.screen === "map" && !v.pickMode && (
         <div
           data-nopan="1"
           style={{
@@ -282,46 +282,58 @@ export function MapView() {
             background: "#fff",
             border: "1px solid #ebebeb",
             borderRadius: 9999,
-            padding: "5px 6px 5px 12px",
+            padding: "5px 12px",
             fontSize: 11.5,
             display: "flex",
             alignItems: "center",
             gap: 8,
             zIndex: 6,
             boxShadow: "0 2px 8px rgba(0,0,0,.10)",
-            maxWidth: "75%",
+            maxWidth: "82%",
           }}
         >
-          <span
-            style={{
-              width: 9,
-              height: 9,
-              background: "#0070f3",
-              transform: "rotate(45deg)",
-              flex: "none",
-            }}
-          />
-          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {v.meetingLabel}
-            <span style={{ color: "#888888" }}> ・ {v.meetingDistSelf}</span>
+          {/* いつ(集合時間・常時表示) */}
+          <span style={{ whiteSpace: "nowrap", fontWeight: 500, flex: "none" }}>
+            <span style={{ color: "#888888", fontWeight: 400 }}>集合 </span>
+            {v.meetAtLabel}
           </span>
-          <button
-            onClick={v.clearMeeting}
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 9999,
-              border: 0,
-              background: "#f5f5f5",
-              color: "#4d4d4d",
-              cursor: "pointer",
-              fontSize: 11,
-              lineHeight: 1,
-              flex: "none",
-            }}
-          >
-            ✕
-          </button>
+          {/* どこに(集合場所・設定時のみ) */}
+          {v.meetingSet && (
+            <>
+              <span style={{ width: 1, height: 14, background: "#ebebeb", flex: "none" }} />
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  background: "#0070f3",
+                  transform: "rotate(45deg)",
+                  flex: "none",
+                }}
+              />
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {v.meetingLabel}
+                <span style={{ color: "#888888" }}> ・ {v.meetingDistSelf}</span>
+              </span>
+              <button
+                onClick={v.clearMeeting}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 9999,
+                  border: 0,
+                  background: "#f5f5f5",
+                  color: "#4d4d4d",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  lineHeight: 1,
+                  flex: "none",
+                  marginRight: -4,
+                }}
+              >
+                ✕
+              </button>
+            </>
+          )}
         </div>
       )}
 
