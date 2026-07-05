@@ -31,8 +31,9 @@ import {
   serverConfig,
   setServerConfig,
 } from "@/lib/constants";
-import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
-import { selChip, selDot } from "@/lib/chipColors";
+import { fmtMeetLabel, fromLocalInput, toLocalInput } from "@/lib/format";
+import { selChip } from "@/lib/chipColors";
+import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
@@ -1216,106 +1217,12 @@ export class RoomEngine {
 
   renderVals() {
     const s = this.state;
-    const remaining = s.expiresAt ? Math.max(0, s.expiresAt - s.now) : 0;
-
-    // buildings(データ定義 → コンポーネント描画。join セレクトで参照)
-    const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
-
-    // floor opts for selects(join セレクトで参照。sheets 側は selectors/sheetVals が保持)
-    const floorsOf = (bid: string) => {
-      const b = bById(bid);
-      return b ? b.floors.map((f) => ({ id: f.level, name: f.level })) : [];
-    };
-
-    // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
-    // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
-    const publicRooms = s.publicList
-      .filter((r) => r.exp > s.now)
-      .map((r) => {
-        const own = getHostToken(r.id) !== null;
-        return {
-          title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
-          members: r.members,
-          remaining: fmtShort(r.exp - s.now),
-          open: () => this.openPublicRoom(r),
-        };
-      });
-
     const onMap = s.screen === "map";
 
     return {
-      // screens
-      isTop: s.screen === "top",
-      isPublic: s.screen === "public",
-      isJoin: s.screen === "join",
-      isMap: s.screen === "map",
-      isExpired: s.screen === "expired",
-      isEnded: s.screen === "ended",
-      isNotFound: s.screen === "notfound",
-      isFull: s.screen === "full",
-      screen: s.screen,
-      roomId: s.roomId,
-
-      // top / create
-      creating: s.creating,
-      createLabel: s.creating ? "作成中…" : "作成する",
-      createRoom: this.createRoom,
-      goPublic: this.goPublic,
-      goTop: this.goTop,
-      openRoomById: this.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
-      createOpen: s.createOpen,
-      cancelCreate: this.cancelCreate,
-      submitCreate: this.submitCreate,
-      newTitle: s.newTitle,
-      onNewTitle: (e: ChangeEvent<HTMLInputElement>) => this.setState({ newTitle: e.target.value }),
-      newVisPub: s.newVis === "public",
-      newVisDotPriv: selDot(s.newVis === "private"),
-      newVisDotPub: selDot(s.newVis === "public"),
-      pickNewPriv: () => this.setState({ newVis: "private" }),
-      pickNewPub: () => this.setState({ newVis: "public" }),
-      newMeetAt: s.newMeetAt,
-      onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
-        this.setState({ newMeetAt: e.target.value }),
-      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + serverConfig.endOffsetMs),
-      meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
-      setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
-      onSetMeetAt: (e: ChangeEvent<HTMLInputElement>) => this.setMeetAt(e.target.value),
-      curEndAt: s.expiresAt ? fmtMeetLabel(s.expiresAt) : "—",
-
-      // public
-      refreshPublic: this.refreshPublic,
-      refreshAnim: s.refreshing ? "ims-spin .8s linear infinite" : "none",
-      publicRooms,
-      hasPublicRooms: publicRooms.length > 0,
-      noPublicRooms: publicRooms.length === 0,
-
-      // join
-      roomTitleDisplay: (s.roomTitle || "無名のルーム") + " ・ " + s.roomId,
-      name: s.name,
-      nameMax: serverConfig.maxNameLength,
-      onName: (e: ChangeEvent<HTMLInputElement>) => this.setState({ name: e.target.value }),
-      nameError:
-        s.name.length > serverConfig.maxNameLength
-          ? `${serverConfig.maxNameLength}文字以内で入力してください`
-          : "",
-      joinB: s.joinB,
-      onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setState({ joinB: e.target.value, joinF: "" }),
-      joinF: s.joinF,
-      onJoinF: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinF: e.target.value }),
-      joinFloorOpts: floorsOf(s.joinB),
-      buildingOpts,
-      joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
-      tapJoin: this.tapJoin,
-      joinViewer: this.joinViewer,
-      permModal: s.permModal,
-      permAllow: this.permAllow,
-      permDeny: this.permDeny,
-
-      // timer
-      remainingShort: fmtShort(remaining),
-      remainingLong: fmtLong(remaining),
-      timerColor: remaining < 300000 ? "#ee0000" : "#171717",
+      // top / public / join / timer + screens(トップ〜参加フォームの派生値は
+      // selectors/topVals へ分離。出力キー・値・キー順は不変。issue #102)
+      ...topVals(this),
 
       // map(地図画面の派生値は selectors/mapVals へ分離。出力キー・値は不変。issue #100)
       ...mapVals(this),
