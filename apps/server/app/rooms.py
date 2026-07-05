@@ -8,7 +8,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
+from fastapi import HTTPException
 from .config import settings
 
 
@@ -68,6 +68,8 @@ def create_room(
     created = now()
     # 集合時間が未指定なら作成時刻を集合時間とみなす(issue #4)
     meet = _as_utc(meet_at) if meet_at is not None else created
+    if meet + timedelta(seconds=settings.end_offset_seconds) <= created:
+        raise HTTPException(status_code=400, detail="meet_at is too old")
     room = Room(
         room_id=room_id,
         host_token=host_token,
