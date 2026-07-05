@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .config import settings
-from .models import MsgType
+from .models import MeetingPoint, PlaceSuggestion, RoomStateMsg
 
 
 class RoomError(ValueError):
@@ -58,8 +58,8 @@ class Room:
     meet_at: datetime  # 集合時間(有効期限の起点・issue #4)
     expires_at: datetime
     members: dict[str, Member] = field(default_factory=dict)
-    meeting_point: Optional[dict] = None
-    place_suggestions: list[dict] = field(default_factory=list)
+    meeting_point: Optional[MeetingPoint] = None
+    place_suggestions: list[PlaceSuggestion] = field(default_factory=list)
 
 
 # ── serialize(散在していた isoformat / dict 手組みを集約)──────────
@@ -97,13 +97,12 @@ def room_status_wire(room: Room) -> dict:
 
 def room_state_payload(room: Room, self_id: str) -> dict:
     """WS 接続直後に本人へ送る room_state(dev-docs §6)。"""
-    return {
-        "type": MsgType.ROOM_STATE,
-        "self_id": self_id,
-        "members": [m.to_dict() for m in room.members.values()],
-        "meeting_point": room.meeting_point,
-        "expires_at": room.expires_at.isoformat(),
-    }
+    return RoomStateMsg(
+        self_id=self_id,
+        members=[m.to_dict() for m in room.members.values()],
+        meeting_point=room.meeting_point,
+        expires_at=room.expires_at.isoformat(),
+    ).model_dump()
 
 
 _rooms: dict[str, Room] = {}

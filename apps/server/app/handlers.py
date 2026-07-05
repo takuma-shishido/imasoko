@@ -15,9 +15,17 @@ from .models import (
     FloorMsg,
     JoinMsg,
     LeaveMsg,
+    MeetingPointBroadcastMsg,
     MeetingPointMsg,
-    MsgType,
+    MemberJoinedMsg,
+    MemberLeftMsg,
+    MemberUpdateMsg,
+    MPMember,
+    PlaceSuggestion,
+    PlaceSuggestionsMsg,
     PositionMsg,
+    RoomExpiredMsg,
+    RoomFullMsg,
 )
 from .rooms import Member, Room, is_expired, now, room_state_payload
 from .ws import ConnectionManager
@@ -41,7 +49,7 @@ async def establish_join(
     順序は現状不変。
     """
     if room is None or is_expired(room):
-        await ws.send_json({"type": MsgType.ROOM_EXPIRED})
+        await ws.send_json(RoomExpiredMsg().model_dump())
         await ws.close()
         return None
 
@@ -56,7 +64,7 @@ async def establish_join(
         await ws.close()
         return None
     if len(room.members) >= settings.max_members_per_room:
-        await ws.send_json({"type": MsgType.ROOM_FULL})
+        await ws.send_json(RoomFullMsg().model_dump())
         await ws.close()
         return None
 
@@ -68,7 +76,7 @@ async def establish_join(
     await ws.send_json(room_state_payload(room, member_id))
     await manager.broadcast(
         room.room_id,
-        {"type": MsgType.MEMBER_JOINED, "member": member.to_dict()},
+        MemberJoinedMsg(member=member.to_dict()).model_dump(),
         exclude=member_id,
     )
     return member
@@ -87,9 +95,9 @@ async def cleanup_on_disconnect(room: Room, member: Member, manager: ConnectionM
     manager.remove(room.room_id, member.id)
     room.members.pop(member.id, None)
     mp = room.meeting_point
-    if mp and mp.get("kind") == "member" and mp.get("memberId") == member.id:
+    if isinstance(mp, MPMember) and mp.memberId == member.id:
         room.meeting_point = None
-    await manager.broadcast(room.room_id, {"type": MsgType.MEMBER_LEFT, "id": member.id})
+    await manager.broadcast(room.room_id, MemberLeftMsg(id=member.id).model_dump())
 
 
 async def _broadcast_member_update(manager: ConnectionManager, room: Room, member) -> None:
@@ -98,9 +106,7 @@ async def _broadcast_member_update(manager: ConnectionManager, room: Room, membe
     position(位置)/ floor(建物・階)更新で共通の後処理(dev-docs §6)。
     """
     member.updated_at = now()
-    await manager.broadcast(
-        room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
-    )
+    await manager.broadcast(room.room_id, MemberUpdateMsg(member=member.to_dict()).model_dump())
 
 
 async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) -> bool:
@@ -120,32 +126,27 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, MeetingPointMsg):
-        room.meeting_point = msg.point.model_dump() if msg.point else None
+        room.meeting_point = msg.point
         await manager.broadcast(
-            room.room_id, {"type": MsgType.MEETING_POINT, "point": room.meeting_point}
+            room.room_id, MeetingPointBroadcastMsg(point=room.meeting_point).model_dump()
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
-        already_exists = False
-        for item in room.place_suggestions:
-            if item["place"].get("roomId") == msg.place.roomId:
-                already_exists = True
-                break
-
+        already_exists = any(item.place == msg.place for item in room.place_suggestions)
         if already_exists:
             return True
 
         room.place_suggestions.append(
-            {
-                "id": uuid.uuid4().hex[:8],
-                "place": msg.place.model_dump(),
-                "note": msg.note or "",
-                "addedBy": member_id,
-                "createdAt": now().isoformat(),
-            }
+            PlaceSuggestion(
+                id=uuid.uuid4().hex[:8],
+                place=msg.place,
+                note=msg.note or "",
+                addedBy=member_id,
+                createdAt=now().isoformat(),
+            )
         )
         await manager.broadcast(
-            room.room_id, {"type": MsgType.PLACE_SUGGESTIONS, "items": room.place_suggestions}
+            room.room_id, PlaceSuggestionsMsg(items=room.place_suggestions).model_dump()
         )
 
     elif isinstance(msg, LeaveMsg):
