@@ -77,6 +77,26 @@ def test_public_list_and_visibility():
     assert len(pub) == 1 and pub[0]["room_id"] == rid
 
 
+def test_public_list_sorted_by_meet_at():
+    # 公開ルーム一覧は集合時間(meet_at)の早い順(issue #76)。
+    # わざと「遅い → 早い」の順で作成し、作成順の素通しでは通らないようにする。
+    # 期限切れ(meet_at + 3h 経過)で一覧から消えないよう、現在時刻を基準にする。
+    base = rooms_mod.now()
+    for hours in (3, 1, 2):
+        body = client.post(
+            "/api/rooms",
+            json={"title": f"t+{hours}h", "meet_at": (base + timedelta(hours=hours)).isoformat()},
+        ).json()
+        client.patch(
+            f"/api/rooms/{body['room_id']}/visibility",
+            json={"visibility": "public"},
+            headers={"x-host-token": body["host_token"]},
+        )
+
+    pub = client.get("/api/rooms/public").json()
+    assert [r["title"] for r in pub] == ["t+1h", "t+2h", "t+3h"]
+
+
 def test_room_status_returns_visibility():
     # GET /api/rooms/{id} が visibility を返し、退出→再参加で公開範囲を復元できること(issue #35)。
     body = client.post("/api/rooms", json={"title": "テスト"}).json()
