@@ -1,21 +1,16 @@
 import type { ReactNode } from "react";
 import type { AreaId, AreaProjection } from "@/types/campus";
 import { useRoom } from "@/state/RoomContext";
-import { CAMPUS_PROJECTION } from "@/lib/campusGeo";
-import { STATION1_PROJECTION } from "@/lib/station1Geo";
-import { STATION2_PROJECTION } from "@/lib/station2Geo";
-import { CampusSvg } from "./map/CampusSvg";
-import { Station1Svg } from "./map/Station1Svg";
-import { Station2Svg } from "./map/Station2Svg";
+import { AREA_GEO } from "@/lib/areaRegistry";
+import { AreaSvg } from "./map/AreaSvg";
 
 // 実地図は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)をエリア別に用意。
 // 北方向の画面ベクトルは (bx, by)。上向き矢印をこの角度だけ時計回りに回すと北を指す。
+// 投影はエリアレジストリ(areaRegistry)から引き、エリア別の手書き列挙をやめる(issue #105)。
 const northDegOf = (p: AreaProjection): number => (Math.atan2(p.bx, -p.by) * 180) / Math.PI;
-const NORTH_DEG: Record<AreaId, number> = {
-  campus: northDegOf(CAMPUS_PROJECTION),
-  station_1: northDegOf(STATION1_PROJECTION),
-  station_2: northDegOf(STATION2_PROJECTION),
-};
+const NORTH_DEG: Record<AreaId, number> = Object.fromEntries(
+  (Object.keys(AREA_GEO) as AreaId[]).map((id) => [id, northDegOf(AREA_GEO[id].projection)])
+) as Record<AreaId, number>;
 
 // 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装した模式版)。
 // SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
@@ -51,9 +46,7 @@ export function MapView() {
           transformOrigin: "0 0",
         }}
       >
-        {v.isCampusArea && <CampusSvg />}
-        {v.isSt1 && <Station1Svg />}
-        {v.isSt2 && <Station2Svg />}
+        <AreaSvg areaId={v.area} />
 
         {/* 注記テキストレイヤー */}
         {v.mapTexts.map((tx, i) => (

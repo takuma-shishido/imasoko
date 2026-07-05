@@ -141,8 +141,6 @@ export function mapVals(engine: RoomEngine) {
     invScale,
     area: s.area,
     isCampusArea: s.area === "campus",
-    isSt1: s.area === "station_1",
-    isSt2: s.area === "station_2",
     campusBuildings,
     mapTexts,
     pinList,
