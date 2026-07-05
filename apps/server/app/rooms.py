@@ -94,7 +94,7 @@ def delete_room(room_id: str) -> None:
 
 
 def list_public() -> list[Room]:
-    return [r for r in _rooms.values() if r.visibility == "public" and not is_expired(r)]
+    return sorted([r for r in _rooms.values() if r.visibility == "public" and not is_expired(r)], key=lambda r: r.meet_at)
 
 
 def all_rooms() -> list[Room]:
