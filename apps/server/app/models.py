@@ -5,11 +5,25 @@ dev-docs §5/§6 + docs/05 §6 を単一の真実として、web(apps/web/src/ty
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
 Visibility = Literal["private", "public"]
+
+
+# ── server → client メッセージ type(docs/05 §6 / web の messages.ts と一致)──
+# str, Enum なので json.dumps(= ws.send_json)時に値の文字列がそのまま出力される(送出値は不変)。
+class MsgType(str, Enum):
+    ROOM_STATE = "room_state"
+    MEMBER_JOINED = "member_joined"
+    MEMBER_LEFT = "member_left"
+    MEMBER_UPDATE = "member_update"
+    MEETING_POINT = "meeting_point"
+    PLACE_SUGGESTIONS = "place_suggestions"
+    ROOM_EXPIRED = "room_expired"
+    ROOM_FULL = "room_full"
 
 
 # ── 集合場所(docs/05 §4)────────────────────────────────
