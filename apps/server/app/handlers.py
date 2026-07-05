@@ -74,6 +74,24 @@ async def establish_join(
     return member
 
 
+async def cleanup_on_disconnect(room: Room, member: Member, manager: ConnectionManager) -> None:
+    """切断時の後始末(dev-docs §6 / issue #37)。
+
+    接続除去 → ルームからメンバー除去 → stale な meeting_point 解除 → member_left broadcast。
+    退出者が集合先(member 追従)なら stale な meeting_point を解除する(issue #37)。
+    最後の位置(coords)への固定は area を解決できる web 側(残メンバーの代表)が行い、
+    ここでの解除は全員退出後の再参加・途中参加が「存在しないメンバー追従」を
+    受け取らないための保険。broadcast はしない:接続中のクライアントは member_left で
+    各自固定済みで、null を流すとそれを上書きしてしまう。
+    """
+    manager.remove(room.room_id, member.id)
+    room.members.pop(member.id, None)
+    mp = room.meeting_point
+    if mp and mp.get("kind") == "member" and mp.get("memberId") == member.id:
+        room.meeting_point = None
+    await manager.broadcast(room.room_id, {"type": MsgType.MEMBER_LEFT, "id": member.id})
+
+
 async def _broadcast_member_update(manager: ConnectionManager, room: Room, member) -> None:
     """member の updated_at を更新し member_update を全員へ broadcast する。
 

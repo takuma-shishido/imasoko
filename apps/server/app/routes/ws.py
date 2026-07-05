@@ -7,7 +7,6 @@ join 確立・切断 cleanup のロジックは handlers.py に集約する(#95)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from .. import handlers, rooms
-from ..models import MsgType
 from ..ws import manager
 
 router = APIRouter()
@@ -34,14 +33,4 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        manager.remove(room_id, member.id)
-        room.members.pop(member.id, None)
-        # 退出者が集合先(member 追従)なら stale な meeting_point を解除する(issue #37)。
-        # 最後の位置(coords)への固定は area を解決できる web 側(残メンバーの代表)が行い、
-        # ここでの解除は全員退出後の再参加・途中参加が「存在しないメンバー追従」を
-        # 受け取らないための保険。broadcast はしない:接続中のクライアントは member_left で
-        # 各自固定済みで、null を流すとそれを上書きしてしまう。
-        mp = room.meeting_point
-        if mp and mp.get("kind") == "member" and mp.get("memberId") == member.id:
-            room.meeting_point = None
-        await manager.broadcast(room_id, {"type": MsgType.MEMBER_LEFT, "id": member.id})
+        await handlers.cleanup_on_disconnect(room, member, manager)
