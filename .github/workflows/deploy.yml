@@ -3,7 +3,9 @@ name: deploy
 # develop / main の push を、それぞれ dev(検証)/ 本番 の2環境へ SSH デプロイ(docs/03 CD・issue #40)。
 #   develop → imasoko-dev.reimpl.com(dir ~/imasoko-dev / -p imasoko-dev / port 8001)
 #   main    → imasoko.reimpl.com     (dir ~/imasoko     / -p imasoko     / port 8000)
-# Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY)が揃っている時だけ動き、無ければ無害にスキップ。
+# コンテナホストは Tailscale 上(別ノード)。ランナーを tailnet に一時参加させ、Tailscale IP へ SSH する。
+# Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY / TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET)が
+# 揃っている時だけ動き、無ければ無害にスキップ(warning を出す)。
 
 on:
   push:
@@ -31,25 +33,33 @@ jobs:
             echo "project=imasoko-dev" >> "$GITHUB_OUTPUT"
             echo "port=8001"           >> "$GITHUB_OUTPUT"
           fi
-      - name: SSH deploy
+
+      - name: Connect to Tailscale
         if: ${{ secrets.DEPLOY_HOST != '' }}
-        uses: appleboy/ssh-action@v1
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: SSH deploy (over Tailscale)
+        if: ${{ secrets.DEPLOY_HOST != '' }}
         env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_DIR: ${{ steps.t.outputs.dir }}
           PROJECT: ${{ steps.t.outputs.project }}
           APP_PORT: ${{ steps.t.outputs.port }}
           BRANCH: ${{ github.ref_name }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_DIR,PROJECT,APP_PORT,BRANCH
-          script: |
-            cd ~/${DEPLOY_DIR}
-            git fetch origin ${BRANCH}
-            git checkout ${BRANCH}
-            git pull --ff-only origin ${BRANCH}
-            APP_PORT=${APP_PORT} docker compose -p ${PROJECT} -f deploy/docker-compose.yml up -d --build
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -e && cd ~/$DEPLOY_DIR && git fetch origin $BRANCH && git checkout $BRANCH && git pull --ff-only origin $BRANCH && APP_PORT=$APP_PORT docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
+
       - name: Notice — Secrets 未登録でスキップ
         if: ${{ secrets.DEPLOY_HOST == '' }}
         run: echo "::warning::DEPLOY_HOST 未登録のためデプロイをスキップしました(docs/03 の Secrets 登録を参照)"

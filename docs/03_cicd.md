@@ -265,6 +265,7 @@ jobs:
 - origin は **HTTP** 配信。TLS は Cloudflare が担当(コンテナホスト側に nginx/certbot は不要)。
 - VPS の nginx は TLS を終端せず、Cloudflare から受けた HTTP をコンテナホストの **Tailscale IP:8000 / :8001** へ振り分ける。
 - WebSocket(`/ws`)は Cloudflare が WSS を透過し、VPS の nginx は `Upgrade` / `Connection` を転送する(WS 透過に必須)。
+- **デプロイ経路は別**:GitHub Actions ランナー → `tailscale/github-action` で tailnet 参加 → コンテナホストの Tailscale IP へ SSH(下記「Tailscale 参加 + SSH デプロイ」)。
 
 ### 対応表
 
@@ -337,18 +338,29 @@ server {
 
 > Cloudflare 側は DNS で両ドメインを VPS へ向け(proxied / orange cloud)、SSL/TLS モードは **Flexible**(client↔CF は HTTPS、CF↔VPS は HTTP)にする。
 
-### GitHub Secrets 登録(コンテナホストへの SSH・両環境共通)
+### Tailscale 参加 + SSH デプロイ(両環境共通の Secrets)
 
-deploy ワークフローは GitHub Actions のランナーからコンテナホストへ SSH し、`git pull` + `docker compose up` を実行する。ブランチで dir/project/port を出し分けるため、Secrets は 3 つを共通で使う。
+GitHub-hosted ランナーは Tailscale 網の外にいるため、`deploy.yml` は [`tailscale/github-action@v4`](https://github.com/tailscale/github-action) で**ランナーを tailnet に一時参加**させ(ephemeral node)、コンテナホストの **Tailscale IP** へネイティブ `ssh` で接続して `git pull` + `docker compose up` を実行する。ブランチで dir/project/port を出し分けるため、Secrets は環境共通で使う。
+
+> `appleboy/ssh-action` は Docker コンテナ内で動き、ランナーの `tailscale0` へのルーティングが不安定なため、ネイティブ `ssh` の `run:` ステップ(ランナーホスト上で直接実行)を採用している。
+
+**Tailscale 側の準備**:
+
+1. 管理コンソール → **Settings → OAuth clients** で client を作成(スコープ `Devices Core` の write、タグ `tag:ci`)。発行された client id / secret を控える。
+2. ACL の `tagOwners` に `tag:ci` を追加し、`tag:ci` からコンテナホストへ `22/tcp`(SSH)到達を許可する grant を入れる。
+3. コンテナホストが tailnet に参加済みで sshd が動いていること。
+
+**Secrets 登録**(`gh secret set` または Settings → Secrets → Actions):
 
 ```bash
-gh secret set DEPLOY_HOST    # コンテナホストのアドレス(ランナーから到達できるもの)
-gh secret set DEPLOY_USER    # SSH ユーザ
-gh secret set DEPLOY_SSH_KEY # 秘密鍵(対応する公開鍵をコンテナホストの ~/.ssh/authorized_keys に追加)
+gh secret set DEPLOY_HOST          # コンテナホストの Tailscale IP(100.x)または MagicDNS 名
+gh secret set DEPLOY_USER          # SSH ユーザ
+gh secret set DEPLOY_SSH_KEY       # 秘密鍵(対応する公開鍵をコンテナホストの ~/.ssh/authorized_keys に追加)
+gh secret set TS_OAUTH_CLIENT_ID   # Tailscale OAuth client id
+gh secret set TS_OAUTH_SECRET      # Tailscale OAuth client secret
 ```
 
-> GitHub-hosted ランナーは Tailscale 網の外にいる。`DEPLOY_HOST` を **Tailscale IP にすると届かない**ため、(a) ランナーから到達できる公開 SSH エンドポイントにする、または (b) ワークフローに `tailscale/github-action` を足してランナーを Tailscale に参加させる、のどちらかが必要。GitHub Environments(production / develop)で Secrets を分けるのは任意。
-> Secrets 未登録の間は `deploy.yml` の SSH ステップが `if: secrets.DEPLOY_HOST != ''` で無害にスキップされる。
+> `DEPLOY_HOST` 未登録の間は Tailscale / SSH ステップが `if: secrets.DEPLOY_HOST != ''` で無害にスキップされ、代わりに warning が出る。GitHub Environments(production / develop)で Secrets を分けるのは任意(分ける場合は develop 環境にも同じ 5 つを登録)。
 
 ### 実機確認(最優先)
 
@@ -388,6 +400,6 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 - [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)
 - [x] `deploy/Dockerfile` / `docker-compose.yml` を作成(**Caddyfile は不採用**、リバースプロキシは各自運用。host port は `APP_PORT` で可変・issue #40)
 - [x] 自動デプロイ `deploy.yml` を **develop/main の2環境**へ出し分け(issue #40。dev→8001 / 本番→8000、TLS/公開は Cloudflare + Tailscale。手順は上記「dev/本番の2環境デプロイ」)
-- [ ] コンテナホストに 2 クローン配置 + VPS nginx 転送 + **Secrets 登録**(`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`)を運用者側で実施
+- [ ] コンテナホストに 2 クローン配置 + VPS nginx 転送 + Tailscale OAuth client 作成/ACL + **Secrets 登録**(`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET`)を運用者側で実施
 - [ ] スマホ実機で両ドメインの **HTTPS + WSS疎通**を確認(最優先)
 - [ ] mypy を `continue-on-error` から必須へ格上げ(型が整ってきたら)
