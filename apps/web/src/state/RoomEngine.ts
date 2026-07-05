@@ -3,7 +3,7 @@
 // this.setState → 内部マージ + 購読者通知、React.createRef → 素の ref オブジェクトに置換。
 // 派生値は renderVals()(プロトタイプと同名)で計算する。
 
-import type { ChangeEvent, MouseEvent, PointerEvent, RefObject, WheelEvent } from "react";
+import type { ChangeEvent, PointerEvent, RefObject, WheelEvent } from "react";
 import type {
   AreaId,
   DemoRoom,
@@ -34,6 +34,7 @@ import {
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { selChip, selDot } from "@/lib/chipColors";
 import { mapVals } from "@/state/selectors/mapVals";
+import { sheetVals } from "@/state/selectors/sheetVals";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
@@ -162,7 +163,8 @@ export class RoomEngine {
     this.version++;
     this.listeners.forEach((fn) => fn());
   }
-  private setState(patch: Patch, cb?: () => void) {
+  // selectors/*(mapVals・sheetVals)から状態更新ハンドラを組み立てるため public 化(issue #101)。
+  setState(patch: Patch, cb?: () => void) {
     const p = typeof patch === "function" ? patch(this.state) : patch;
     this.state = { ...this.state, ...p };
     this.emit();
@@ -1191,7 +1193,8 @@ export class RoomEngine {
       out: false,
     };
   }
-  private locLabel(m: Member): string {
+  // selectors/sheetVals の memberRows から参照するため public 化(issue #101)。
+  locLabel(m: Member): string {
     if (m.viewer) return "閲覧のみ・位置非共有";
     if (m.lost) return "範囲外(全エリア外)";
     const areaN = AREAS[m.area].name;
@@ -1214,97 +1217,15 @@ export class RoomEngine {
   renderVals() {
     const s = this.state;
     const remaining = s.expiresAt ? Math.max(0, s.expiresAt - s.now) : 0;
-    const mp = this.resolveMeetingPos();
 
-    // member rows
-    const memberRows = s.members.map((m) => ({
-      id: m.id,
-      initial: (m.name || "?")[0],
-      avBg: m.id === s.selfId ? "#171717" : "#ffffff",
-      avFg: m.id === s.selfId ? "#ffffff" : "#171717",
-      avBd: m.id === s.selfId ? "#171717" : "#a1a1a1",
-      name: m.name,
-      tag: m.id === s.selfId ? (s.isHost ? "あなた ・ host" : "あなた") : "",
-      loc: this.locLabel(m),
-      dist: this.distTo(m, mp),
-      focus: () => {
-        if (m.viewer) {
-          this.toast("位置を共有していないメンバーです");
-          return;
-        }
-        this.setState({ sheet: null });
-        if (m.lost) {
-          this.toast(m.name + "さんは範囲外です");
-          return;
-        }
-        if (m.area !== s.area) this.setState({ area: m.area }, () => this.centerOn(m.x, m.y, 1.2));
-        else this.centerOn(m.x, m.y, Math.max(s.view.k, 1.2));
-      },
-    }));
-
-    // buildings(データ定義 → コンポーネント描画)
-    const selB = bById(s.selB) || BUILDINGS[0];
+    // buildings(データ定義 → コンポーネント描画。join セレクトで参照)
     const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
-    const buildingChips = BUILDINGS.map((b) => ({
-      name: b.name,
-      ...selChip(s.selB === b.id),
-      pick: () => this.pickBuilding(b.id),
-    }));
-    const floorRows = selB.floors.map((f) => {
-      const key = selB.id + "-" + f.level;
-      const open = !!s.openFloors[key];
-      const names = s.members
-        .filter((m) => m.building === selB.id && m.floor === f.level)
-        .map((m) => m.name)
-        .join("・");
-      return {
-        level: f.level,
-        sub: f.rooms.length + "室",
-        names,
-        arrow: open ? "▲" : "▼",
-        open,
-        toggle: () => this.toggleFloor(key),
-        here: (e: MouseEvent) => {
-          e.stopPropagation();
-          this.setSelfFloor(selB.id, f.level);
-        },
-        rooms: f.rooms.map((r) => ({
-          label: r.n + (r.t ? " " + r.t : ""),
-          ...selChip(s.selRoom === r.id),
-          pick: () => this.pickRoom(r.id),
-        })),
-      };
-    });
 
-    // floor opts for selects
+    // floor opts for selects(join セレクトで参照。sheets 側は selectors/sheetVals が保持)
     const floorsOf = (bid: string) => {
       const b = bById(bid);
       return b ? b.floors.map((f) => ({ id: f.level, name: f.level })) : [];
     };
-
-    // meeting sheet
-    const others = s.members;
-    const memberChips = others.map((m) => ({
-      name: m.name + (m.id === s.selfId ? "(自分)" : ""),
-      ...selChip(s.mtMember === m.id),
-      pick: (e: MouseEvent) => {
-        e.stopPropagation();
-        this.setState({ mtMember: m.id, mtKind: "member" });
-      },
-    }));
-    const placeB = bById(s.placeB) || BUILDINGS[0];
-    const placeOpts = [{ id: "spot:" + placeB.id, name: placeB.name + "前(屋外)" }];
-    for (const f of placeB.floors)
-      for (const r of f.rooms)
-        placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-    const mtApplyDisabled =
-      s.mtKind === "member" ? !s.mtMember : s.mtKind === "place" ? !s.placeR : false;
-
-    const suggestions = s.suggestions.map((sg) => ({
-      label: roomFull(sg.ref),
-      meta: (sg.note ? "「" + sg.note + "」 ・ " : "") + sg.by + "さんが追加",
-      adopt: () => this.adoptSuggestion(sg),
-    }));
 
     // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
     // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
@@ -1399,91 +1320,9 @@ export class RoomEngine {
       // map(地図画面の派生値は selectors/mapVals へ分離。出力キー・値は不変。issue #100)
       ...mapVals(this),
 
-      // sheets
-      sheetOpen: !!s.sheet,
-      sheetClosing: s.sheetClosing,
-      closeSheet: this.closeSheet,
-      sheetRef: this.sheetRef,
-      hDown: this.hDown,
-      hMove: this.hMove,
-      hUp: this.hUp,
-      hCancel: this.hCancel,
-      shMembers: s.sheet === "members",
-      shBuilding: s.sheet === "building",
-      shMeeting: s.sheet === "meeting",
-      shShare: s.sheet === "share",
-      shSettings: s.sheet === "settings",
-      visBadge: s.visibility === "public" ? "公開" : "非公開",
-      visBadgeColor: s.visibility === "public" ? "#ab570a" : "#171717",
-
-      // members sheet
-      memberRows,
-      selfB: s.selfB || "",
-      onSelfB: (e: ChangeEvent<HTMLSelectElement>) => this.setSelfFloor(e.target.value, ""),
-      selfF: s.selfF || "",
-      onSelfF: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setSelfFloor(s.selfB || "", e.target.value),
-      selfFloorOpts: floorsOf(s.selfB || ""),
-
-      // building sheet
-      buildingChips,
-      spotLabel: selB.name + "前",
-      spotMeet: this.spotMeet,
-      floorRows,
-      roomSel: !!s.selRoom,
-      roomSelLabel: s.selRoom ? roomFull(s.selRoom) : "",
-      roomMeet: this.roomMeet,
-      roomSuggest: this.roomSuggest,
-
-      // meeting sheet
-      mtIsMember: s.mtKind === "member",
-      mtIsPlace: s.mtKind === "place",
-      mtDotMember: selDot(s.mtKind === "member"),
-      mtDotPlace: selDot(s.mtKind === "place"),
-      mtPickMember: this.mtPickMember,
-      mtPickPlace: this.mtPickPlace,
-      memberChips,
-      placeB: s.placeB,
-      onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setState({ placeB: e.target.value, placeR: "" }),
-      placeR: s.placeR,
-      onPlaceR: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ placeR: e.target.value }),
-      placeOpts,
-      mtApply: this.mtApply,
-      mtApplyDisabled,
-      suggestions,
-      noSuggestions: suggestions.length === 0,
-      addOpen: s.addOpen,
-      addClosed: !s.addOpen,
-      toggleAdd: this.toggleAdd,
-      addB: s.addB,
-      onAddB: (e: ChangeEvent<HTMLSelectElement>) => {
-        const b = bById(e.target.value);
-        this.setState({ addB: e.target.value, addF: b ? b.floors[0].level : "" });
-      },
-      ...this.addPlanVals(),
-      addNote: s.addNote,
-      onAddNote: (e: ChangeEvent<HTMLInputElement>) => this.setState({ addNote: e.target.value }),
-      submitAdd: this.submitAdd,
-
-      // settings sheet
-      shareUrl: this.shareUrl(),
-      copyLink: this.copyLink,
-      webShare: this.webShare,
-      isHost: s.isHost,
-      visPublic: s.visibility === "public",
-      visDotPriv: s.visibility === "private" ? "#171717" : "transparent",
-      visDotPub: s.visibility === "public" ? "#171717" : "transparent",
-      pickPrivate: this.pickPrivate,
-      pickPublic: this.pickPublic,
-      titleVal: s.roomTitle,
-      onTitle: (e: ChangeEvent<HTMLInputElement>) => this.setState({ roomTitle: e.target.value }),
-      warnPublic: s.warnPublic,
-      confirmPublic: this.confirmPublic,
-      cancelPublic: this.cancelPublic,
-      leaveOpen: s.leaveOpen,
-      doLeave: this.doLeave,
-      cancelLeave: this.cancelLeave,
+      // sheets(共通枠 + members / building / meeting / settings は selectors/sheetVals へ分離。
+      // 出力キー・値・キー順は不変。issue #101)
+      ...sheetVals(this),
 
       // toasts(map 画面は下シートを避けて高めに出す)
       toasts: s.toasts,
@@ -1492,7 +1331,8 @@ export class RoomEngine {
   }
 
   // 空き教室追加パネルの派生値(プロトタイプの IIFE を切り出し)。
-  private addPlanVals() {
+  // selectors/sheetVals の meeting シートから spread するため public 化(issue #101)。
+  addPlanVals() {
     const s = this.state;
     const b = bById(s.addB) || BUILDINGS[0];
     const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
