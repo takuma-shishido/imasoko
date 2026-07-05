@@ -1,12 +1,14 @@
 name: deploy
 
-# develop / main の push を、それぞれ dev(検証)/ 本番 の2環境へ SSH デプロイ(docs/03 CD・issue #40)。
+# develop / main の push を、それぞれ dev(検証)/ 本番 の2環境へデプロイ(docs/03 CD・issue #40)。
 #   develop → imasoko-dev.reimpl.com(dir ~/imasoko-dev / -p imasoko-dev / port 8001)
 #   main    → imasoko.reimpl.com     (dir ~/imasoko     / -p imasoko     / port 8000)
-# コンテナホストは Tailscale 上(別ノード)。ランナーを tailnet に一時参加させ、Tailscale IP へ SSH する。
+# コンテナホストは Tailscale 上(別ノード)。ランナーを tailnet に一時参加させ、Tailscale IP へ接続する。
+# ★ ホスト側は git clone 不要:CI がチェックアウトしたリポジトリを tar でコピーし、ホストで docker compose build/up する。
+#   → ホストに必要なのは docker + ssh + tar のみ(デプロイ先ディレクトリは毎回作り直す=状態はコンテナのインメモリのみ)。
 # Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY / TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET)が
 # 揃っている時だけ動き、無ければ無害にスキップ(warning を出す)。
-# ※ secrets コンテキストは step の if: では参照できないため、DEPLOY_HOST を job env に移して env.DEPLOY_HOST で分岐する。
+# ※ secrets は step の if: で参照できないため、DEPLOY_HOST を job env に移して env.DEPLOY_HOST で分岐する。
 
 on:
   push:
@@ -22,8 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'develop' }}
     env:
-      # step の if: で参照するため job env 経由にする(secrets は if: で直接使えない)。
-      # DEPLOY_HOST は接続先(= デプロイ設定済みかの判定にも使う)。
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
     steps:
       - name: Resolve target (branch → dir/project/port)
@@ -39,6 +39,10 @@ jobs:
             echo "port=8001"           >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout
+        if: ${{ env.DEPLOY_HOST != '' }}
+        uses: actions/checkout@v4
+
       - name: Connect to Tailscale
         if: ${{ env.DEPLOY_HOST != '' }}
         uses: tailscale/github-action@v4
@@ -47,7 +51,7 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: SSH deploy (over Tailscale)
+      - name: Copy repo to host & deploy
         if: ${{ env.DEPLOY_HOST != '' }}
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -55,14 +59,18 @@ jobs:
           DEPLOY_DIR: ${{ steps.t.outputs.dir }}
           PROJECT: ${{ steps.t.outputs.project }}
           APP_PORT: ${{ steps.t.outputs.port }}
-          BRANCH: ${{ github.ref_name }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "set -e && cd ~/$DEPLOY_DIR && git fetch origin $BRANCH && git checkout $BRANCH && git pull --ff-only origin $BRANCH && APP_PORT=$APP_PORT docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          # clone 不要:デプロイ先を作り直し、リポジトリを tar でコピー(.git / node_modules / dist は除外)
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "rm -rf ~/$DEPLOY_DIR && mkdir -p ~/$DEPLOY_DIR"
+          tar -cz --exclude='.git' --exclude='node_modules' --exclude='apps/web/dist' -C . . \
+            | $SSH "$DEPLOY_USER@$DEPLOY_HOST" "tar -xz -C ~/$DEPLOY_DIR"
+          # ホストで build & 起動(位置状態はインメモリ・1ワーカー固定・project 名で2環境分離)
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd ~/$DEPLOY_DIR && APP_PORT=$APP_PORT docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
 
       - name: Notice — Secrets 未登録でスキップ
         if: ${{ env.DEPLOY_HOST == '' }}
