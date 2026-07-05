@@ -76,7 +76,12 @@ def room_status(room_id: str) -> dict:
         raise HTTPException(status_code=404, detail="not found")
     if rooms.is_expired(room):
         raise HTTPException(status_code=410, detail="gone")
-    return {"status": "active", "expires_at": room.expires_at.isoformat()}
+    # 退出→再参加で UI が公開範囲を復元できるよう visibility も返す(issue #35)。
+    return {
+        "status": "active",
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
 
 
 @app.patch("/api/rooms/{room_id}/visibility")

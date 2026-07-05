@@ -36,6 +36,8 @@ export interface CreateRoomRes {
 export interface RoomStatusRes {
   status: "active";
   expires_at: string;
+  /** ルームの公開範囲。退出→再参加で UI が復元する(issue #35)。 */
+  visibility: Visibility;
 }
 export interface PublicRoomRes {
   room_id: string;
