@@ -1,4 +1,5 @@
 import { useRoom } from "@/state/RoomContext";
+import { RemainingChip } from "./RemainingChip";
 
 // 上部エリア切替(3セグメント)+ 残り時間(docs/05 §1 / design/04)。
 export function AreaSwitcher() {
@@ -49,29 +50,7 @@ export function AreaSwitcher() {
         ))}
       </div>
       {/* 残り時間:「残り」ラベルで何の時間かを明示する(issue #32・背景ピルなし) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          flex: "none",
-        }}
-      >
-        <span style={{ fontSize: 10.5, color: "#888888", fontWeight: 500, whiteSpace: "nowrap" }}>
-          残り
-        </span>
-        <span
-          style={{
-            fontFamily: "'Geist Mono',monospace",
-            fontSize: 12.5,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-            color: v.timerColor,
-          }}
-        >
-          {v.remainingShort}
-        </span>
-      </div>
+      <RemainingChip remaining={v.remainingShort} timerColor={v.timerColor} />
     </div>
   );
 }
