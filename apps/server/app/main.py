@@ -31,6 +31,13 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="いまそこ", lifespan=lifespan)
 
+@app.get("/api/config")
+def get_config() -> dict:
+    return {
+        "end_offset_seconds": settings.end_offset_seconds,
+        "max_name_length": settings.max_name_length,
+        "max_members_per_room": settings.max_members_per_room
+    }
 
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
 @app.post("/api/rooms", response_model=CreateRoomRes)
