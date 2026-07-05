@@ -27,6 +27,7 @@ export function MapView() {
       onPointerDown={v.onMapDown}
       onPointerMove={v.onMapMove}
       onPointerUp={v.onMapUp}
+      onPointerCancel={v.onMapCancel}
       onWheel={v.onMapWheel}
       style={{
         flex: 1,
