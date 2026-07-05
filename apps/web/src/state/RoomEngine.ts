@@ -601,6 +601,7 @@ export class RoomEngine {
     // 2ポインタ:ピンチズーム。2点間距離の比でスケールし、2点の中点を中心にする。
     // 中点の移動分がそのままパンになる(ピンチしながらの平行移動に追従)。issue #68。
     if (this.pointers.size >= 2) {
+      // 先頭2つの pointerId をピンチの2点として扱う(3本目以降は追跡のみで計算に使わない)。
       const [id0, id1] = [...this.pointers.keys()];
       const p0 = this.pointers.get(id0)!;
       const p1 = this.pointers.get(id1)!;
@@ -632,7 +633,11 @@ export class RoomEngine {
       return;
     }
 
-    // 1ポインタ:従来どおりパン。
+    // 1ポインタ:従来どおりパン。格納座標も最新化しておく。パン中は drag だけ更新すると
+    // pointers の座標が down 時のまま陳腐化し、この指が後からピンチの1本目になった際に
+    // 2本目 down 直後の prevDist/prevMid が古くなって初回フレームがポップする(issue #68)。
+    p.x = e.clientX;
+    p.y = e.clientY;
     if (!this.drag) return;
     const dx = e.clientX - this.drag.sx;
     const dy = e.clientY - this.drag.sy;

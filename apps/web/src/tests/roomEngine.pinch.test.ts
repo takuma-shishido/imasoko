@@ -70,6 +70,18 @@ describe("RoomEngine ピンチズーム / パン(issue #68)", () => {
     expect(e.state.view.k).toBe(1); // ズームは発生しない
   });
 
+  it("パン→ピンチ遷移で初回フレームがジャンプしない(格納座標がパン中に最新化される)", () => {
+    e.onMapDown(ev(1, 100, 200));
+    e.onMapMove(ev(1, 150, 200)); // 1本指で 50px パン → tx=50、指1の格納座標も (150,200) に更新
+    expect(e.state.view.tx).toBe(50);
+    e.onMapDown(ev(2, 350, 200)); // 2本目 → ピンチ開始。prevDist は (150,200)-(350,200)=200
+    e.onMapMove(ev(2, 450, 200)); // curDist 300 → 比 1.5(格納が陳腐化していれば 250→350 の比になる)
+    // nk=1.5。tx = 300 - ((250-50)/1)*1.5 = 0、ty = 200 - (200/1)*1.5 = -100。
+    expect(e.state.view.k).toBeCloseTo(1.5, 5);
+    expect(e.state.view.tx).toBeCloseTo(0, 5);
+    expect(e.state.view.ty).toBeCloseTo(-100, 5);
+  });
+
   it("集合地点タップモード:ピンチは集合地点タップに化けない", () => {
     e.state = { ...e.state, pickMode: true };
     e.onMapDown(ev(1, 100, 100));
