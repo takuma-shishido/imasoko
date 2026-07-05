@@ -61,7 +61,7 @@ export function JoinForm() {
         <Input
           size="lg"
           label="表示名"
-          placeholder="ニックネームでOK(1〜20文字)"
+          placeholder={`ニックネームでOK(1〜${v.nameMax}文字)`}
           value={v.name}
           onChange={v.onName}
           error={v.nameError}
