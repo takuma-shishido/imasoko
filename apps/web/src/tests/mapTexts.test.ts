@@ -9,6 +9,19 @@ describe("MAP_TEXTS 駅名ランドマーク", () => {
     expect(MAP_TEXTS.station_2.some((t) => t.t === "東京テレポート駅")).toBe(true);
   });
 
+  it("駅名が駅の位置(投影)に重なる(地図中央ではない)", () => {
+    // GeoJSON 由来のアンカー(station_1=駅舎 / station_2=駅前ロータリー)を投影した想定位置。
+    // データ/投影が変わって位置がズレたらここで気づけるようにする。
+    const nameOf = (area: "station_1" | "station_2", t: string) =>
+      MAP_TEXTS[area].find((x) => x.t === t)!;
+    const s1 = nameOf("station_1", "国際展示場駅");
+    expect(s1.x).toBeCloseTo(405.7, 0);
+    expect(s1.y).toBeCloseTo(162.6, 0);
+    const s2 = nameOf("station_2", "東京テレポート駅");
+    expect(s2.x).toBeCloseTo(431.9, 0);
+    expect(s2.y).toBeCloseTo(299.8, 0);
+  });
+
   it("注記座標が各エリアのマップ範囲内(pan/zoom 追従の前提)", () => {
     for (const area of ["station_1", "station_2"] as const) {
       const { w, h } = AREAS[area];
