@@ -1,5 +1,5 @@
 // プロトタイプ(いまそこ Prototype.dc.html)の `Component extends DCLogic` を、
-// フレームワーク非依存の状態機械クラスとして移植したもの。
+// フレームワーク非依存の状態機械クラスとして 1:1 移植したもの。
 // this.setState → 内部マージ + 購読者通知、React.createRef → 素の ref オブジェクトに置換。
 // 役割ごとのロジックは engine/ 配下のコントローラへ分割し(issue #74)、本クラスは
 // 外部ストア接続(subscribe / setState)・コントローラの束ね・公開 API の委譲に徹する。
