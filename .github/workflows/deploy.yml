@@ -13,6 +13,8 @@ name: deploy
 on:
   push:
     branches: [main, develop]
+  # 手動デプロイ:Actions の「Run workflow」から実行ブランチを選ぶ(develop→dev / main→本番)。
+  workflow_dispatch:
 
 concurrency:
   # ブランチ別グループ。dev/本番のデプロイが互いをキャンセルしないよう分ける

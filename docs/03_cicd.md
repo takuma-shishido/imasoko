@@ -349,7 +349,22 @@ gh secret set TS_OAUTH_CLIENT_ID   # Tailscale OAuth client id
 gh secret set TS_OAUTH_SECRET      # Tailscale OAuth client secret
 ```
 
-> `DEPLOY_HOST` 未登録の間は Tailscale / SSH ステップが `if: secrets.DEPLOY_HOST != ''` で無害にスキップされ、代わりに warning が出る。GitHub Environments(production / develop)で Secrets を分けるのは任意(分ける場合は develop 環境にも同じ 5 つを登録)。
+> `DEPLOY_HOST` 未登録の間は Tailscale / デプロイステップが `if: env.DEPLOY_HOST != ''`(`secrets` は `if:` で使えないため job env 経由)で無害にスキップされ、代わりに warning が出る。GitHub Environments(production / develop)で Secrets を分けるのは任意(分ける場合は develop 環境にも同じ 5 つを登録)。
+
+### 手動デプロイ
+
+push を待たずに手動で流したいとき:
+
+- **A. Actions UI から**(`workflow_dispatch`):リポジトリの **Actions → deploy → Run workflow** で**実行ブランチを選ぶ**(`develop`=dev / `main`=本番)。CI が push 時と同じ tar コピー + build を行う。ホスト要件も同じ(docker/ssh/tar)。
+  > 「Run workflow」ボタンは、workflow がデフォルトブランチ(`main`)にある場合に表示される。`main` にも本 workflow を反映してから使う。
+- **B. ホスト上で完全手動**(CI を介さない):コンテナホストにリポジトリを置いて compose を叩く。
+  ```bash
+  # 例:dev(develop)
+  git clone https://github.com/takuma-shishido/imasoko.git ~/imasoko-dev   # 既にあれば git -C ~/imasoko-dev pull
+  git -C ~/imasoko-dev checkout develop
+  cd ~/imasoko-dev && APP_PORT=8001 docker compose -p imasoko-dev -f deploy/docker-compose.yml up -d --build
+  # 本番(main)は dir ~/imasoko / APP_PORT=8000 / -p imasoko
+  ```
 
 ### 実機確認(最優先)
 
