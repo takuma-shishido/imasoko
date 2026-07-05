@@ -1,8 +1,8 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
 import type { CampusRes } from "@/types/messages";
 import { CAMPUS_BUILDINGS } from "./campusGeo";
-import { STATION1_PROJECTION } from "./station1Geo";
-import { STATION2_PROJECTION } from "./station2Geo";
+import { MAP_AREAS } from "./mapAreas";
+import { project } from "./coords";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
 // docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
@@ -220,19 +220,24 @@ export interface MapText {
   mono?: boolean;
 }
 
-// 駅マップの駅名ランドマーク注記(issue #51)。駅そのもののジオメトリは GeoJSON に無いため、
-// 各エリアの投影中心(projection.cx/cy = 面ジオメトリ重心の投影)へ駅名を置く。座標は投影から
-// 算出するので mapTransform(pan/zoom)に追従する。名前は AREAS と揃える(りんかい線の2駅)。
-const stationText = (proj: { cx: number; cy: number }, name: string): MapText[] => [
-  { x: proj.cx, y: proj.cy - 9, t: name, size: 15, w: 600, c: "#171717", a: "c" },
-  { x: proj.cx, y: proj.cy + 9, t: "りんかい線", size: 9, c: "#888888", a: "c", mono: true },
-];
+// 駅マップの駅名ランドマーク注記(issue #51)。駅の実位置(緯度経度)を各エリアの投影(matrix)で
+// x/y に変換し、駅そのものに重ねて置く。投影由来なので mapTransform(pan/zoom)に追従する。
+// アンカーは GeoJSON 由来の駅の地点:
+//   station_1 … OSM building=train_station(国際展示場駅の駅舎)の重心
+//   station_2 … 駅前ロータリー(タクシー待機場)= 地下駅の地上アクセス点
+const stationText = (area: AreaId, lat: number, lng: number, name: string): MapText[] => {
+  const { x, y } = project(MAP_AREAS[area], lat, lng);
+  return [
+    { x, y: y - 9, t: name, size: 15, w: 600, c: "#171717", a: "c" },
+    { x, y: y + 9, t: "りんかい線", size: 9, c: "#888888", a: "c", mono: true },
+  ];
+};
 
 // campus は模式注記が実地理マップ(campusGeo)でズレるため空のまま(issue #3)。
 export const MAP_TEXTS: Record<AreaId, MapText[]> = {
   campus: [],
-  station_1: stationText(STATION1_PROJECTION, "国際展示場駅"),
-  station_2: stationText(STATION2_PROJECTION, "東京テレポート駅"),
+  station_1: stationText("station_1", 35.634349, 139.791517, "国際展示場駅"),
+  station_2: stationText("station_2", 35.626598, 139.778876, "東京テレポート駅"),
 };
 
 // 圏外/別エリアのメンバーを地図端に寄せる位置(プロトタイプの CLAMP)。
