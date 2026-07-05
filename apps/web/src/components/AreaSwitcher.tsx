@@ -48,16 +48,13 @@ export function AreaSwitcher() {
           </button>
         ))}
       </div>
-      {/* 残り時間:ラベル付きチップで「何の時間か」を明示し、右端に埋もれないようにする(issue #32) */}
+      {/* 残り時間:「残り」ラベルで何の時間かを明示する(issue #32・背景ピルなし) */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 5,
           flex: "none",
-          background: "#f5f5f5",
-          borderRadius: 9999,
-          padding: "4px 10px",
         }}
       >
         <span style={{ fontSize: 10.5, color: "#888888", fontWeight: 500, whiteSpace: "nowrap" }}>
