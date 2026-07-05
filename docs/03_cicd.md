@@ -150,6 +150,8 @@ jobs:
 
 個人サーバー運用([dev-docs §10](./imasoko-dev-docs.md))。**まず手動デプロイを確立**し、余裕があれば自動化する。ハッカソン当日までにHTTPS/WSSの疎通確認を最優先。
 
+> **現行の構成は下記「[dev/本番の2環境デプロイ(issue #40)](#dev本番の2環境デプロイissue-40)」を参照。** 以下の Caddyfile / 単一環境 deploy.yml のスニペットは初期設計メモで、実際の `.github/workflows/deploy.yml`(2環境・Cloudflare+Tailscale 構成)とは一致しない。
+
 ### パッケージング:`deploy/Dockerfile`(マルチステージ・同一オリジン配信)
 
 ```dockerfile
