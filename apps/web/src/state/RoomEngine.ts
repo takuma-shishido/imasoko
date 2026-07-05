@@ -49,6 +49,9 @@ type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfoun
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
 type Visibility = "private" | "public";
 
+// ボトムシート退場アニメーションの長さ(ms)。global.css の ims-sheet-out / ims-fade-out と一致させる(issue #71)。
+const SHEET_EXIT_MS = 200;
+
 interface View {
   tx: number;
   ty: number;
@@ -84,6 +87,8 @@ export interface State {
   area: AreaId;
   view: View;
   sheet: SheetName | null;
+  /** 退場アニメーション中フラグ。true の間もシートはマウントしたまま下スライドで閉じる(issue #71)。 */
+  sheetClosing: boolean;
   selB: string;
   openFloors: Record<string, boolean>;
   selRoom: string | null;
@@ -125,6 +130,8 @@ export class RoomEngine {
   private listeners = new Set<() => void>();
   private drag: { sx: number; sy: number; tx: number; ty: number; moved: boolean } | null = null;
   private sheetDrag: { sy: number; t0: number; dy?: number } | null = null;
+  // ボトムシート退場アニメーション完了後に実際にアンマウントするためのタイマー(issue #71)。
+  private sheetCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
@@ -182,6 +189,7 @@ export class RoomEngine {
       area: "campus",
       view: { tx: 0, ty: 0, k: 0.5 },
       sheet: null,
+      sheetClosing: false,
       selB: "b1",
       openFloors: {},
       selRoom: null,
@@ -231,6 +239,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
+    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
   }
 
   // キャンパスマスタを実サーバーから取得し建物データを差し替える(issue #14)。
@@ -687,11 +696,42 @@ export class RoomEngine {
 
   // ── sheets ──
   private openSheet(name: SheetName) {
-    this.setState({ sheet: name });
+    // 閉じ中に開き直したら退場をキャンセルして即表示する(入場アニメーションで開く)。
+    if (this.sheetCloseTimer) {
+      clearTimeout(this.sheetCloseTimer);
+      this.sheetCloseTimer = null;
+    }
+    // 退場のために付けた inline の transition/transform を消し、再オープンを綺麗な状態から始める。
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "";
+      el.style.transform = "";
+    }
+    this.setState({ sheet: name, sheetClosing: false });
   }
-  closeSheet = () => this.setState({ sheet: null, selRoom: null, addOpen: false });
+  // 退場アニメーション付きで閉じる。closing の間もシートをマウントしたまま、
+  // 現在の transform(ドラッグ途中の translateY(dy) でもタップ時の 0 でも)から
+  // translateY(100%) へ CSS transition で連続的にスライドさせる(途中から閉じても
+  // 全開位置へ戻らず滑らかに閉じる。issue #71)。アニメーション長 SHEET_EXIT_MS 経過後に取り外す。
+  // 背景タップ・ハンドルのドラッグ/フリック(hUp)いずれの閉じ操作もここを通る。
+  closeSheet = () => {
+    if (!this.state.sheet || this.state.sheetClosing) return;
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "transform " + SHEET_EXIT_MS + "ms cubic-bezier(.4,0,.6,1)";
+      el.style.transform = "translateY(100%)";
+    }
+    this.setState({ sheetClosing: true });
+    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
+    this.sheetCloseTimer = setTimeout(() => {
+      this.sheetCloseTimer = null;
+      this.setState({ sheet: null, sheetClosing: false, selRoom: null, addOpen: false });
+    }, SHEET_EXIT_MS);
+  };
   hDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    // ドラッグ追従は即時にする(前回の退場/戻しで付いた transition を解除)。
+    if (this.sheetRef.current) this.sheetRef.current.style.transition = "";
     this.sheetDrag = { sy: e.clientY, t0: Date.now() };
   };
   hMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -703,13 +743,33 @@ export class RoomEngine {
   hUp = () => {
     const d = this.sheetDrag;
     this.sheetDrag = null;
-    if (this.sheetRef.current) this.sheetRef.current.style.transform = "";
-    if (!d || !d.dy) return;
+    const el = this.sheetRef.current;
+    if (!d || !d.dy) {
+      if (el) el.style.transform = ""; // ほぼ動いていない(タップ相当)→ そのまま
+      return;
+    }
     // 距離(70px 超)で閉じる。加えて携帯での素早いフリック(短距離でも速い下ドラッグ)でも
     // 閉じられるようにする(しきい値だけだと携帯でハンドルを掴んで軽く下ろしても閉じにくい。issue #71)。
+    // velocity は down→up 全体の平均速度(離す瞬間の瞬間速度ではない)。長く保持してから払うと
+    // 平均が下がりフリック判定に乗らないが、その場合も距離(70px)経路が拾うため実害は小さい。
     const dt = Math.max(1, Date.now() - d.t0);
-    const velocity = d.dy / dt; // px/ms
-    if (d.dy > 70 || (d.dy > 24 && velocity > 0.5)) this.closeSheet();
+    const velocity = d.dy / dt; // px/ms(平均)
+    if (d.dy > 70 || (d.dy > 24 && velocity > 0.5)) {
+      this.closeSheet(); // 現在の translateY(dy) から連続して退場(transform は戻さない)
+    } else if (el) {
+      // 閾値未満:掴んだ位置から元位置へアニメーションで戻す(スナップバック)。
+      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
+      el.style.transform = "";
+    }
+  };
+  // ハンドルのドラッグがシステム中断された場合の解放(ヒット領域拡大で発火機会が増える。issue #71)。
+  hCancel = () => {
+    this.sheetDrag = null;
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
+      el.style.transform = "";
+    }
   };
   openMembers = () => this.openSheet("members");
   openMeeting = () => this.openSheet("meeting");
@@ -1381,11 +1441,13 @@ export class RoomEngine {
 
       // sheets
       sheetOpen: !!s.sheet,
+      sheetClosing: s.sheetClosing,
       closeSheet: this.closeSheet,
       sheetRef: this.sheetRef,
       hDown: this.hDown,
       hMove: this.hMove,
       hUp: this.hUp,
+      hCancel: this.hCancel,
       shMembers: s.sheet === "members",
       shBuilding: s.sheet === "building",
       shMeeting: s.sheet === "meeting",

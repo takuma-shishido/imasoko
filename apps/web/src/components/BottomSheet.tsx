@@ -4,19 +4,24 @@ import type { PointerEvent, ReactNode, RefObject } from "react";
 // ハンドルのドラッグ / 背景タップで閉じる。
 interface Props {
   onClose: () => void;
+  /** 退場アニメーション中(下スライド + 背景フェードアウト。issue #71)。 */
+  closing?: boolean;
   sheetRef: RefObject<HTMLDivElement>;
   onHandleDown: (e: PointerEvent<HTMLDivElement>) => void;
   onHandleMove: (e: PointerEvent<HTMLDivElement>) => void;
   onHandleUp: (e: PointerEvent<HTMLDivElement>) => void;
+  onHandleCancel: (e: PointerEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }
 
 export function BottomSheet({
   onClose,
+  closing = false,
   sheetRef,
   onHandleDown,
   onHandleMove,
   onHandleUp,
+  onHandleCancel,
   children,
 }: Props) {
   return (
@@ -27,7 +32,7 @@ export function BottomSheet({
           position: "absolute",
           inset: 0,
           background: "rgba(23,23,23,.32)",
-          animation: "ims-fade-in .18s ease",
+          animation: closing ? "ims-fade-out .2s ease forwards" : "ims-fade-in .18s ease",
         }}
       />
       <div
@@ -43,7 +48,9 @@ export function BottomSheet({
           maxHeight: "76%",
           display: "flex",
           flexDirection: "column",
-          animation: "ims-sheet-in .22s cubic-bezier(.3,.8,.4,1)",
+          // 入場はキーフレーム。退場はドラッグ位置から連続させるため RoomEngine.closeSheet が
+          // sheetRef へ transition + translateY(100%) を直接付ける(issue #71)。
+          animation: closing ? "none" : "ims-sheet-in .22s cubic-bezier(.3,.8,.4,1)",
         }}
       >
         {/* ハンドル帯:携帯で下ドラッグして閉じる領域。タッチのヒット領域を 44px 確保する
@@ -53,6 +60,7 @@ export function BottomSheet({
           onPointerDown={onHandleDown}
           onPointerMove={onHandleMove}
           onPointerUp={onHandleUp}
+          onPointerCancel={onHandleCancel}
           style={{
             minHeight: 44,
             paddingTop: 10,
