@@ -13,10 +13,12 @@ export function RoomSheets() {
   return (
     <BottomSheet
       onClose={v.closeSheet}
+      closing={v.sheetClosing}
       sheetRef={v.sheetRef}
       onHandleDown={v.hDown}
       onHandleMove={v.hMove}
       onHandleUp={v.hUp}
+      onHandleCancel={v.hCancel}
     >
       {v.shMembers && <MemberList />}
       {v.shBuilding && <CampusView />}
