@@ -333,6 +333,7 @@ export class RoomEngine {
         const left = this.state.members.find((m) => m.id === msg.id);
         this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
         if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
+        if (left) this.keepMeetingOnLeave(left);
         break;
       }
       case "meeting_point":
@@ -941,6 +942,36 @@ export class RoomEngine {
     this.send({ type: "meeting_point", point: null });
     this.toast("集合場所を解除しました");
   };
+  // 集合先(member 追従)の相手が退出しても集合場所を失わないようにする(issue #37 案B)。
+  // 最後の位置が分かる場合は coords に固定し、位置未共有・全エリア外は固定できないため解除する。
+  // サーバーの meeting_point が member のまま残ると再参加・途中参加で集合先が消えるため、
+  // 残メンバーのうち id 最小のクライアントが代表して固定結果を送信する(重複送信の回避)。
+  // note はワイヤ(coords は lat/lng のみ)に乗らないため、代表送信の echo を受けた非代表端末では
+  // 汎用ラベル(「◯◯の地点」)に落ちる(pin-drop の note と同じ既存制約。ピン位置・距離は維持される)。
+  private keepMeetingOnLeave(left: Member) {
+    const mt = this.state.meeting;
+    if (!mt || mt.kind !== "member" || mt.memberId !== left.id) return;
+    const fixed: MeetingPoint | null =
+      left.viewer || left.lost
+        ? null
+        : {
+            kind: "coords",
+            area: left.area,
+            x: left.x,
+            y: left.y,
+            note: left.name + "さんが最後にいた場所",
+          };
+    this.setState({ meeting: fixed });
+    this.toast(
+      fixed
+        ? "集合場所を" + left.name + "さんが最後にいた場所に固定しました"
+        : "集合先の" + left.name + "さんの位置が分からないため、集合場所を解除しました"
+    );
+    const leaderId = this.state.members.map((m) => m.id).sort()[0];
+    if (!leaderId || leaderId !== this.state.selfId) return;
+    if (this.socketSend) this.ignoreMeetingEcho = true;
+    this.send({ type: "meeting_point", point: meetingToWire(fixed) });
+  }
   meetingLabelOf(pt: MeetingPoint | null): string {
     if (!pt) return "";
     if (pt.kind === "coords") return pt.note ? pt.note : AREAS[pt.area].short + "の地点";
