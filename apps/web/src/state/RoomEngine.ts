@@ -106,7 +106,6 @@ export interface State {
   expiresAt: number;
   now: number;
   reconnecting: boolean;
-  connFail: boolean;
   toasts: Toast[];
   warnPublic: boolean;
   leaveOpen: boolean;
@@ -205,7 +204,6 @@ export class RoomEngine {
       expiresAt: 0,
       now,
       reconnecting: false,
-      connFail: false,
       toasts: [],
       warnPublic: false,
       leaveOpen: false,
@@ -951,14 +949,6 @@ export class RoomEngine {
     this.toast("退出しました");
     this.goTop();
   };
-  retryConn = () => {
-    this.setState({ connFail: false, reconnecting: true });
-    setTimeout(() => {
-      this.setState({ reconnecting: false });
-      this.toast("再接続しました");
-    }, 1800);
-  };
-
   // ── render helpers ──
   // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
   private viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
@@ -1467,8 +1457,6 @@ export class RoomEngine {
       leaveOpen: s.leaveOpen,
       doLeave: this.doLeave,
       cancelLeave: this.cancelLeave,
-      connFail: s.connFail,
-      retryConn: this.retryConn,
 
       // toasts(map 画面は下シートを避けて高めに出す)
       toasts: s.toasts,
