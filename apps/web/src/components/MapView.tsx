@@ -271,71 +271,8 @@ export function MapView() {
         </div>
       )}
 
-      {/* 集合インフォバナー:集合時間は常時、集合場所は設定時に併記(いつ・どこに。issue #38) */}
-      {v.screen === "map" && !v.pickMode && (
-        <div
-          data-nopan="1"
-          style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            background: "#fff",
-            border: "1px solid #ebebeb",
-            borderRadius: 9999,
-            padding: "5px 12px",
-            fontSize: 11.5,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            zIndex: 6,
-            boxShadow: "0 2px 8px rgba(0,0,0,.10)",
-            maxWidth: "78%", // 狭幅端末で右上コンパス(right:12)と重ならない範囲
-          }}
-        >
-          {/* いつ(集合時間・常時表示) */}
-          <span style={{ whiteSpace: "nowrap", fontWeight: 500, flex: "none" }}>
-            <span style={{ color: "#888888", fontWeight: 400 }}>集合 </span>
-            {v.meetAtLabel}
-          </span>
-          {/* どこに(集合場所・設定時のみ) */}
-          {v.meetingSet && (
-            <>
-              <span style={{ width: 1, height: 14, background: "#ebebeb", flex: "none" }} />
-              <span
-                style={{
-                  width: 9,
-                  height: 9,
-                  background: "#0070f3",
-                  transform: "rotate(45deg)",
-                  flex: "none",
-                }}
-              />
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {v.meetingLabel}
-                <span style={{ color: "#888888" }}> ・ {v.meetingDistSelf}</span>
-              </span>
-              <button
-                onClick={v.clearMeeting}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 9999,
-                  border: 0,
-                  background: "#f5f5f5",
-                  color: "#4d4d4d",
-                  cursor: "pointer",
-                  fontSize: 11,
-                  lineHeight: 1,
-                  flex: "none",
-                  marginRight: -4,
-                }}
-              >
-                ✕
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      {/* 集合時間・集合場所・距離は上部の集合バー(MapScreen)へ集約(issue #38)。
+          地図上には集合ピン(◆ callout)のみ残す。 */}
 
       {/* 方位コンパス(実地図は街区に合わせ回転しているため北を示す。3エリア共通) */}
       {v.screen === "map" && (
