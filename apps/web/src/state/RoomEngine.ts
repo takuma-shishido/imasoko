@@ -27,7 +27,12 @@ import {
   roomLookup,
   setBuildings,
 } from "@/lib/campusData";
-import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
+import {
+  POSITION_MIN_MOVE_M,
+  POSITION_THROTTLE_MS,
+  serverConfig,
+  setServerConfig,
+} from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
@@ -43,6 +48,9 @@ import {
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
 type Visibility = "private" | "public";
+
+// ボトムシート退場アニメーションの長さ(ms)。global.css の ims-sheet-out / ims-fade-out と一致させる(issue #71)。
+const SHEET_EXIT_MS = 200;
 
 interface View {
   tx: number;
@@ -79,6 +87,8 @@ export interface State {
   area: AreaId;
   view: View;
   sheet: SheetName | null;
+  /** 退場アニメーション中フラグ。true の間もシートはマウントしたまま下スライドで閉じる(issue #71)。 */
+  sheetClosing: boolean;
   selB: string;
   openFloors: Record<string, boolean>;
   selRoom: string | null;
@@ -101,13 +111,10 @@ export interface State {
   expiresAt: number;
   now: number;
   reconnecting: boolean;
-  connFail: boolean;
-  demoOpen: boolean;
   toasts: Toast[];
   warnPublic: boolean;
   leaveOpen: boolean;
   members: Member[];
-  yutaLost: boolean;
   selfB?: string;
   selfF?: string;
 }
@@ -122,7 +129,14 @@ export class RoomEngine {
 
   private listeners = new Set<() => void>();
   private drag: { sx: number; sy: number; tx: number; ty: number; moved: boolean } | null = null;
-  private sheetDrag: { sy: number; dy?: number } | null = null;
+  // 地図上のアクティブなポインタを pointerId 単位で保持(1本=パン / 2本=ピンチズーム。issue #68)。
+  private pointers = new Map<number, { x: number; y: number }>();
+  // 現在のジェスチャがピンチを含んだか(ピンチを集合地点タップに誤反応させないため)。
+  private pinched = false;
+  // t0 はフリック速度算出用(issue #71)。
+  private sheetDrag: { sy: number; t0: number; dy?: number } | null = null;
+  // ボトムシート退場アニメーション完了後に実際にアンマウントするためのタイマー(issue #71)。
+  private sheetCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
@@ -180,6 +194,7 @@ export class RoomEngine {
       area: "campus",
       view: { tx: 0, ty: 0, k: 0.5 },
       sheet: null,
+      sheetClosing: false,
       selB: "b1",
       openFloors: {},
       selRoom: null,
@@ -202,13 +217,10 @@ export class RoomEngine {
       expiresAt: 0,
       now,
       reconnecting: false,
-      connFail: false,
-      demoOpen: false,
       toasts: [],
       warnPublic: false,
       leaveOpen: false,
       members: [],
-      yutaLost: false,
     };
   }
 
@@ -219,7 +231,7 @@ export class RoomEngine {
       const now = Date.now();
       if (expiresAt && now >= expiresAt) {
         if (screen === "map") {
-          this.setState({ now, screen: "ended", sheet: null, demoOpen: false });
+          this.setState({ now, screen: "ended", sheet: null });
           return;
         }
         if (screen === "join") {
@@ -232,6 +244,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
+    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
   }
 
   // キャンパスマスタを実サーバーから取得し建物データを差し替える(issue #14)。
@@ -243,6 +256,17 @@ export class RoomEngine {
       this.setState({}); // BUILDINGS 差し替えを描画へ反映
     } catch {
       /* 取得失敗時はローカル定義のまま */
+    }
+  }
+
+  // サーバー定数を実サーバーから取得し serverConfig を差し替える(有効期限・表示名上限の二重管理解消。issue #15)。
+  // 失敗時は constants.ts のフォールバック既定値を維持する。
+  async loadConfig() {
+    try {
+      setServerConfig(await api.getConfig());
+      this.setState({}); // 期限・上限表示へ反映
+    } catch {
+      /* 取得失敗時はフォールバック値のまま */
     }
   }
 
@@ -309,6 +333,7 @@ export class RoomEngine {
         const left = this.state.members.find((m) => m.id === msg.id);
         this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
         if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
+        if (left) this.keepMeetingOnLeave(left);
         break;
       }
       case "meeting_point":
@@ -328,12 +353,11 @@ export class RoomEngine {
         break;
       case "room_full":
         // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
-        this.setState({ screen: "full", sheet: null, demoOpen: false });
+        this.setState({ screen: "full", sheet: null });
         break;
       case "room_expired":
         // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
-        if (this.state.screen === "map")
-          this.setState({ screen: "ended", sheet: null, demoOpen: false });
+        if (this.state.screen === "map") this.setState({ screen: "ended", sheet: null });
         else if (this.state.screen === "join") this.setState({ screen: "expired" });
         break;
     }
@@ -349,7 +373,6 @@ export class RoomEngine {
       newTitle: "",
       newVis: "private",
       newMeetAt: toLocalInput(Date.now()),
-      demoOpen: false,
     });
   cancelCreate = () => this.setState({ createOpen: false });
   submitCreate = async () => {
@@ -387,7 +410,7 @@ export class RoomEngine {
   };
   setMeetAt = (v: string) => {
     const meetAt = fromLocalInput(v);
-    this.setState({ meetAt, expiresAt: meetAt + END_OFFSET });
+    this.setState({ meetAt, expiresAt: meetAt + serverConfig.endOffsetMs });
     this.toast("集合時間を " + fmtMeetLabel(meetAt) + " に変更しました");
   };
   goPublic = () => {
@@ -431,7 +454,8 @@ export class RoomEngine {
         roomId,
         roomTitle: title,
         isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
-        meetAt: expiresAt - END_OFFSET,
+        visibility: res.visibility, // 公開範囲をサーバー実値から復元(public→退出→再参加で private に戻る不具合。issue #35)
+        meetAt: expiresAt - serverConfig.endOffsetMs,
         expiresAt,
       });
     } catch (e) {
@@ -454,7 +478,7 @@ export class RoomEngine {
   // ── join ──
   tapJoin = () => {
     const n = this.state.name.trim();
-    if (!n || n.length > 20) return;
+    if (!n || n.length > serverConfig.maxNameLength) return;
     this.setState({ permModal: true });
   };
   enterRoom(viewerOnly: boolean) {
@@ -565,6 +589,15 @@ export class RoomEngine {
     if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
       return;
     if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.pointers.size >= 2) {
+      // 2本目の指:ピンチへ遷移。単一パンは破棄し、以降は 2点間距離でズームする(issue #68)。
+      this.drag = null;
+      this.pinched = true;
+      return;
+    }
+    // 1本目の指:従来どおりパン開始(この時点で新しいジェスチャの開始)。
+    this.pinched = false;
     this.drag = {
       sx: e.clientX,
       sy: e.clientY,
@@ -574,6 +607,49 @@ export class RoomEngine {
     };
   };
   onMapMove = (e: PointerEvent<HTMLDivElement>) => {
+    const p = this.pointers.get(e.pointerId);
+    if (!p) return;
+
+    // 2ポインタ:ピンチズーム。2点間距離の比でスケールし、2点の中点を中心にする。
+    // 中点の移動分がそのままパンになる(ピンチしながらの平行移動に追従)。issue #68。
+    if (this.pointers.size >= 2) {
+      // 先頭2つの pointerId をピンチの2点として扱う(3本目以降は追跡のみで計算に使わない)。
+      const [id0, id1] = [...this.pointers.keys()];
+      const p0 = this.pointers.get(id0)!;
+      const p1 = this.pointers.get(id1)!;
+      const prevMidX = (p0.x + p1.x) / 2;
+      const prevMidY = (p0.y + p1.y) / 2;
+      const prevDist = Math.hypot(p0.x - p1.x, p0.y - p1.y);
+      // 動いたポインタの新座標を反映(p は p0/p1 いずれかと同一参照)。prev は反映前に確定済み。
+      p.x = e.clientX;
+      p.y = e.clientY;
+      const curMidX = (p0.x + p1.x) / 2;
+      const curMidY = (p0.y + p1.y) / 2;
+      const curDist = Math.hypot(p0.x - p1.x, p0.y - p1.y);
+      if (prevDist === 0 || curDist === 0) return;
+      const vp = this.vpRef.current;
+      if (!vp) return;
+      const r = vp.getBoundingClientRect();
+      const { tx, ty, k } = this.state.view;
+      const A = AREAS[this.state.area];
+      const fit = Math.min(r.width / A.w, r.height / A.h);
+      // onMapWheel / zoomBy と同じ nk クランプ(fit*0.7〜3.5)。
+      const nk = Math.min(3.5, Math.max(fit * 0.7, k * (curDist / prevDist)));
+      const pmx = prevMidX - r.left;
+      const pmy = prevMidY - r.top;
+      const cmx = curMidX - r.left;
+      const cmy = curMidY - r.top;
+      this.setState({
+        view: { k: nk, tx: cmx - ((pmx - tx) / k) * nk, ty: cmy - ((pmy - ty) / k) * nk },
+      });
+      return;
+    }
+
+    // 1ポインタ:従来どおりパン。格納座標も最新化しておく。パン中は drag だけ更新すると
+    // pointers の座標が down 時のまま陳腐化し、この指が後からピンチの1本目になった際に
+    // 2本目 down 直後の prevDist/prevMid が古くなって初回フレームがポップする(issue #68)。
+    p.x = e.clientX;
+    p.y = e.clientY;
     if (!this.drag) return;
     const dx = e.clientX - this.drag.sx;
     const dy = e.clientY - this.drag.sy;
@@ -582,8 +658,21 @@ export class RoomEngine {
       this.setState({ view: { ...this.state.view, tx: this.drag.tx + dx, ty: this.drag.ty + dy } });
   };
   onMapUp = (e: PointerEvent<HTMLDivElement>) => {
+    const wasTracked = this.pointers.delete(e.pointerId);
+    // まだ 2 本以上残っていればピンチ継続。
+    if (this.pointers.size >= 2) return;
+    // ピンチ → 1 本に減った場合:残る指でパンを継続(指を離した瞬間の破綻を防ぐ)。
+    if (this.pointers.size === 1) {
+      this.resumePanFromRemaining();
+      return;
+    }
+    // 全ての指が離れた:ジェスチャ終了。
     const d = this.drag;
+    const pinched = this.pinched;
     this.drag = null;
+    this.pinched = false;
+    // ピンチだった/地図外(FAB 等の追跡外)は集合地点タップにしない。
+    if (pinched || !wasTracked) return;
     if (!this.state.pickMode || !d || d.moved) return;
     if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
       return;
@@ -602,7 +691,24 @@ export class RoomEngine {
       pinNote: "",
     });
   };
-  startPick = () => this.setState({ pickMode: true, sheet: null, demoOpen: false });
+  // 指が離れた/中断された時のポインタ解放(pointercancel も同じ扱い。issue #68)。
+  onMapCancel = (e: PointerEvent<HTMLDivElement>) => {
+    this.pointers.delete(e.pointerId);
+    if (this.pointers.size === 1) this.resumePanFromRemaining();
+    else if (this.pointers.size === 0) {
+      this.drag = null;
+      this.pinched = false;
+    }
+  };
+  // ピンチ(2本)から 1 本に減った際、残る指の現在位置からパンを引き継ぐ。
+  // moved:true で開始し、この持ち替えが集合地点タップに化けないようにする。
+  private resumePanFromRemaining() {
+    const [id] = [...this.pointers.keys()];
+    const rp = this.pointers.get(id);
+    if (!rp) return;
+    this.drag = { sx: rp.x, sy: rp.y, tx: this.state.view.tx, ty: this.state.view.ty, moved: true };
+  }
+  startPick = () => this.setState({ pickMode: true, sheet: null });
   cancelPick = () => this.setState({ pickMode: false });
   cancelPin = () => this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
   confirmPin = () => {
@@ -679,12 +785,43 @@ export class RoomEngine {
 
   // ── sheets ──
   private openSheet(name: SheetName) {
-    this.setState({ sheet: name, demoOpen: false });
+    // 閉じ中に開き直したら退場をキャンセルして即表示する(入場アニメーションで開く)。
+    if (this.sheetCloseTimer) {
+      clearTimeout(this.sheetCloseTimer);
+      this.sheetCloseTimer = null;
+    }
+    // 退場のために付けた inline の transition/transform を消し、再オープンを綺麗な状態から始める。
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "";
+      el.style.transform = "";
+    }
+    this.setState({ sheet: name, sheetClosing: false });
   }
-  closeSheet = () => this.setState({ sheet: null, selRoom: null, addOpen: false });
+  // 退場アニメーション付きで閉じる。closing の間もシートをマウントしたまま、
+  // 現在の transform(ドラッグ途中の translateY(dy) でもタップ時の 0 でも)から
+  // translateY(100%) へ CSS transition で連続的にスライドさせる(途中から閉じても
+  // 全開位置へ戻らず滑らかに閉じる。issue #71)。アニメーション長 SHEET_EXIT_MS 経過後に取り外す。
+  // 背景タップ・ハンドルのドラッグ/フリック(hUp)いずれの閉じ操作もここを通る。
+  closeSheet = () => {
+    if (!this.state.sheet || this.state.sheetClosing) return;
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "transform " + SHEET_EXIT_MS + "ms cubic-bezier(.4,0,.6,1)";
+      el.style.transform = "translateY(100%)";
+    }
+    this.setState({ sheetClosing: true });
+    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
+    this.sheetCloseTimer = setTimeout(() => {
+      this.sheetCloseTimer = null;
+      this.setState({ sheet: null, sheetClosing: false, selRoom: null, addOpen: false });
+    }, SHEET_EXIT_MS);
+  };
   hDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-    this.sheetDrag = { sy: e.clientY };
+    // ドラッグ追従は即時にする(前回の退場/戻しで付いた transition を解除)。
+    if (this.sheetRef.current) this.sheetRef.current.style.transition = "";
+    this.sheetDrag = { sy: e.clientY, t0: Date.now() };
   };
   hMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!this.sheetDrag) return;
@@ -695,8 +832,33 @@ export class RoomEngine {
   hUp = () => {
     const d = this.sheetDrag;
     this.sheetDrag = null;
-    if (this.sheetRef.current) this.sheetRef.current.style.transform = "";
-    if (d && d.dy && d.dy > 70) this.closeSheet();
+    const el = this.sheetRef.current;
+    if (!d || !d.dy) {
+      if (el) el.style.transform = ""; // ほぼ動いていない(タップ相当)→ そのまま
+      return;
+    }
+    // 距離(70px 超)で閉じる。加えて携帯での素早いフリック(短距離でも速い下ドラッグ)でも
+    // 閉じられるようにする(しきい値だけだと携帯でハンドルを掴んで軽く下ろしても閉じにくい。issue #71)。
+    // velocity は down→up 全体の平均速度(離す瞬間の瞬間速度ではない)。長く保持してから払うと
+    // 平均が下がりフリック判定に乗らないが、その場合も距離(70px)経路が拾うため実害は小さい。
+    const dt = Math.max(1, Date.now() - d.t0);
+    const velocity = d.dy / dt; // px/ms(平均)
+    if (d.dy > 70 || (d.dy > 24 && velocity > 0.5)) {
+      this.closeSheet(); // 現在の translateY(dy) から連続して退場(transform は戻さない)
+    } else if (el) {
+      // 閾値未満:掴んだ位置から元位置へアニメーションで戻す(スナップバック)。
+      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
+      el.style.transform = "";
+    }
+  };
+  // ハンドルのドラッグがシステム中断された場合の解放(ヒット領域拡大で発火機会が増える。issue #71)。
+  hCancel = () => {
+    this.sheetDrag = null;
+    const el = this.sheetRef.current;
+    if (el) {
+      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
+      el.style.transform = "";
+    }
   };
   openMembers = () => this.openSheet("members");
   openMeeting = () => this.openSheet("meeting");
@@ -780,6 +942,36 @@ export class RoomEngine {
     this.send({ type: "meeting_point", point: null });
     this.toast("集合場所を解除しました");
   };
+  // 集合先(member 追従)の相手が退出しても集合場所を失わないようにする(issue #37 案B)。
+  // 最後の位置が分かる場合は coords に固定し、位置未共有・全エリア外は固定できないため解除する。
+  // サーバーの meeting_point が member のまま残ると再参加・途中参加で集合先が消えるため、
+  // 残メンバーのうち id 最小のクライアントが代表して固定結果を送信する(重複送信の回避)。
+  // note はワイヤ(coords は lat/lng のみ)に乗らないため、代表送信の echo を受けた非代表端末では
+  // 汎用ラベル(「◯◯の地点」)に落ちる(pin-drop の note と同じ既存制約。ピン位置・距離は維持される)。
+  private keepMeetingOnLeave(left: Member) {
+    const mt = this.state.meeting;
+    if (!mt || mt.kind !== "member" || mt.memberId !== left.id) return;
+    const fixed: MeetingPoint | null =
+      left.viewer || left.lost
+        ? null
+        : {
+            kind: "coords",
+            area: left.area,
+            x: left.x,
+            y: left.y,
+            note: left.name + "さんが最後にいた場所",
+          };
+    this.setState({ meeting: fixed });
+    this.toast(
+      fixed
+        ? "集合場所を" + left.name + "さんが最後にいた場所に固定しました"
+        : "集合先の" + left.name + "さんの位置が分からないため、集合場所を解除しました"
+    );
+    const leaderId = this.state.members.map((m) => m.id).sort()[0];
+    if (!leaderId || leaderId !== this.state.selfId) return;
+    if (this.socketSend) this.ignoreMeetingEcho = true;
+    this.send({ type: "meeting_point", point: meetingToWire(fixed) });
+  }
   meetingLabelOf(pt: MeetingPoint | null): string {
     if (!pt) return "";
     if (pt.kind === "coords") return pt.note ? pt.note : AREAS[pt.area].short + "の地点";
@@ -934,92 +1126,13 @@ export class RoomEngine {
       );
     }
   }
-  tapLeave = () => this.setState({ leaveOpen: true, demoOpen: false });
+  tapLeave = () => this.setState({ leaveOpen: true });
   cancelLeave = () => this.setState({ leaveOpen: false });
   doLeave = () => {
     this.send({ type: "leave" });
     this.toast("退出しました");
     this.goTop();
   };
-  retryConn = () => {
-    this.setState({ connFail: false, reconnecting: true });
-    setTimeout(() => {
-      this.setState({ reconnecting: false });
-      this.toast("再接続しました");
-    }, 1800);
-  };
-
-  // ── demo controls ──
-  toggleDemo = () => this.setState((s) => ({ demoOpen: !s.demoOpen }));
-  demoList(): { label: string; run: () => void }[] {
-    const inRoom = this.state.screen === "map";
-    const needRoom = (fn: () => void) => () => {
-      this.setState({ demoOpen: false });
-      if (!inRoom) {
-        this.toast("ルーム参加中のみ使えるデモです");
-        return;
-      }
-      fn();
-    };
-    return [
-      {
-        label: "⏱ 残り時間を15秒にする",
-        run: needRoom(() => this.setState({ expiresAt: Date.now() + 15000 })),
-      },
-      {
-        label: "⏹ ルームを即終了(room_expired)",
-        run: needRoom(() => {
-          this.setState({ screen: "ended", sheet: null });
-        }),
-      },
-      {
-        label: "〰 再接続中バーを表示/解除",
-        run: needRoom(() => this.setState((s) => ({ reconnecting: !s.reconnecting }))),
-      },
-      { label: "✕ 接続失敗(継続)を表示", run: needRoom(() => this.setState({ connFail: true })) },
-      {
-        label: "👁 閲覧のみ ⇔ 位置共有 を切替",
-        run: needRoom(() =>
-          this.setState((s) => ({
-            viewerOnly: !s.viewerOnly,
-            members: s.members.map((m) =>
-              m.id === s.selfId ? { ...m, viewer: !s.viewerOnly } : m
-            ),
-          }))
-        ),
-      },
-      {
-        label: "📵 ゆうたを全エリア範囲外に/戻す",
-        run: needRoom(() => {
-          const lost = !this.state.yutaLost;
-          this.setState((s) => ({
-            yutaLost: lost,
-            members: s.members.map((m) => (m.id === "yuta" ? { ...m, lost } : m)),
-          }));
-        }),
-      },
-      {
-        label: "🈵 満員エラー画面",
-        run: () => {
-          this.setState({ screen: "full", sheet: null, demoOpen: false });
-        },
-      },
-      {
-        label: "⌛ 期限切れ画面(410 Gone)",
-        run: () => {
-          this.setState({ screen: "expired", sheet: null, demoOpen: false });
-        },
-      },
-      {
-        label: "❓ Not Found 画面(404)",
-        run: () => {
-          this.setState({ screen: "notfound", sheet: null, demoOpen: false });
-        },
-      },
-      { label: "↺ 最初からやり直す", run: () => this.goTop() },
-    ];
-  }
-
   // ── render helpers ──
   // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
   private viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
@@ -1308,7 +1421,7 @@ export class RoomEngine {
 
     const meetingLabel = this.meetingLabelOf(s.meeting);
     const selfDist = selfM ? this.distTo(selfM, mp) : "—";
-    const demoOnMap = s.screen === "map";
+    const onMap = s.screen === "map";
 
     return {
       // screens
@@ -1343,7 +1456,7 @@ export class RoomEngine {
       newMeetAt: s.newMeetAt,
       onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
         this.setState({ newMeetAt: e.target.value }),
-      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + END_OFFSET),
+      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + serverConfig.endOffsetMs),
       meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
       setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
       onSetMeetAt: (e: ChangeEvent<HTMLInputElement>) => this.setMeetAt(e.target.value),
@@ -1359,8 +1472,12 @@ export class RoomEngine {
       // join
       roomTitleDisplay: (s.roomTitle || "無名のルーム") + " ・ " + s.roomId,
       name: s.name,
+      nameMax: serverConfig.maxNameLength,
       onName: (e: ChangeEvent<HTMLInputElement>) => this.setState({ name: e.target.value }),
-      nameError: s.name.length > 20 ? "20文字以内で入力してください" : "",
+      nameError:
+        s.name.length > serverConfig.maxNameLength
+          ? `${serverConfig.maxNameLength}文字以内で入力してください`
+          : "",
       joinB: s.joinB,
       onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
         this.setState({ joinB: e.target.value, joinF: "" }),
@@ -1368,7 +1485,7 @@ export class RoomEngine {
       onJoinF: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinF: e.target.value }),
       joinFloorOpts: floorsOf(s.joinB),
       buildingOpts,
-      joinDisabled: !s.name.trim() || s.name.length > 20,
+      joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
       tapJoin: this.tapJoin,
       joinViewer: this.joinViewer,
       permModal: s.permModal,
@@ -1394,6 +1511,7 @@ export class RoomEngine {
       onMapDown: this.onMapDown,
       onMapMove: this.onMapMove,
       onMapUp: this.onMapUp,
+      onMapCancel: this.onMapCancel,
       onMapWheel: this.onMapWheel,
       worldW: A.w,
       worldH: A.h,
@@ -1430,6 +1548,7 @@ export class RoomEngine {
       fabSelf: this.fabSelf,
       fabFit: this.fabFit,
       memberCount: s.members.length,
+      memberMax: serverConfig.maxMembersPerRoom, // 上限は /api/config 由来(issue #43)
       areaSummary: sumParts.join(" ・ "),
       openMembers: this.openMembers,
       openMeeting: this.openMeeting,
@@ -1442,11 +1561,13 @@ export class RoomEngine {
 
       // sheets
       sheetOpen: !!s.sheet,
+      sheetClosing: s.sheetClosing,
       closeSheet: this.closeSheet,
       sheetRef: this.sheetRef,
       hDown: this.hDown,
       hMove: this.hMove,
       hUp: this.hUp,
+      hCancel: this.hCancel,
       shMembers: s.sheet === "members",
       shBuilding: s.sheet === "building",
       shMeeting: s.sheet === "meeting",
@@ -1523,19 +1644,10 @@ export class RoomEngine {
       leaveOpen: s.leaveOpen,
       doLeave: this.doLeave,
       cancelLeave: this.cancelLeave,
-      connFail: s.connFail,
-      retryConn: this.retryConn,
 
-      // demo / toasts
-      demoOpen: s.demoOpen,
-      toggleDemo: this.toggleDemo,
-      demoActions: this.demoList(),
-      demoChipOn:
-        !s.sheet && !s.permModal && !s.warnPublic && !s.leaveOpen && !s.connFail && !s.pinModal,
-      demoBtnBottom: demoOnMap ? "300px" : "16px",
-      demoPanelBottom: demoOnMap ? "334px" : "50px",
+      // toasts(map 画面は下シートを避けて高めに出す)
       toasts: s.toasts,
-      toastBottom: demoOnMap ? "140px" : "80px",
+      toastBottom: onMap ? "140px" : "80px",
     };
   }
 

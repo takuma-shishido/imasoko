@@ -79,7 +79,12 @@ def room_status(room_id: str) -> dict:
         raise HTTPException(status_code=404, detail="not found")
     if rooms.is_expired(room):
         raise HTTPException(status_code=410, detail="gone")
-    return {"status": "active", "expires_at": room.expires_at.isoformat()}
+    # 退出→再参加で UI が公開範囲を復元できるよう visibility も返す(issue #35)。
+    return {
+        "status": "active",
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
 
 
 @app.patch("/api/rooms/{room_id}/visibility")
@@ -158,6 +163,14 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     finally:
         manager.remove(room_id, member_id)
         room.members.pop(member_id, None)
+        # 退出者が集合先(member 追従)なら stale な meeting_point を解除する(issue #37)。
+        # 最後の位置(coords)への固定は area を解決できる web 側(残メンバーの代表)が行い、
+        # ここでの解除は全員退出後の再参加・途中参加が「存在しないメンバー追従」を
+        # 受け取らないための保険。broadcast はしない:接続中のクライアントは member_left で
+        # 各自固定済みで、null を流すとそれを上書きしてしまう。
+        mp = room.meeting_point
+        if mp and mp.get("kind") == "member" and mp.get("memberId") == member_id:
+            room.meeting_point = None
         await manager.broadcast(room_id, {"type": "member_left", "id": member_id})
 
 

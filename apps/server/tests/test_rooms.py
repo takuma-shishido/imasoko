@@ -97,6 +97,23 @@ def test_public_list_sorted_by_meet_at():
     assert [r["title"] for r in pub] == ["t+1h", "t+2h", "t+3h"]
 
 
+def test_room_status_returns_visibility():
+    # GET /api/rooms/{id} が visibility を返し、退出→再参加で公開範囲を復元できること(issue #35)。
+    body = client.post("/api/rooms", json={"title": "テスト"}).json()
+    rid, token = body["room_id"], body["host_token"]
+
+    # 作成直後は private
+    assert client.get(f"/api/rooms/{rid}").json()["visibility"] == "private"
+
+    # host_token 付きで public に変更 → GET も public を返す(サーバー保持値と一致)
+    client.patch(
+        f"/api/rooms/{rid}/visibility",
+        json={"visibility": "public"},
+        headers={"x-host-token": token},
+    )
+    assert client.get(f"/api/rooms/{rid}").json()["visibility"] == "public"
+
+
 def test_campus_endpoint():
     data = client.get("/api/campus").json()
     assert len(data["areas"]) == 3

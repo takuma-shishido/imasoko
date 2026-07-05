@@ -1,32 +1,79 @@
 name: deploy
 
-# 任意:main への push で個人サーバーへ SSH デプロイ(docs/03 CD)。
-# Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY)が揃っている時だけ動き、無ければ無害にスキップ。
+# develop / main の push を、それぞれ dev(検証)/ 本番 の2環境へデプロイ(docs/03 CD・issue #40)。
+#   develop → imasoko-dev.reimpl.com(dir ~/imasoko-dev / -p imasoko-dev / port 8001)
+#   main    → imasoko.reimpl.com     (dir ~/imasoko     / -p imasoko     / port 8000)
+# コンテナホストは Tailscale 上(別ノード)。ランナーを tailnet に一時参加させ、Tailscale IP へ接続する。
+# ★ ホスト側は git clone 不要:CI がチェックアウトしたリポジトリを tar でコピーし、ホストで docker compose build/up する。
+#   → ホストに必要なのは docker + ssh + tar のみ(デプロイ先ディレクトリは毎回作り直す=状態はコンテナのインメモリのみ)。
+# Secrets(DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY / TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET)が
+# 揃っている時だけ動き、無ければ無害にスキップ(warning を出す)。
+# ※ secrets は step の if: で参照できないため、DEPLOY_HOST を job env に移して env.DEPLOY_HOST で分岐する。
 
-# ⚠️ 一時無効化中: main への自動デプロイを止めています。
-# 再開するときは下の workflow_dispatch を push トリガーに戻してください。
-#   push:
-#     branches: [main]
 on:
+  push:
+    branches: [main, develop]
+  # 手動デプロイ:Actions の「Run workflow」から実行ブランチを選ぶ(develop→dev / main→本番)。
   workflow_dispatch:
 
 concurrency:
-  group: deploy
+  # ブランチ別グループ。dev/本番のデプロイが互いをキャンセルしないよう分ける
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'develop' }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
     steps:
-      - name: SSH deploy
-        if: ${{ secrets.DEPLOY_HOST != '' }}
-        uses: appleboy/ssh-action@v1
+      - name: Resolve target (branch → dir/project/port)
+        id: t
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "dir=imasoko"      >> "$GITHUB_OUTPUT"
+            echo "project=imasoko"  >> "$GITHUB_OUTPUT"
+            echo "port=8000"        >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=imasoko-dev"     >> "$GITHUB_OUTPUT"
+            echo "project=imasoko-dev" >> "$GITHUB_OUTPUT"
+            echo "port=8001"           >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: ${{ env.DEPLOY_HOST != '' }}
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        if: ${{ env.DEPLOY_HOST != '' }}
+        uses: tailscale/github-action@v4
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd ~/imasoko
-            git pull --ff-only
-            docker compose -f deploy/docker-compose.yml up -d --build
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Copy repo to host & deploy
+        if: ${{ env.DEPLOY_HOST != '' }}
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_DIR: ${{ steps.t.outputs.dir }}
+          PROJECT: ${{ steps.t.outputs.project }}
+          APP_PORT: ${{ steps.t.outputs.port }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          # clone 不要:デプロイ先を作り直し、リポジトリを tar でコピー(.git / node_modules / dist は除外)
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "rm -rf ~/$DEPLOY_DIR && mkdir -p ~/$DEPLOY_DIR"
+          tar -cz --exclude='.git' --exclude='node_modules' --exclude='apps/web/dist' -C . . \
+            | $SSH "$DEPLOY_USER@$DEPLOY_HOST" "tar -xz -C ~/$DEPLOY_DIR"
+          # ホストで build & 起動(位置状態はインメモリ・1ワーカー固定・project 名で2環境分離)
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd ~/$DEPLOY_DIR && APP_PORT=$APP_PORT docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
+
+      - name: Notice — Secrets 未登録でスキップ
+        if: ${{ env.DEPLOY_HOST == '' }}
+        run: echo "::warning::DEPLOY_HOST 未登録のためデプロイをスキップしました(docs/03 の Secrets 登録を参照)"

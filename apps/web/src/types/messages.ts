@@ -36,6 +36,8 @@ export interface CreateRoomRes {
 export interface RoomStatusRes {
   status: "active";
   expires_at: string;
+  /** ルームの公開範囲。退出→再参加で UI が復元する(issue #35)。 */
+  visibility: Visibility;
 }
 export interface PublicRoomRes {
   room_id: string;
@@ -85,6 +87,12 @@ export interface CampusRes {
   areas: CampusArea[];
   buildings: CampusBuilding[];
   classrooms: CampusClassroom[];
+}
+/** GET /api/config:サーバー定数(二重管理の解消。issue #15 / server config.py)。 */
+export interface ConfigRes {
+  end_offset_seconds: number;
+  max_name_length: number;
+  max_members_per_room: number;
 }
 
 // ── WebSocket (client → server) ───────────────────────

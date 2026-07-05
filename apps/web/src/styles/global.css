@@ -66,6 +66,15 @@ textarea {
     opacity: 1;
   }
 }
+/* 背景オーバーレイの退場(フェードアウト。issue #71) */
+@keyframes ims-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
 @keyframes ims-blink {
   50% {
     opacity: 0.35;

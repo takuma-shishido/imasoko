@@ -27,6 +27,11 @@ vi.mock("@/lib/api", async (importOriginal) => {
       getCampus: vi.fn(async () => {
         throw new Error("campus not exercised in smoke");
       }),
+      getConfig: vi.fn(async () => ({
+        end_offset_seconds: 3 * 3600,
+        max_name_length: 20,
+        max_members_per_room: 50,
+      })),
     },
   };
 });

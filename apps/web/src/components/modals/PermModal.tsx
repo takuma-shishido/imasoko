@@ -19,10 +19,10 @@ export function PermModal() {
           marginBottom: 8,
         }}
       >
-        DEMO ・ ブラウザの許可ダイアログ
+        ブラウザの許可ダイアログ
       </div>
       <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
-        imasoko.app が位置情報の使用許可を求めています
+        {location.hostname} が位置情報の使用許可を求めています
       </div>
       <div style={{ fontSize: 12, color: "#4d4d4d", marginTop: 6, lineHeight: 1.6 }}>
         許可すると、あなたの現在地がこのルームの参加者に共有されます。

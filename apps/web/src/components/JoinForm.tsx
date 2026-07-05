@@ -2,6 +2,7 @@ import { useRoom } from "@/state/RoomContext";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { FloorSelector } from "./FloorSelector";
+import { RemainingChip } from "./RemainingChip";
 
 // 参加フォーム(design/03)。名前(+任意で建物・階)を入力して参加 / 見るだけ参加。
 export function JoinForm() {
@@ -18,18 +19,7 @@ export function JoinForm() {
         }}
       >
         <div style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{v.roomTitleDisplay}</div>
-        <div
-          style={{
-            fontFamily: "'Geist Mono',monospace",
-            fontSize: 11,
-            color: "#4d4d4d",
-            background: "#f5f5f5",
-            borderRadius: 9999,
-            padding: "4px 10px",
-          }}
-        >
-          残り {v.remainingShort}
-        </div>
+        <RemainingChip remaining={v.remainingShort} timerColor={v.timerColor} />
       </div>
 
       <div
@@ -61,7 +51,7 @@ export function JoinForm() {
         <Input
           size="lg"
           label="表示名"
-          placeholder="ニックネームでOK(1〜20文字)"
+          placeholder={`ニックネームでOK(1〜${v.nameMax}文字)`}
           value={v.name}
           onChange={v.onName}
           error={v.nameError}

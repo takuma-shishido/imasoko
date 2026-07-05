@@ -7,7 +7,6 @@ import { RoomPage } from "@/pages/RoomPage";
 import { RoomSheets } from "@/components/RoomSheets";
 import { RoomModals } from "@/components/RoomModals";
 import { Toasts } from "@/components/Toasts";
-import { DemoControls } from "@/components/DemoControls";
 
 // スマホ縦の枠(max-width 430px 中央寄せ)。design/00 の共通レイアウト。
 function Frame() {
@@ -75,7 +74,6 @@ function Frame() {
         <RoomSheets />
         <RoomModals />
         <Toasts />
-        <DemoControls />
       </div>
     </div>
   );
