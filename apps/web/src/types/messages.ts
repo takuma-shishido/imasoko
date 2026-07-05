@@ -86,6 +86,12 @@ export interface CampusRes {
   buildings: CampusBuilding[];
   classrooms: CampusClassroom[];
 }
+/** GET /api/config:サーバー定数(二重管理の解消。issue #15 / server config.py)。 */
+export interface ConfigRes {
+  end_offset_seconds: number;
+  max_name_length: number;
+  max_members_per_room: number;
+}
 
 // ── WebSocket (client → server) ───────────────────────
 export interface MemberState {

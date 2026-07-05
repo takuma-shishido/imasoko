@@ -4,6 +4,7 @@
 
 import type {
   CampusRes,
+  ConfigRes,
   CreateRoomReq,
   CreateRoomRes,
   PublicRoomRes,
@@ -53,6 +54,8 @@ export const api = {
     }).then(json<{ visibility: Visibility }>),
 
   getCampus: (): Promise<CampusRes> => fetch("/api/campus").then(json<CampusRes>),
+
+  getConfig: (): Promise<ConfigRes> => fetch("/api/config").then(json<ConfigRes>),
 };
 
 // host_token の端末ローカル保存(docs/design/01)。
