@@ -34,6 +34,8 @@ export function MapView() {
         overflow: "hidden",
         background: "#f5f5f5",
         touchAction: "none",
+        userSelect: "none", // ドラッグ/長押しで地図上テキストが選択されるのを防ぐ(issue #36)
+        WebkitUserSelect: "none", // Safari / iOS
         cursor: "grab",
       }}
     >
