@@ -60,6 +60,16 @@ class MPPlace(BaseModel):
 MeetingPoint = Annotated[Union[MPCoords, MPMember, MPPlace], Field(discriminator="kind")]
 
 
+# ── 集合場所の提案(server が id/addedBy/createdAt を採番して保持・配信する)──
+# フィールド順は送出 JSON のキー順(id → place → note → addedBy → createdAt)に一致させる。
+class PlaceSuggestion(BaseModel):
+    id: str
+    place: PlaceRef
+    note: str
+    addedBy: str
+    createdAt: str
+
+
 # ── client → server ────────────────────────────────────
 class JoinMsg(BaseModel):
     type: Literal["join"]
@@ -121,3 +131,49 @@ class CreateRoomRes(BaseModel):
 class VisibilityReq(BaseModel):
     visibility: Visibility
     title: Optional[str] = None
+
+
+# ── server → client メッセージ(手組み生 dict を型付きに置換・web の messages.ts と対応)──
+# 送出 JSON は従来の生 dict と厳密一致させる:
+#   - フィールド定義順 = 送出キー順(type を先頭)。
+#   - model_dump()(mode="python")の既定を使い、None フィールドも欠落させない(exclude_none しない)。
+#   - member 表現は Member.to_dict() を単一の真実とし、envelope 側は dict のまま受け渡す。
+class RoomStateMsg(BaseModel):
+    type: MsgType = MsgType.ROOM_STATE
+    self_id: str
+    members: list[dict]
+    meeting_point: Optional[MeetingPoint] = None
+    expires_at: str
+
+
+class MemberJoinedMsg(BaseModel):
+    type: MsgType = MsgType.MEMBER_JOINED
+    member: dict
+
+
+class MemberUpdateMsg(BaseModel):
+    type: MsgType = MsgType.MEMBER_UPDATE
+    member: dict
+
+
+class MemberLeftMsg(BaseModel):
+    type: MsgType = MsgType.MEMBER_LEFT
+    id: str
+
+
+class MeetingPointBroadcastMsg(BaseModel):
+    type: MsgType = MsgType.MEETING_POINT
+    point: Optional[MeetingPoint] = None
+
+
+class PlaceSuggestionsMsg(BaseModel):
+    type: MsgType = MsgType.PLACE_SUGGESTIONS
+    items: list[PlaceSuggestion]
+
+
+class RoomExpiredMsg(BaseModel):
+    type: MsgType = MsgType.ROOM_EXPIRED
+
+
+class RoomFullMsg(BaseModel):
+    type: MsgType = MsgType.ROOM_FULL
