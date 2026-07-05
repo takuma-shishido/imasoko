@@ -289,7 +289,7 @@ export function MapView() {
             gap: 8,
             zIndex: 6,
             boxShadow: "0 2px 8px rgba(0,0,0,.10)",
-            maxWidth: "82%",
+            maxWidth: "78%", // 狭幅端末で右上コンパス(right:12)と重ならない範囲
           }}
         >
           {/* いつ(集合時間・常時表示) */}
