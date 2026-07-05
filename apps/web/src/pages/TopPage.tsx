@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { useRoom } from "@/state/RoomContext";
 import { Button } from "@/components/ui/Button";
 import { MeshGradient } from "@/components/MeshGradient";
+import { COLORS } from "@/lib/theme";
 
 const FEATURES = [
   ["01", "ログイン・アカウント登録は不要"],
@@ -39,7 +40,7 @@ export function TopPage() {
               fontFamily: "'Geist Mono',monospace",
               fontSize: 11,
               letterSpacing: ".14em",
-              color: "#171717",
+              color: COLORS.INK,
               fontWeight: 500,
             }}
           >
@@ -50,7 +51,7 @@ export function TopPage() {
               fontFamily: "'Geist Mono',monospace",
               fontSize: 10,
               letterSpacing: ".12em",
-              color: "#888888",
+              color: COLORS.GRAY,
             }}
           >
             有明キャンパス
@@ -84,7 +85,7 @@ export function TopPage() {
             style={
               {
                 fontSize: 14,
-                color: "#4d4d4d",
+                color: COLORS.SUBTLE,
                 margin: "10px 0 0",
                 lineHeight: 1.75,
                 textWrap: "pretty",
@@ -99,7 +100,7 @@ export function TopPage() {
 
         <div style={{ flex: 1 }} />
 
-        <div style={{ borderTop: "1px solid #ebebeb" }}>
+        <div style={{ borderTop: `1px solid ${COLORS.BORDER}` }}>
           {FEATURES.map(([n, label]) => (
             <div
               key={n}
@@ -108,15 +109,15 @@ export function TopPage() {
                 alignItems: "center",
                 gap: 14,
                 padding: "12px 0",
-                borderBottom: "1px solid #ebebeb",
+                borderBottom: `1px solid ${COLORS.BORDER}`,
               }}
             >
               <span
-                style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: "#888888" }}
+                style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: COLORS.GRAY }}
               >
                 {n}
               </span>
-              <span style={{ fontSize: 13, color: "#171717" }}>{label}</span>
+              <span style={{ fontSize: 13, color: COLORS.INK }}>{label}</span>
             </div>
           ))}
         </div>
@@ -131,7 +132,7 @@ export function TopPage() {
             公開ルームを探す
           </Button>
         </div>
-        <div style={{ marginTop: 16, fontSize: 11.5, color: "#888888", textAlign: "center" }}>
+        <div style={{ marginTop: 16, fontSize: 11.5, color: COLORS.GRAY, textAlign: "center" }}>
           参加すると、現在地がルーム内で共有されます。
         </div>
       </div>
