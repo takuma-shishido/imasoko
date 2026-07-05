@@ -6,7 +6,6 @@
 import type { ChangeEvent, MouseEvent, PointerEvent, RefObject, WheelEvent } from "react";
 import type {
   AreaId,
-  Building,
   DemoRoom,
   MeetingPoint,
   Member,
@@ -14,11 +13,10 @@ import type {
   Room,
   Toast,
 } from "@/types/campus";
-import { AREAS, AREA_ORDER, MAP_AREAS } from "@/lib/mapAreas";
+import { AREAS, MAP_AREAS } from "@/lib/mapAreas";
 import {
   BUILDINGS,
   CLAMP,
-  MAP_TEXTS,
   bAnchor,
   bById,
   bSpot,
@@ -34,6 +32,8 @@ import {
   setServerConfig,
 } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
+import { selChip, selDot } from "@/lib/chipColors";
+import { mapVals } from "@/state/selectors/mapVals";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
@@ -120,22 +120,6 @@ export interface State {
 }
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
-
-// 選択チップの色(選択状態に応じた背景 bg / 文字 fg / 枠線 bd の三つ組)。renderVals 内で逐語反復していたパターンを集約する(issue #99)。
-// fgOff = 非選択時の文字色(既定 #171717。フロアタブ / エリアセグメントのみ #4d4d4d)。
-// bgOff = 非選択時の背景色(既定 #ffffff。エリアセグメントのみ透明)。
-function selChip(selected: boolean, fgOff = "#171717", bgOff = "#ffffff") {
-  return {
-    bg: selected ? "#171717" : bgOff,
-    fg: selected ? "#ffffff" : fgOff,
-    bd: selected ? "#171717" : "#ebebeb",
-  };
-}
-
-// 選択ドットの色(選択時のみ塗り、非選択は透明)。ラジオ的なドット表示で反復していたパターンを集約する(issue #99)。
-function selDot(selected: boolean): string {
-  return selected ? "#171717" : "transparent";
-}
 
 export class RoomEngine {
   state: State;
@@ -727,6 +711,7 @@ export class RoomEngine {
   startPick = () => this.setState({ pickMode: true, sheet: null });
   cancelPick = () => this.setState({ pickMode: false });
   cancelPin = () => this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
+  onPinNote = (e: ChangeEvent<HTMLInputElement>) => this.setState({ pinNote: e.target.value });
   confirmPin = () => {
     const p = this.state.pendingPin;
     if (!p) return;
@@ -890,6 +875,8 @@ export class RoomEngine {
   };
 
   // ── building panel ──
+  // マップ上の建物タップ:その建物を選択して建物シートを開く(renderVals の map 派生値から利用)。
+  pickMapBuilding = (id: string) => this.setState({ selB: id, sheet: "building" });
   pickBuilding(id: string) {
     this.setState({ selB: id, selRoom: null });
   }
@@ -1151,7 +1138,7 @@ export class RoomEngine {
   };
   // ── render helpers ──
   // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
-  private viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
+  viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
     const A = AREAS[this.state.area];
     const vp = this.vpRef.current;
     if (!vp) return { xmin: 26, ymin: 26, xmax: A.w - 26, ymax: A.h - 26 };
@@ -1166,7 +1153,7 @@ export class RoomEngine {
     };
   }
 
-  private clampedPos(
+  clampedPos(
     m: Member,
     idxMap: Record<string, number>,
     vr: { xmin: number; ymin: number; xmax: number; ymax: number }
@@ -1213,7 +1200,7 @@ export class RoomEngine {
   }
   // 目的地(集合場所)までの距離を GPS 実座標(緯度経度)から計算する(issue #28)。
   // 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は resolveMeetingPos の x/y を unproject で復元。
-  private distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
+  distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
     // 閲覧のみ/位置未共有は「—」。範囲外(lost)でも GPS があれば実距離を出す(issue #28)。
     if (!mp || m.viewer || m.lat == null || m.lng == null) return "—";
     const dest = unproject(MAP_AREAS[mp.area], mp.x, mp.y);
@@ -1228,53 +1215,8 @@ export class RoomEngine {
     const s = this.state;
     const remaining = s.expiresAt ? Math.max(0, s.expiresAt - s.now) : 0;
     const mp = this.resolveMeetingPos();
-    const A = AREAS[s.area];
-    const invScale = Math.min(2.6, Math.max(0.85, 1 / s.view.k)).toFixed(3);
-
-    // pins
-    const meetTargetId = s.meeting && s.meeting.kind === "member" ? s.meeting.memberId : null;
-    const idxMap: Record<string, number> = { lost: 0 };
-    const vr = this.viewportRect();
-    const pinList = [];
-    for (const m of s.members) {
-      if (m.viewer) continue;
-      const pos = this.clampedPos(m, idxMap, vr);
-      const self = m.id === s.selfId;
-      const isMeet = m.id === meetTargetId && !pos.out;
-      const floorTag = m.building
-        ? " ・ " + bById(m.building)!.name.replace("号館", "") + "号館" + m.floor
-        : "";
-      pinList.push({
-        x: pos.x.toFixed(1),
-        y: pos.y.toFixed(1),
-        label: pos.out
-          ? m.name + " ・ 範囲外"
-          : isMeet
-            ? "集合 ・ " + m.name + (self ? "(自分)" : "")
-            : self
-              ? m.name + "(自分)"
-              : m.name + floorTag,
-        chipBg: pos.out ? "#f5f5f5" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-        chipFg: pos.out ? "#888888" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
-        chipBd: pos.out ? "#e0e0e0" : isMeet ? "#0070f3" : self ? "#171717" : "#ebebeb",
-        dotBg: pos.out ? "#bdbdbd" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-        dotBd: pos.out ? "#f5f5f5" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
-        anim: self && !pos.out ? "ims-pulse 2.2s infinite" : "none",
-      });
-    }
-
-    // meeting pin(member追従型は対象メンバーのピン自体を青くするため描画しない)
-    let meetingPinOn = false;
-    let meetingPinX = "0";
-    let meetingPinY = "0";
-    if (mp && !meetTargetId && mp.area === s.area && s.screen === "map") {
-      meetingPinOn = true;
-      meetingPinX = mp.x.toFixed(1);
-      meetingPinY = mp.y.toFixed(1);
-    }
 
     // member rows
-    const selfM = s.members.find((m) => m.id === s.selfId);
     const memberRows = s.members.map((m) => ({
       id: m.id,
       initial: (m.name || "?")[0],
@@ -1300,59 +1242,8 @@ export class RoomEngine {
       },
     }));
 
-    // area summary
-    const counts: Record<string, number> = {};
-    let lostN = 0;
-    for (const m of s.members) {
-      if (m.viewer) continue;
-      if (m.lost) {
-        lostN++;
-        continue;
-      }
-      counts[m.area] = (counts[m.area] || 0) + 1;
-    }
-    const sumParts = Object.keys(counts).map((k) => AREAS[k as AreaId].short + " " + counts[k]);
-    if (lostN) sumParts.push("範囲外 " + lostN);
-    const viewers = s.members.filter((m) => m.viewer).length;
-    if (viewers) sumParts.push("閲覧 " + viewers);
-
     // buildings(データ定義 → コンポーネント描画)
     const selB = bById(s.selB) || BUILDINGS[0];
-    const campusBuildings = BUILDINGS.map((b: Building) => {
-      const active = s.sheet === "building" && s.selB === b.id;
-      return {
-        id: b.id,
-        x: b.x,
-        y: b.y,
-        w: b.w,
-        h: b.h,
-        name: b.name,
-        cap: b.cap || "",
-        fs: b.fs || 19,
-        bd: active ? "#171717" : "#a1a1a1",
-        bw: active ? 3 : 1.5,
-        pick: (e: MouseEvent) => {
-          e.stopPropagation();
-          this.setState({ selB: b.id, sheet: "building" });
-        },
-      };
-    });
-    const mapTexts = (MAP_TEXTS[s.area] || []).map((t) => ({
-      x: t.x,
-      y: t.y,
-      t: t.t,
-      size: t.size,
-      c: t.c,
-      w: t.w || 400,
-      ff: t.mono ? "'Geist Mono',monospace" : "inherit",
-      ls: t.mono ? ".05em" : "0",
-      tf:
-        t.a === "l"
-          ? "translate(0,-50%)"
-          : t.a === "r"
-            ? "translate(-100%,-50%)"
-            : "translate(-50%,-50%)",
-    }));
     const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
     const buildingChips = BUILDINGS.map((b) => ({
       name: b.name,
@@ -1429,8 +1320,6 @@ export class RoomEngine {
         };
       });
 
-    const meetingLabel = this.meetingLabelOf(s.meeting);
-    const selfDist = selfM ? this.distTo(selfM, mp) : "—";
     const onMap = s.screen === "map";
 
     return {
@@ -1507,70 +1396,8 @@ export class RoomEngine {
       remainingLong: fmtLong(remaining),
       timerColor: remaining < 300000 ? "#ee0000" : "#171717",
 
-      // map
-      areasSeg: AREA_ORDER.map((id) => {
-        const c = selChip(s.area === id, "#4d4d4d", "transparent");
-        return {
-          label: AREAS[id].short,
-          bg: c.bg,
-          fg: c.fg,
-          pick: () => this.pickArea(id),
-        };
-      }),
-      reconnecting: s.reconnecting,
-      viewerOnly: s.viewerOnly,
-      sharePosAgain: this.sharePosAgain,
-      vpRef: this.vpRef,
-      onMapDown: this.onMapDown,
-      onMapMove: this.onMapMove,
-      onMapUp: this.onMapUp,
-      onMapCancel: this.onMapCancel,
-      onMapWheel: this.onMapWheel,
-      worldW: A.w,
-      worldH: A.h,
-      mapTransform: "translate(" + s.view.tx + "px," + s.view.ty + "px) scale(" + s.view.k + ")",
-      invScale,
-      area: s.area,
-      isCampusArea: s.area === "campus",
-      isSt1: s.area === "station_1",
-      isSt2: s.area === "station_2",
-      campusBuildings,
-      mapTexts,
-      pinList,
-      meetingPinOn,
-      meetingPinX,
-      meetingPinY,
-      pickMode: s.pickMode,
-      cancelPick: this.cancelPick,
-      startPick: this.startPick,
-      pinModal: s.pinModal,
-      pinNote: s.pinNote,
-      onPinNote: (e: ChangeEvent<HTMLInputElement>) => this.setState({ pinNote: e.target.value }),
-      confirmPin: this.confirmPin,
-      cancelPin: this.cancelPin,
-      meetingSet: !!s.meeting,
-      meetingLabel,
-      meetingDistSelf: "あなたから " + selfDist,
-      clearMeeting: this.clearMeeting,
-      meetingByLabel:
-        s.meetingBy +
-        "が設定" +
-        (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
-      fabZoomIn: this.fabZoomIn,
-      fabZoomOut: this.fabZoomOut,
-      fabSelf: this.fabSelf,
-      fabFit: this.fabFit,
-      memberCount: s.members.length,
-      memberMax: serverConfig.maxMembersPerRoom, // 上限は /api/config 由来(issue #43)
-      areaSummary: sumParts.join(" ・ "),
-      openMembers: this.openMembers,
-      openMeeting: this.openMeeting,
-      openBuilding: this.openBuilding,
-      openPlaces: this.openPlaces,
-      openShare: this.openShare,
-      openSettings: this.openSettings,
-      buildingBtnOpacity: s.area === "campus" ? "1" : "0.35",
-      tapLeave: this.tapLeave,
+      // map(地図画面の派生値は selectors/mapVals へ分離。出力キー・値は不変。issue #100)
+      ...mapVals(this),
 
       // sheets
       sheetOpen: !!s.sheet,
