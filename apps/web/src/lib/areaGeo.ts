@@ -4,6 +4,8 @@
 // 建物/土地(Polygon・MultiPolygon)は面、道(LineString=footway 等)は線として描く。
 // GPS 投影(coords.project)も同じアフィン(projection)を使う。
 
+import type { AreaProjection } from "@/types/campus";
+
 export type AreaShapeKind = "building" | "land" | "road" | "other";
 export interface AreaShape {
   d: string;
@@ -12,16 +14,8 @@ export interface AreaShape {
   /** buildingWays で対応付けた建物 id(号館など)。なければ空。 */
   ref: string;
 }
-export interface AreaGeoProjection {
-  lon0: number;
-  lat0: number;
-  ax: number;
-  bx: number;
-  cx: number;
-  ay: number;
-  by: number;
-  cy: number;
-}
+/** アフィン係数は types/campus の AreaProjection に一本化(挙動不変・issue #98)。 */
+export type AreaGeoProjection = AreaProjection;
 export interface AreaGeoBounds {
   lat0: number;
   lng0: number;
