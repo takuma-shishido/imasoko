@@ -265,7 +265,7 @@ jobs:
 - origin は **HTTP** 配信。TLS は Cloudflare が担当(コンテナホスト側に nginx/certbot は不要)。
 - VPS の nginx は TLS を終端せず、Cloudflare から受けた HTTP をコンテナホストの **Tailscale IP:8000 / :8001** へ振り分ける。
 - WebSocket(`/ws`)は Cloudflare が WSS を透過し、VPS の nginx は `Upgrade` / `Connection` を転送する(WS 透過に必須)。
-- **デプロイ経路は別**:GitHub Actions ランナー → `tailscale/github-action` で tailnet 参加 → コンテナホストの Tailscale IP へ SSH(下記「Tailscale 参加 + SSH デプロイ」)。
+- **デプロイ経路は別**:GitHub Actions ランナー → `tailscale/github-action` で tailnet 参加 → コンテナホストの Tailscale IP へ SSH。リポジトリは CI から `tar` でコピー(ホストに git clone は不要)。下記「Tailscale 参加 + デプロイ」。
 
 ### 対応表
 
@@ -274,26 +274,15 @@ jobs:
 | `main` | imasoko.reimpl.com | `~/imasoko` | `imasoko` | 8000 | production |
 | `develop` | imasoko-dev.reimpl.com | `~/imasoko-dev` | `imasoko-dev` | 8001 | develop |
 
-### コンテナホストの初期セットアップ(2 クローン)
+### コンテナホスト側の準備(git clone 不要)
 
-ブランチごとに別ディレクトリへ clone し、それぞれ対象ブランチを checkout する:
+**ホスト側の手動セットアップは不要**。CI がチェックアウトしたリポジトリを `tar` でホストへコピーし、ホスト側で `docker compose up -d --build` する(デプロイ先 `~/imasoko` / `~/imasoko-dev` は CI が毎回作り直す)。ホストに必要なのは:
 
-```bash
-git clone https://github.com/takuma-shishido/imasoko.git ~/imasoko
-git -C ~/imasoko checkout main
+- **docker**(compose v2)/ **ssh(sshd)** / **tar** が入っていること
+- デプロイ用の公開鍵が SSH ユーザーの `~/.ssh/authorized_keys` にあること
+- Tailscale に参加済みで、`tag:ci` からの `22/tcp` 到達が ACL で許可されていること
 
-git clone https://github.com/takuma-shishido/imasoko.git ~/imasoko-dev
-git -C ~/imasoko-dev checkout develop
-```
-
-初回だけ手動で起動確認(以降は push で自動更新):
-
-```bash
-cd ~/imasoko     && APP_PORT=8000 docker compose -p imasoko     -f deploy/docker-compose.yml up -d --build
-cd ~/imasoko-dev && APP_PORT=8001 docker compose -p imasoko-dev -f deploy/docker-compose.yml up -d --build
-```
-
-> 位置状態はインメモリ・**1 ワーカー固定**([02 §9](./02_technical-design.md))。compose プロジェクト名で分離するため 2 環境は互いの状態を汚さない。
+> デプロイ先ディレクトリは**リポジトリのコピー置き場**にすぎず、位置状態を持たない(状態はコンテナのインメモリのみ・**1 ワーカー固定**、[02 §9](./02_technical-design.md))。毎回 `rm -rf` → 展開しても実行中コンテナには影響しない。compose プロジェクト名(`-p imasoko` / `-p imasoko-dev`)で 2 環境を分離する。
 > 8000/8001 は **Tailscale 経由でのみ**到達させる想定。公開インターフェースには晒さない(ファイアウォールで塞ぐ)。
 
 ### VPS の nginx(TLS 終端なし・HTTP → Tailscale 転送)
@@ -338,9 +327,9 @@ server {
 
 > Cloudflare 側は DNS で両ドメインを VPS へ向け(proxied / orange cloud)、SSL/TLS モードは **Flexible**(client↔CF は HTTPS、CF↔VPS は HTTP)にする。
 
-### Tailscale 参加 + SSH デプロイ(両環境共通の Secrets)
+### Tailscale 参加 + デプロイ(両環境共通の Secrets)
 
-GitHub-hosted ランナーは Tailscale 網の外にいるため、`deploy.yml` は [`tailscale/github-action@v4`](https://github.com/tailscale/github-action) で**ランナーを tailnet に一時参加**させ(ephemeral node)、コンテナホストの **Tailscale IP** へネイティブ `ssh` で接続して `git pull` + `docker compose up` を実行する。ブランチで dir/project/port を出し分けるため、Secrets は環境共通で使う。
+GitHub-hosted ランナーは Tailscale 網の外にいるため、`deploy.yml` は [`tailscale/github-action@v4`](https://github.com/tailscale/github-action) で**ランナーを tailnet に一時参加**させ(ephemeral node)、コンテナホストの **Tailscale IP** へネイティブ `ssh` で接続する。ホストに git clone は不要で、**CI がチェックアウトしたリポジトリを `tar` でホストへコピー**(`.git`/`node_modules`/`dist` 除外)→ ホストで `docker compose -f deploy/docker-compose.yml up -d --build` する。ブランチで dir/project/port を出し分けるため、Secrets は環境共通で使う。
 
 > `appleboy/ssh-action` は Docker コンテナ内で動き、ランナーの `tailscale0` へのルーティングが不安定なため、ネイティブ `ssh` の `run:` ステップ(ランナーホスト上で直接実行)を採用している。
 
@@ -400,6 +389,6 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 - [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)
 - [x] `deploy/Dockerfile` / `docker-compose.yml` を作成(**Caddyfile は不採用**、リバースプロキシは各自運用。host port は `APP_PORT` で可変・issue #40)
 - [x] 自動デプロイ `deploy.yml` を **develop/main の2環境**へ出し分け(issue #40。dev→8001 / 本番→8000、TLS/公開は Cloudflare + Tailscale。手順は上記「dev/本番の2環境デプロイ」)
-- [ ] コンテナホストに 2 クローン配置 + VPS nginx 転送 + Tailscale OAuth client 作成/ACL + **Secrets 登録**(`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET`)を運用者側で実施
+- [ ] コンテナホストに docker/ssh/tar + 公開鍵 + Tailscale(`tag:ci`→:22 ACL)を用意(**git clone 不要**・CI が tar コピー)+ VPS nginx 転送 + Tailscale OAuth client 作成 + **Secrets 登録**(`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET`)を運用者側で実施
 - [ ] スマホ実機で両ドメインの **HTTPS + WSS疎通**を確認(最優先)
 - [ ] mypy を `continue-on-error` から必須へ格上げ(型が整ってきたら)
