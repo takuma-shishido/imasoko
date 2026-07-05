@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { mergeCampus } from "@/lib/campusData";
+import { afterEach, describe, expect, it } from "vitest";
+import { BUILDINGS, mergeCampus, setBuildings } from "@/lib/campusData";
 import type { CampusRes } from "@/types/messages";
 
 // GET /api/campus のデータ → 内部 Building[] 変換(issue #14)。
@@ -44,5 +44,20 @@ describe("mergeCampus (issue #14)", () => {
   it("レイアウト未定義の建物はスキップする", () => {
     const merged = mergeCampus(res);
     expect(merged.find((b) => b.id === "bX")).toBeUndefined();
+  });
+});
+
+describe("号館の昇順ソート (issue #34)", () => {
+  const buildingNos = (bs: { name: string }[]) => bs.map((b) => parseInt(b.name, 10));
+  const pristine = BUILDINGS.slice(); // モジュール読込時点(= 昇順)のスナップショット
+  afterEach(() => setBuildings(pristine)); // 差し替えテストの後に元へ戻す
+
+  it("BUILDINGS は 1号館→6号館 の昇順で並ぶ", () => {
+    expect(buildingNos(BUILDINGS)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it("setBuildings で順不同のサーバーデータを渡しても昇順に整列する", () => {
+    setBuildings(pristine.slice().reverse());
+    expect(buildingNos(BUILDINGS)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 });
