@@ -33,6 +33,14 @@ def test_meet_at_defaults_to_creation_time():
     assert datetime.fromisoformat(body["expires_at"]) == meet_at + END_OFFSET
 
 
+def test_meet_at_too_old_returns_400():
+    # 集合時間 +3h を過ぎた過去日時を送ると 400(ドメイン例外を route が変換・issue #91)。
+    old = (rooms_mod.now() - END_OFFSET - timedelta(minutes=1)).isoformat()
+    res = client.post("/api/rooms", json={"meet_at": old})
+    assert res.status_code == 400
+    assert res.json()["detail"] == "meet_at is too old"
+
+
 def test_create_get_and_expire():
     res = client.post("/api/rooms", json={})
     assert res.status_code == 200
