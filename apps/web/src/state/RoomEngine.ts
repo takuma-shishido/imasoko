@@ -1450,6 +1450,7 @@ export class RoomEngine {
       fabSelf: this.fabSelf,
       fabFit: this.fabFit,
       memberCount: s.members.length,
+      memberMax: serverConfig.maxMembersPerRoom, // 上限は /api/config 由来(issue #43)
       areaSummary: sumParts.join(" ・ "),
       openMembers: this.openMembers,
       openMeeting: this.openMeeting,
