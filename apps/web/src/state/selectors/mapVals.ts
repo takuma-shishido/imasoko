@@ -9,6 +9,7 @@ import { BUILDINGS, MAP_TEXTS, bById } from "@/lib/campusData";
 import { serverConfig } from "@/lib/constants";
 import { selChip } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
+import { COLORS } from "@/lib/theme";
 
 export function mapVals(engine: RoomEngine) {
   const s = engine.state;
@@ -39,11 +40,11 @@ export function mapVals(engine: RoomEngine) {
           : self
             ? m.name + "(自分)"
             : m.name + floorTag,
-      chipBg: pos.out ? "#f5f5f5" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-      chipFg: pos.out ? "#888888" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
-      chipBd: pos.out ? "#e0e0e0" : isMeet ? "#0070f3" : self ? "#171717" : "#ebebeb",
-      dotBg: pos.out ? "#bdbdbd" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-      dotBd: pos.out ? "#f5f5f5" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
+      chipBg: pos.out ? COLORS.BG : isMeet ? COLORS.BLUE : self ? COLORS.INK : COLORS.WHITE,
+      chipFg: pos.out ? COLORS.GRAY : isMeet ? COLORS.WHITE : self ? COLORS.WHITE : COLORS.INK,
+      chipBd: pos.out ? "#e0e0e0" : isMeet ? COLORS.BLUE : self ? COLORS.INK : COLORS.BORDER,
+      dotBg: pos.out ? "#bdbdbd" : isMeet ? COLORS.BLUE : self ? COLORS.INK : COLORS.WHITE,
+      dotBd: pos.out ? COLORS.BG : isMeet ? COLORS.WHITE : self ? COLORS.WHITE : COLORS.INK,
       anim: self && !pos.out ? "ims-pulse 2.2s infinite" : "none",
     });
   }
@@ -86,7 +87,7 @@ export function mapVals(engine: RoomEngine) {
       name: b.name,
       cap: b.cap || "",
       fs: b.fs || 19,
-      bd: active ? "#171717" : "#a1a1a1",
+      bd: active ? COLORS.INK : COLORS.MUTED,
       bw: active ? 3 : 1.5,
       pick: (e: MouseEvent) => {
         e.stopPropagation();
@@ -118,7 +119,7 @@ export function mapVals(engine: RoomEngine) {
   return {
     // map
     areasSeg: AREA_ORDER.map((id) => {
-      const c = selChip(s.area === id, "#4d4d4d", "transparent");
+      const c = selChip(s.area === id, COLORS.SUBTLE, "transparent");
       return {
         label: AREAS[id].short,
         bg: c.bg,

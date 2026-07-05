@@ -11,6 +11,7 @@ import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@
 import { selDot } from "@/lib/chipColors";
 import { getHostToken } from "@/lib/api";
 import type { RoomEngine } from "@/state/RoomEngine";
+import { COLORS } from "@/lib/theme";
 
 export function topVals(engine: RoomEngine) {
   const s = engine.state;
@@ -111,6 +112,6 @@ export function topVals(engine: RoomEngine) {
     // timer
     remainingShort: fmtShort(remaining),
     remainingLong: fmtLong(remaining),
-    timerColor: remaining < 300000 ? "#ee0000" : "#171717",
+    timerColor: remaining < 300000 ? COLORS.ERR : COLORS.INK,
   };
 }
