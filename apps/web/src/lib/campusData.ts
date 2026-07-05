@@ -22,6 +22,13 @@ const seq = (from: number, to: number, skip: number[] = []): string[] => {
   return out;
 };
 
+// 号館番号(名前の先頭数字。無ければ id の数字)で昇順ソートする(issue #34)。
+const buildingNo = (b: Building): number => {
+  const fromName = parseInt(b.name, 10);
+  return Number.isNaN(fromName) ? parseInt(b.id.replace(/\D/g, ""), 10) || 0 : fromName;
+};
+const byBuildingNo = (a: Building, b: Building): number => buildingNo(a) - buildingNo(b);
+
 export const BUILDINGS: Building[] = [
   {
     id: "b1",
@@ -134,6 +141,10 @@ export const BUILDINGS: Building[] = [
   },
 ];
 
+// 号館を 1→6 の昇順に整える(定義順は 1/3/5/6/2/4 のため。issue #34)。
+// 以降の BUILDING_LAYOUTS・mergeCampus・buildingOpts はこの順を引き継ぐ。
+BUILDINGS.sort(byBuildingNo);
+
 // 建物レイアウト(マップ上の配置・キャプション・表示順)の安定スナップショット。
 // 号館(b1〜b6)の x/y/w/h は実地図データ(campusGeo.ts の CAMPUS_BUILDINGS)由来で、
 // 実フットプリントに整列する(issue #3)。未対応の建物は campusData の模式値をフォールバック。
@@ -176,6 +187,7 @@ export function mergeCampus(res: CampusRes): Building[] {
 export function setBuildings(next: Building[]): void {
   BUILDINGS.length = 0;
   BUILDINGS.push(...next);
+  BUILDINGS.sort(byBuildingNo); // サーバー由来でも 1→6 の昇順を保つ(issue #34)
 }
 
 export const bById = (id: string): Building | undefined => BUILDINGS.find((b) => b.id === id);
