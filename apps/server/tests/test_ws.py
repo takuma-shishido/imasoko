@@ -124,6 +124,47 @@ def test_ws_add_place_suggestion_broadcasts_and_dedups():
         assert len(rooms_mod.get_room(rid).place_suggestions) == 1
 
 
+def test_ws_add_place_suggestion_building_spot_broadcasts_and_dedups():
+    """building_spot 種別の集合場所提案も追加・重複拒否できる(型付き化での回帰防止)。
+
+    旧実装は重複判定で `msg.place.roomId` を参照しており、roomId を持たない
+    building_spot 提案では AttributeError でクラッシュしていた(#96 で解消)。
+    dedup は place のモデル等価(building_spot では spotId 単位)で行う。
+    """
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+    spot = {"type": "building_spot", "spotId": "s1"}
+
+    with client.websocket_connect(f"/ws/{rid}") as ws:
+        ws.send_json({"type": "join", "name": "そう", "building_id": None, "floor": None})
+        ws.receive_json()  # room_state
+
+        # 初回追加 → place_suggestions が broadcast される(旧コードならクラッシュしていた経路)
+        ws.send_json({"type": "add_place_suggestion", "place": spot, "note": "この広場"})
+        res = ws.receive_json()
+        assert res["type"] == "place_suggestions"
+        assert len(res["items"]) == 1
+        assert res["items"][0]["place"] == spot
+        assert res["items"][0]["note"] == "この広場"
+
+        # 同一 spotId の重複追加は拒否され broadcast されない。
+        # 拒否を確認するため続けて floor を送り、次の受信が place_suggestions ではなく
+        # member_update であること(=重複の broadcast が挟まらない)を見る。
+        ws.send_json({"type": "add_place_suggestion", "place": spot, "note": "重複"})
+        ws.send_json({"type": "floor", "building_id": None, "floor": "5"})
+        nxt = ws.receive_json()
+        assert nxt["type"] == "member_update"
+        assert len(rooms_mod.get_room(rid).place_suggestions) == 1
+
+        # 別 spotId は追加される(dedup が spotId 単位であること)
+        ws.send_json(
+            {"type": "add_place_suggestion", "place": {"type": "building_spot", "spotId": "s2"}}
+        )
+        res2 = ws.receive_json()
+        assert res2["type"] == "place_suggestions"
+        assert len(res2["items"]) == 2
+
+
 def test_ws_leave_broadcasts_member_left_and_removes_member():
     """leave 送信 → member_left が broadcast され、ルームから当該 member が除去される。"""
     rooms_mod.clear()
