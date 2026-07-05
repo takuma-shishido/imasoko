@@ -69,7 +69,11 @@ def test_ws_member_left_clears_stale_member_meeting_point():
 
         # 集合先でないゆうの退出では meeting_point は変わらない
         assert ws_a.receive_json()["type"] == "member_left"
-        assert rooms_mod.get_room(rid).meeting_point == {"kind": "member", "memberId": target_id}
+        # meeting_point は型付きモデル(MPMember)で保持。送出 JSON 相当を検証する。
+        assert rooms_mod.get_room(rid).meeting_point.model_dump() == {
+            "kind": "member",
+            "memberId": target_id,
+        }
 
     # 集合先のあき本人が退出 → 解除される(再参加者に stale な追従が渡らない)
     assert rooms_mod.get_room(rid).meeting_point is None
