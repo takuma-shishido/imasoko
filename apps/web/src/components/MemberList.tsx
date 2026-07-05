@@ -17,7 +17,7 @@ export function MemberList() {
         MEMBERS
       </div>
       <div style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 14px" }}>
-        参加者 {v.memberCount}人
+        参加者 {v.memberCount} / {v.memberMax}人
       </div>
 
       <div
