@@ -121,6 +121,22 @@ export interface State {
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
 
+// 選択チップの色(選択状態に応じた背景 bg / 文字 fg / 枠線 bd の三つ組)。renderVals 内で逐語反復していたパターンを集約する(issue #99)。
+// fgOff = 非選択時の文字色(既定 #171717。フロアタブ / エリアセグメントのみ #4d4d4d)。
+// bgOff = 非選択時の背景色(既定 #ffffff。エリアセグメントのみ透明)。
+function selChip(selected: boolean, fgOff = "#171717", bgOff = "#ffffff") {
+  return {
+    bg: selected ? "#171717" : bgOff,
+    fg: selected ? "#ffffff" : fgOff,
+    bd: selected ? "#171717" : "#ebebeb",
+  };
+}
+
+// 選択ドットの色(選択時のみ塗り、非選択は透明)。ラジオ的なドット表示で反復していたパターンを集約する(issue #99)。
+function selDot(selected: boolean): string {
+  return selected ? "#171717" : "transparent";
+}
+
 export class RoomEngine {
   state: State;
   version = 0;
@@ -1340,9 +1356,7 @@ export class RoomEngine {
     const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
     const buildingChips = BUILDINGS.map((b) => ({
       name: b.name,
-      bg: s.selB === b.id ? "#171717" : "#ffffff",
-      fg: s.selB === b.id ? "#ffffff" : "#171717",
-      bd: s.selB === b.id ? "#171717" : "#ebebeb",
+      ...selChip(s.selB === b.id),
       pick: () => this.pickBuilding(b.id),
     }));
     const floorRows = selB.floors.map((f) => {
@@ -1365,9 +1379,7 @@ export class RoomEngine {
         },
         rooms: f.rooms.map((r) => ({
           label: r.n + (r.t ? " " + r.t : ""),
-          bg: s.selRoom === r.id ? "#171717" : "#ffffff",
-          fg: s.selRoom === r.id ? "#ffffff" : "#171717",
-          bd: s.selRoom === r.id ? "#171717" : "#ebebeb",
+          ...selChip(s.selRoom === r.id),
           pick: () => this.pickRoom(r.id),
         })),
       };
@@ -1383,9 +1395,7 @@ export class RoomEngine {
     const others = s.members;
     const memberChips = others.map((m) => ({
       name: m.name + (m.id === s.selfId ? "(自分)" : ""),
-      bg: s.mtMember === m.id ? "#171717" : "#ffffff",
-      fg: s.mtMember === m.id ? "#ffffff" : "#171717",
-      bd: s.mtMember === m.id ? "#171717" : "#ebebeb",
+      ...selChip(s.mtMember === m.id),
       pick: (e: MouseEvent) => {
         e.stopPropagation();
         this.setState({ mtMember: m.id, mtKind: "member" });
@@ -1449,8 +1459,8 @@ export class RoomEngine {
       newTitle: s.newTitle,
       onNewTitle: (e: ChangeEvent<HTMLInputElement>) => this.setState({ newTitle: e.target.value }),
       newVisPub: s.newVis === "public",
-      newVisDotPriv: s.newVis === "private" ? "#171717" : "transparent",
-      newVisDotPub: s.newVis === "public" ? "#171717" : "transparent",
+      newVisDotPriv: selDot(s.newVis === "private"),
+      newVisDotPub: selDot(s.newVis === "public"),
       pickNewPriv: () => this.setState({ newVis: "private" }),
       pickNewPub: () => this.setState({ newVis: "public" }),
       newMeetAt: s.newMeetAt,
@@ -1498,12 +1508,15 @@ export class RoomEngine {
       timerColor: remaining < 300000 ? "#ee0000" : "#171717",
 
       // map
-      areasSeg: AREA_ORDER.map((id) => ({
-        label: AREAS[id].short,
-        bg: s.area === id ? "#171717" : "transparent",
-        fg: s.area === id ? "#ffffff" : "#4d4d4d",
-        pick: () => this.pickArea(id),
-      })),
+      areasSeg: AREA_ORDER.map((id) => {
+        const c = selChip(s.area === id, "#4d4d4d", "transparent");
+        return {
+          label: AREAS[id].short,
+          bg: c.bg,
+          fg: c.fg,
+          pick: () => this.pickArea(id),
+        };
+      }),
       reconnecting: s.reconnecting,
       viewerOnly: s.viewerOnly,
       sharePosAgain: this.sharePosAgain,
@@ -1598,8 +1611,8 @@ export class RoomEngine {
       // meeting sheet
       mtIsMember: s.mtKind === "member",
       mtIsPlace: s.mtKind === "place",
-      mtDotMember: s.mtKind === "member" ? "#171717" : "transparent",
-      mtDotPlace: s.mtKind === "place" ? "#171717" : "transparent",
+      mtDotMember: selDot(s.mtKind === "member"),
+      mtDotPlace: selDot(s.mtKind === "place"),
       mtPickMember: this.mtPickMember,
       mtPickPlace: this.mtPickPlace,
       memberChips,
@@ -1657,23 +1670,26 @@ export class RoomEngine {
     const b = bById(s.addB) || BUILDINGS[0];
     const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
     const sel = new Set(s.addRs);
-    const cell = (r: Room) => ({
-      n: r.n,
-      t: r.t || "",
-      bg: sel.has(r.id) ? "#171717" : "#ffffff",
-      fg: sel.has(r.id) ? "#ffffff" : "#171717",
-      pick: () =>
-        this.setState((st) => ({
-          addRs: st.addRs.includes(r.id) ? st.addRs.filter((x) => x !== r.id) : [...st.addRs, r.id],
-        })),
-    });
+    const cell = (r: Room) => {
+      const c = selChip(sel.has(r.id));
+      return {
+        n: r.n,
+        t: r.t || "",
+        bg: c.bg,
+        fg: c.fg,
+        pick: () =>
+          this.setState((st) => ({
+            addRs: st.addRs.includes(r.id)
+              ? st.addRs.filter((x) => x !== r.id)
+              : [...st.addRs, r.id],
+          })),
+      };
+    };
     const half = Math.ceil(f.rooms.length / 2);
     return {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
-        bg: f.level === fl.level ? "#171717" : "#ffffff",
-        fg: f.level === fl.level ? "#ffffff" : "#4d4d4d",
-        bd: f.level === fl.level ? "#171717" : "#ebebeb",
+        ...selChip(f.level === fl.level, "#4d4d4d"),
         pick: () => this.setState({ addF: fl.level }),
       })),
       addPlanTitle: b.name + " " + f.level,
