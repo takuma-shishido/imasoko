@@ -128,4 +128,32 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
     // ローカルでは固定済み(全クライアントが同じ変換をする)
     expect(e.state.meeting).toMatchObject({ kind: "coords" });
   });
+
+  it("非リーダーはリーダーの固定ブロードキャストで note なし coords に上書きされるが、ピン位置は維持される", () => {
+    const e = new RoomEngine();
+    e.attachSocket(() => {});
+    joinRoom(e, "zz", [
+      wire({ id: "zz", name: "自分" }),
+      wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
+      wire({ id: "aa", name: "はな" }),
+    ]);
+    const last = e.state.members.find((m) => m.id === "u2")!;
+    e.onServerMsg({ type: "member_left", id: "u2" });
+    expect(e.state.meeting).toMatchObject({ kind: "coords", note: "ゆうたさんが最後にいた場所" });
+
+    // リーダー(aa)の固定送信がサーバー経由で届く。ワイヤの coords は note を運ばない(既存制約)
+    e.onServerMsg({
+      type: "meeting_point",
+      point: { kind: "coords", area: "campus", lat: 35.6303, lng: 139.7858 },
+    });
+    expect(e.state.meeting).toEqual({
+      kind: "coords",
+      area: "campus",
+      x: expect.any(Number),
+      y: expect.any(Number),
+    });
+    const mp = e.resolveMeetingPos()!;
+    expect(mp.x).toBeCloseTo(last.x, 5);
+    expect(mp.y).toBeCloseTo(last.y, 5);
+  });
 });

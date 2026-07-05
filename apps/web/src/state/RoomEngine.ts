@@ -946,6 +946,8 @@ export class RoomEngine {
   // 最後の位置が分かる場合は coords に固定し、位置未共有・全エリア外は固定できないため解除する。
   // サーバーの meeting_point が member のまま残ると再参加・途中参加で集合先が消えるため、
   // 残メンバーのうち id 最小のクライアントが代表して固定結果を送信する(重複送信の回避)。
+  // note はワイヤ(coords は lat/lng のみ)に乗らないため、代表送信の echo を受けた非代表端末では
+  // 汎用ラベル(「◯◯の地点」)に落ちる(pin-drop の note と同じ既存制約。ピン位置・距離は維持される)。
   private keepMeetingOnLeave(left: Member) {
     const mt = this.state.meeting;
     if (!mt || mt.kind !== "member" || mt.memberId !== left.id) return;
