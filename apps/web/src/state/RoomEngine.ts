@@ -107,12 +107,10 @@ export interface State {
   now: number;
   reconnecting: boolean;
   connFail: boolean;
-  demoOpen: boolean;
   toasts: Toast[];
   warnPublic: boolean;
   leaveOpen: boolean;
   members: Member[];
-  yutaLost: boolean;
   selfB?: string;
   selfF?: string;
 }
@@ -208,12 +206,10 @@ export class RoomEngine {
       now,
       reconnecting: false,
       connFail: false,
-      demoOpen: false,
       toasts: [],
       warnPublic: false,
       leaveOpen: false,
       members: [],
-      yutaLost: false,
     };
   }
 
@@ -224,7 +220,7 @@ export class RoomEngine {
       const now = Date.now();
       if (expiresAt && now >= expiresAt) {
         if (screen === "map") {
-          this.setState({ now, screen: "ended", sheet: null, demoOpen: false });
+          this.setState({ now, screen: "ended", sheet: null });
           return;
         }
         if (screen === "join") {
@@ -344,12 +340,11 @@ export class RoomEngine {
         break;
       case "room_full":
         // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
-        this.setState({ screen: "full", sheet: null, demoOpen: false });
+        this.setState({ screen: "full", sheet: null });
         break;
       case "room_expired":
         // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
-        if (this.state.screen === "map")
-          this.setState({ screen: "ended", sheet: null, demoOpen: false });
+        if (this.state.screen === "map") this.setState({ screen: "ended", sheet: null });
         else if (this.state.screen === "join") this.setState({ screen: "expired" });
         break;
     }
@@ -365,7 +360,6 @@ export class RoomEngine {
       newTitle: "",
       newVis: "private",
       newMeetAt: toLocalInput(Date.now()),
-      demoOpen: false,
     });
   cancelCreate = () => this.setState({ createOpen: false });
   submitCreate = async () => {
@@ -618,7 +612,7 @@ export class RoomEngine {
       pinNote: "",
     });
   };
-  startPick = () => this.setState({ pickMode: true, sheet: null, demoOpen: false });
+  startPick = () => this.setState({ pickMode: true, sheet: null });
   cancelPick = () => this.setState({ pickMode: false });
   cancelPin = () => this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
   confirmPin = () => {
@@ -695,7 +689,7 @@ export class RoomEngine {
 
   // ── sheets ──
   private openSheet(name: SheetName) {
-    this.setState({ sheet: name, demoOpen: false });
+    this.setState({ sheet: name });
   }
   closeSheet = () => this.setState({ sheet: null, selRoom: null, addOpen: false });
   hDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -950,7 +944,7 @@ export class RoomEngine {
       );
     }
   }
-  tapLeave = () => this.setState({ leaveOpen: true, demoOpen: false });
+  tapLeave = () => this.setState({ leaveOpen: true });
   cancelLeave = () => this.setState({ leaveOpen: false });
   doLeave = () => {
     this.send({ type: "leave" });
@@ -964,77 +958,6 @@ export class RoomEngine {
       this.toast("再接続しました");
     }, 1800);
   };
-
-  // ── demo controls ──
-  toggleDemo = () => this.setState((s) => ({ demoOpen: !s.demoOpen }));
-  demoList(): { label: string; run: () => void }[] {
-    const inRoom = this.state.screen === "map";
-    const needRoom = (fn: () => void) => () => {
-      this.setState({ demoOpen: false });
-      if (!inRoom) {
-        this.toast("ルーム参加中のみ使えるデモです");
-        return;
-      }
-      fn();
-    };
-    return [
-      {
-        label: "⏱ 残り時間を15秒にする",
-        run: needRoom(() => this.setState({ expiresAt: Date.now() + 15000 })),
-      },
-      {
-        label: "⏹ ルームを即終了(room_expired)",
-        run: needRoom(() => {
-          this.setState({ screen: "ended", sheet: null });
-        }),
-      },
-      {
-        label: "〰 再接続中バーを表示/解除",
-        run: needRoom(() => this.setState((s) => ({ reconnecting: !s.reconnecting }))),
-      },
-      { label: "✕ 接続失敗(継続)を表示", run: needRoom(() => this.setState({ connFail: true })) },
-      {
-        label: "👁 閲覧のみ ⇔ 位置共有 を切替",
-        run: needRoom(() =>
-          this.setState((s) => ({
-            viewerOnly: !s.viewerOnly,
-            members: s.members.map((m) =>
-              m.id === s.selfId ? { ...m, viewer: !s.viewerOnly } : m
-            ),
-          }))
-        ),
-      },
-      {
-        label: "📵 ゆうたを全エリア範囲外に/戻す",
-        run: needRoom(() => {
-          const lost = !this.state.yutaLost;
-          this.setState((s) => ({
-            yutaLost: lost,
-            members: s.members.map((m) => (m.id === "yuta" ? { ...m, lost } : m)),
-          }));
-        }),
-      },
-      {
-        label: "🈵 満員エラー画面",
-        run: () => {
-          this.setState({ screen: "full", sheet: null, demoOpen: false });
-        },
-      },
-      {
-        label: "⌛ 期限切れ画面(410 Gone)",
-        run: () => {
-          this.setState({ screen: "expired", sheet: null, demoOpen: false });
-        },
-      },
-      {
-        label: "❓ Not Found 画面(404)",
-        run: () => {
-          this.setState({ screen: "notfound", sheet: null, demoOpen: false });
-        },
-      },
-      { label: "↺ 最初からやり直す", run: () => this.goTop() },
-    ];
-  }
 
   // ── render helpers ──
   // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
@@ -1324,7 +1247,7 @@ export class RoomEngine {
 
     const meetingLabel = this.meetingLabelOf(s.meeting);
     const selfDist = selfM ? this.distTo(selfM, mp) : "—";
-    const demoOnMap = s.screen === "map";
+    const onMap = s.screen === "map";
 
     return {
       // screens
@@ -1547,16 +1470,9 @@ export class RoomEngine {
       connFail: s.connFail,
       retryConn: this.retryConn,
 
-      // demo / toasts
-      demoOpen: s.demoOpen,
-      toggleDemo: this.toggleDemo,
-      demoActions: this.demoList(),
-      demoChipOn:
-        !s.sheet && !s.permModal && !s.warnPublic && !s.leaveOpen && !s.connFail && !s.pinModal,
-      demoBtnBottom: demoOnMap ? "300px" : "16px",
-      demoPanelBottom: demoOnMap ? "334px" : "50px",
+      // toasts(map 画面は下シートを避けて高めに出す)
       toasts: s.toasts,
-      toastBottom: demoOnMap ? "140px" : "80px",
+      toastBottom: onMap ? "140px" : "80px",
     };
   }
 
