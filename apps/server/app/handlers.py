@@ -13,6 +13,7 @@ from .models import (
     FloorMsg,
     LeaveMsg,
     MeetingPointMsg,
+    MsgType,
     PositionMsg,
 )
 from .rooms import Room, now
@@ -36,18 +37,22 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         member.lat = msg.lat
         member.lng = msg.lng
         member.updated_at = now()
-        await manager.broadcast(room.room_id, {"type": "member_update", "member": member.to_dict()})
+        await manager.broadcast(
+            room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
+        )
 
     elif isinstance(msg, FloorMsg):
         member.building_id = msg.building_id
         member.floor = msg.floor
         member.updated_at = now()
-        await manager.broadcast(room.room_id, {"type": "member_update", "member": member.to_dict()})
+        await manager.broadcast(
+            room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
+        )
 
     elif isinstance(msg, MeetingPointMsg):
         room.meeting_point = msg.point.model_dump() if msg.point else None
         await manager.broadcast(
-            room.room_id, {"type": "meeting_point", "point": room.meeting_point}
+            room.room_id, {"type": MsgType.MEETING_POINT, "point": room.meeting_point}
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
@@ -70,7 +75,7 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
             }
         )
         await manager.broadcast(
-            room.room_id, {"type": "place_suggestions", "items": room.place_suggestions}
+            room.room_id, {"type": MsgType.PLACE_SUGGESTIONS, "items": room.place_suggestions}
         )
 
     elif isinstance(msg, LeaveMsg):
