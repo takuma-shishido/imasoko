@@ -48,17 +48,32 @@ export function AreaSwitcher() {
           </button>
         ))}
       </div>
+      {/* 残り時間:ラベル付きチップで「何の時間か」を明示し、右端に埋もれないようにする(issue #32) */}
       <div
         style={{
-          fontFamily: "'Geist Mono',monospace",
-          fontSize: 12,
-          fontWeight: 500,
-          minWidth: 44,
-          textAlign: "right",
-          color: v.timerColor,
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          flex: "none",
+          background: "#f5f5f5",
+          borderRadius: 9999,
+          padding: "4px 10px",
         }}
       >
-        {v.remainingShort}
+        <span style={{ fontSize: 10.5, color: "#888888", fontWeight: 500, whiteSpace: "nowrap" }}>
+          残り
+        </span>
+        <span
+          style={{
+            fontFamily: "'Geist Mono',monospace",
+            fontSize: 12.5,
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums",
+            color: v.timerColor,
+          }}
+        >
+          {v.remainingShort}
+        </span>
       </div>
     </div>
   );
