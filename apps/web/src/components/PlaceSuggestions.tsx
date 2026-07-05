@@ -1,4 +1,5 @@
 import { useRoom } from "@/state/RoomContext";
+import { COLORS } from "@/lib/theme";
 
 // 空き教室・候補セクション(design/06)。候補一覧 + 「+ 空き教室を追加」パネル(教室配置図 略図)。
 export function PlaceSuggestions() {
@@ -10,18 +11,18 @@ export function PlaceSuggestions() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 10.5,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         PLACES
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "3px 0 8px" }}>
         <div style={{ fontSize: 15, fontWeight: 600 }}>空き教室・候補</div>
-        <div style={{ fontSize: 11.5, color: "#888888" }}>みんなで追加できます</div>
+        <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>みんなで追加できます</div>
       </div>
 
       {v.noSuggestions && (
-        <div style={{ fontSize: 12.5, color: "#888888", padding: "10px 0" }}>
+        <div style={{ fontSize: 12.5, color: COLORS.GRAY, padding: "10px 0" }}>
           まだ候補がありません。空いている教室を見つけたら追加しましょう。
         </div>
       )}
@@ -34,12 +35,12 @@ export function PlaceSuggestions() {
             alignItems: "center",
             gap: 10,
             padding: "11px 2px",
-            borderBottom: "1px solid #ebebeb",
+            borderBottom: `1px solid ${COLORS.BORDER}`,
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</div>
-            <div style={{ fontSize: 11.5, color: "#888888", marginTop: 1 }}>{s.meta}</div>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY, marginTop: 1 }}>{s.meta}</div>
           </div>
           <button
             onClick={s.adopt}
@@ -48,9 +49,9 @@ export function PlaceSuggestions() {
               height: 30,
               padding: "0 12px",
               borderRadius: 9999,
-              border: "1px solid #a1a1a1",
-              background: "#fff",
-              color: "#171717",
+              border: `1px solid ${COLORS.MUTED}`,
+              background: COLORS.WHITE,
+              color: COLORS.INK,
               fontSize: 11.5,
               fontWeight: 500,
               fontFamily: "inherit",
@@ -72,9 +73,9 @@ export function PlaceSuggestions() {
             height: 40,
             marginTop: 12,
             borderRadius: 8,
-            border: "1px dashed #a1a1a1",
-            background: "#fff",
-            color: "#4d4d4d",
+            border: `1px dashed ${COLORS.MUTED}`,
+            background: COLORS.WHITE,
+            color: COLORS.SUBTLE,
             fontSize: 12.5,
             fontWeight: 500,
             fontFamily: "inherit",
@@ -98,7 +99,7 @@ function AddPanel() {
       minWidth: 0,
       height: 46,
       border: 0,
-      borderLeft: "1px solid #ebebeb",
+      borderLeft: `1px solid ${COLORS.BORDER}`,
       marginLeft: -1,
       background: rc.bg,
       color: rc.fg,
@@ -114,7 +115,7 @@ function AddPanel() {
   return (
     <div
       style={{
-        border: "1px solid #ebebeb",
+        border: `1px solid ${COLORS.BORDER}`,
         borderRadius: 8,
         padding: 12,
         marginTop: 12,
@@ -131,9 +132,9 @@ function AddPanel() {
             flex: "none",
             width: 104,
             height: 34,
-            border: "1px solid #ebebeb",
+            border: `1px solid ${COLORS.BORDER}`,
             borderRadius: 6,
-            background: "#fff",
+            background: COLORS.WHITE,
             fontFamily: "inherit",
             fontSize: 12.5,
             padding: "0 8px",
@@ -172,7 +173,7 @@ function AddPanel() {
 
       <div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 11, color: "#888888" }}>
+          <span style={{ fontSize: 11, color: COLORS.GRAY }}>
             {v.addPlanTitle} ・ 教室をタップ(複数選択可)
           </span>
           <span
@@ -180,7 +181,7 @@ function AddPanel() {
               fontFamily: "'Geist Mono',monospace",
               fontSize: 9,
               letterSpacing: ".1em",
-              color: "#888888",
+              color: COLORS.GRAY,
             }}
           >
             教室配置図(略図)
@@ -188,11 +189,11 @@ function AddPanel() {
         </div>
         <div
           style={{
-            border: "1.5px solid #a1a1a1",
+            border: `1.5px solid ${COLORS.MUTED}`,
             borderRadius: 8,
             overflow: "hidden",
             marginTop: 6,
-            background: "#fff",
+            background: COLORS.WHITE,
           }}
         >
           <div style={{ display: "flex" }}>
@@ -224,9 +225,9 @@ function AddPanel() {
             style={{
               display: "flex",
               alignItems: "center",
-              background: "#f5f5f5",
-              borderTop: "1px solid #ebebeb",
-              borderBottom: "1px solid #ebebeb",
+              background: COLORS.BG,
+              borderTop: `1px solid ${COLORS.BORDER}`,
+              borderBottom: `1px solid ${COLORS.BORDER}`,
               padding: "0 10px",
               height: 22,
               gap: 10,
@@ -236,11 +237,11 @@ function AddPanel() {
               style={{
                 fontFamily: "'Geist Mono',monospace",
                 fontSize: 9,
-                color: "#888888",
+                color: COLORS.GRAY,
                 border: "1px solid #d4d4d4",
                 borderRadius: 3,
                 padding: "0 3px",
-                background: "#fff",
+                background: COLORS.WHITE,
               }}
             >
               EV
@@ -250,7 +251,7 @@ function AddPanel() {
                 flex: 1,
                 textAlign: "center",
                 fontSize: 9.5,
-                color: "#888888",
+                color: COLORS.GRAY,
                 letterSpacing: ".4em",
               }}
             >
@@ -260,11 +261,11 @@ function AddPanel() {
               style={{
                 fontFamily: "'Geist Mono',monospace",
                 fontSize: 9,
-                color: "#888888",
+                color: COLORS.GRAY,
                 border: "1px solid #d4d4d4",
                 borderRadius: 3,
                 padding: "0 3px",
-                background: "#fff",
+                background: COLORS.WHITE,
               }}
             >
               WC
@@ -301,7 +302,7 @@ function AddPanel() {
       </div>
 
       {v.addRSel && (
-        <div style={{ fontSize: 11.5, color: "#171717", fontWeight: 500, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11.5, color: COLORS.INK, fontWeight: 500, lineHeight: 1.5 }}>
           選択中({v.addSelCount}):{v.addSelLabel}
         </div>
       )}
@@ -312,12 +313,12 @@ function AddPanel() {
         placeholder="メモ(例:空いてた)"
         style={{
           height: 36,
-          border: "1px solid #ebebeb",
+          border: `1px solid ${COLORS.BORDER}`,
           borderRadius: 6,
           fontFamily: "inherit",
           fontSize: 12.5,
           padding: "0 10px",
-          color: "#171717",
+          color: COLORS.INK,
         }}
       />
 
@@ -328,9 +329,9 @@ function AddPanel() {
             height: 34,
             padding: "0 14px",
             borderRadius: 9999,
-            border: "1px solid #ebebeb",
-            background: "#fff",
-            color: "#4d4d4d",
+            border: `1px solid ${COLORS.BORDER}`,
+            background: COLORS.WHITE,
+            color: COLORS.SUBTLE,
             fontSize: 12,
             fontFamily: "inherit",
             cursor: "pointer",
@@ -345,8 +346,8 @@ function AddPanel() {
             padding: "0 16px",
             borderRadius: 9999,
             border: 0,
-            background: "#171717",
-            color: "#fff",
+            background: COLORS.INK,
+            color: COLORS.WHITE,
             fontSize: 12,
             fontWeight: 500,
             fontFamily: "inherit",

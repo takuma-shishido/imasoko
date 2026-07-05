@@ -3,6 +3,7 @@ import type { CampusRes } from "@/types/messages";
 import { CAMPUS_BUILDINGS } from "./campusGeo";
 import { MAP_AREAS } from "./mapAreas";
 import { project } from "./coords";
+import { COLORS } from "@/lib/theme";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
 // docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
@@ -228,8 +229,8 @@ export interface MapText {
 const stationText = (area: AreaId, lat: number, lng: number, name: string): MapText[] => {
   const { x, y } = project(MAP_AREAS[area], lat, lng);
   return [
-    { x, y: y - 9, t: name, size: 15, w: 600, c: "#171717", a: "c" },
-    { x, y: y + 9, t: "りんかい線", size: 9, c: "#888888", a: "c", mono: true },
+    { x, y: y - 9, t: name, size: 15, w: 600, c: COLORS.INK, a: "c" },
+    { x, y: y + 9, t: "りんかい線", size: 9, c: COLORS.GRAY, a: "c", mono: true },
   ];
 };
 

@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { Modal } from "../ui/Modal";
+import { COLORS } from "@/lib/theme";
 
 // 公開化の警告(docs/05 §3 のプライバシー注意)。
 export function WarnPublicModal() {
@@ -8,7 +9,7 @@ export function WarnPublicModal() {
   return (
     <Modal>
       <div style={{ fontSize: 15, fontWeight: 600 }}>ルームを公開しますか?</div>
-      <div style={{ fontSize: 12.5, color: "#4d4d4d", marginTop: 8, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: COLORS.SUBTLE, marginTop: 8, lineHeight: 1.7 }}>
         公開すると、<strong>全員の現在地がURLを知らない人にも見られる</strong>
         ようになります。集合が終わったら非公開に戻すことをおすすめします。
       </div>
@@ -20,9 +21,9 @@ export function WarnPublicModal() {
             flex: 1,
             height: 38,
             borderRadius: 9999,
-            border: "1px solid #ebebeb",
-            background: "#fff",
-            color: "#171717",
+            border: `1px solid ${COLORS.BORDER}`,
+            background: COLORS.WHITE,
+            color: COLORS.INK,
             fontSize: 13,
             fontFamily: "inherit",
             cursor: "pointer",
@@ -37,8 +38,8 @@ export function WarnPublicModal() {
             height: 38,
             borderRadius: 9999,
             border: 0,
-            background: "#171717",
-            color: "#fff",
+            background: COLORS.INK,
+            color: COLORS.WHITE,
             fontSize: 13,
             fontWeight: 500,
             fontFamily: "inherit",

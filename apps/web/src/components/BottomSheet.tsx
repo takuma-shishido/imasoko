@@ -1,4 +1,5 @@
 import type { PointerEvent, ReactNode, RefObject } from "react";
+import { COLORS } from "@/lib/theme";
 
 // 汎用ボトムシート(docs/design 共通ルール)。同時に開くのは1枚。
 // ハンドルのドラッグ / 背景タップで閉じる。
@@ -42,7 +43,7 @@ export function BottomSheet({
           left: 0,
           right: 0,
           bottom: 0,
-          background: "#fff",
+          background: COLORS.WHITE,
           borderRadius: "14px 14px 0 0",
           boxShadow: "0 -8px 30px rgba(0,0,0,.14)",
           maxHeight: "76%",

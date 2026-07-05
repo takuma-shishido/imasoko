@@ -48,6 +48,7 @@ import {
 } from "@/lib/wire";
 import { MapGestureController } from "./MapGestureController";
 import { SheetController } from "./SheetController";
+import { COLORS } from "@/lib/theme";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
@@ -1045,7 +1046,7 @@ export class RoomEngine {
     return {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
-        ...selChip(f.level === fl.level, "#4d4d4d"),
+        ...selChip(f.level === fl.level, COLORS.SUBTLE),
         pick: () => this.setState({ addF: fl.level }),
       })),
       addPlanTitle: b.name + " " + f.level,

@@ -7,6 +7,7 @@ import type { ChangeEvent, MouseEvent } from "react";
 import { BUILDINGS, bById, roomFull } from "@/lib/campusData";
 import { selChip, selDot } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
+import { COLORS } from "@/lib/theme";
 
 export function sheetVals(engine: RoomEngine) {
   const s = engine.state;
@@ -16,9 +17,9 @@ export function sheetVals(engine: RoomEngine) {
   const memberRows = s.members.map((m) => ({
     id: m.id,
     initial: (m.name || "?")[0],
-    avBg: m.id === s.selfId ? "#171717" : "#ffffff",
-    avFg: m.id === s.selfId ? "#ffffff" : "#171717",
-    avBd: m.id === s.selfId ? "#171717" : "#a1a1a1",
+    avBg: m.id === s.selfId ? COLORS.INK : COLORS.WHITE,
+    avFg: m.id === s.selfId ? COLORS.WHITE : COLORS.INK,
+    avBd: m.id === s.selfId ? COLORS.INK : COLORS.MUTED,
     name: m.name,
     tag: m.id === s.selfId ? (s.isHost ? "あなた ・ host" : "あなた") : "",
     loc: engine.locLabel(m),
@@ -118,7 +119,7 @@ export function sheetVals(engine: RoomEngine) {
     shShare: s.sheet === "share",
     shSettings: s.sheet === "settings",
     visBadge: s.visibility === "public" ? "公開" : "非公開",
-    visBadgeColor: s.visibility === "public" ? "#ab570a" : "#171717",
+    visBadgeColor: s.visibility === "public" ? COLORS.AMBER : COLORS.INK,
 
     // members sheet
     memberRows,
@@ -176,8 +177,8 @@ export function sheetVals(engine: RoomEngine) {
     webShare: engine.webShare,
     isHost: s.isHost,
     visPublic: s.visibility === "public",
-    visDotPriv: s.visibility === "private" ? "#171717" : "transparent",
-    visDotPub: s.visibility === "public" ? "#171717" : "transparent",
+    visDotPriv: s.visibility === "private" ? COLORS.INK : "transparent",
+    visDotPub: s.visibility === "public" ? COLORS.INK : "transparent",
     pickPrivate: engine.pickPrivate,
     pickPublic: engine.pickPublic,
     titleVal: s.roomTitle,

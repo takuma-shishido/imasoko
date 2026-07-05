@@ -7,6 +7,7 @@ import { RoomPage } from "@/pages/RoomPage";
 import { RoomSheets } from "@/components/RoomSheets";
 import { RoomModals } from "@/components/RoomModals";
 import { Toasts } from "@/components/Toasts";
+import { COLORS } from "@/lib/theme";
 
 // スマホ縦の枠(max-width 430px 中央寄せ)。design/00 の共通レイアウト。
 function Frame() {
@@ -47,11 +48,11 @@ function Frame() {
     <div
       style={{
         minHeight: "100dvh",
-        background: "#fafafa",
+        background: COLORS.FAINT,
         display: "flex",
         justifyContent: "center",
         fontFamily: "var(--font-sans)",
-        color: "#171717",
+        color: COLORS.INK,
       }}
     >
       <div
@@ -59,9 +60,9 @@ function Frame() {
           width: "100%",
           maxWidth: 430,
           height: "100dvh",
-          background: "#ffffff",
-          borderLeft: "1px solid #ebebeb",
-          borderRight: "1px solid #ebebeb",
+          background: COLORS.WHITE,
+          borderLeft: `1px solid ${COLORS.BORDER}`,
+          borderRight: `1px solid ${COLORS.BORDER}`,
           position: "relative",
           overflow: "hidden",
           display: "flex",
