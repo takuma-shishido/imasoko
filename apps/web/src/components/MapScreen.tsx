@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useRoom } from "@/state/RoomContext";
 import { AreaSwitcher } from "./AreaSwitcher";
+import { MeetingInfoBar } from "./MeetingInfoBar";
 import { MapView } from "./MapView";
 
 // ルームメイン(地図)= design/04。上部エリア切替 + 状態バー + 地図 + 下部操作バー。
@@ -17,6 +18,14 @@ export function MapScreen() {
       }}
     >
       <AreaSwitcher />
+
+      <MeetingInfoBar
+        meetAtLabel={v.meetAtLabel}
+        meetingSet={v.meetingSet}
+        meetingLabel={v.meetingLabel}
+        meetingDistSelf={v.meetingDistSelf}
+        onClear={v.clearMeeting}
+      />
 
       {v.reconnecting && (
         <div
