@@ -51,7 +51,6 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
-        
         already_exists = False
         for item in room.place_suggestions:
             if item["place"].get("roomId") == msg.place.roomId:
@@ -59,7 +58,7 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
                 break
 
         if already_exists:
-            return True  
+            return True
 
         room.place_suggestions.append(
             {
