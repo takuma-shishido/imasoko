@@ -1,6 +1,8 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
 import type { CampusRes } from "@/types/messages";
 import { CAMPUS_BUILDINGS } from "./campusGeo";
+import { MAP_AREAS } from "./mapAreas";
+import { project } from "./coords";
 
 // 教室配置図(有明キャンパス)PDFより。教室中心・主要フロアのみ収録。
 // docs/05 §2・§5 の buildings.json に相当するフロント側の**フォールバック**定数。
@@ -218,11 +220,24 @@ export interface MapText {
   mono?: boolean;
 }
 
-// 3エリアとも実地理マップ(areaGeo)に置換したため、模式の注記(旧600×480用で位置がズレる)は表示しない(issue #3)。
+// 駅マップの駅名ランドマーク注記(issue #51)。駅の実位置(緯度経度)を各エリアの投影(matrix)で
+// x/y に変換し、駅そのものに重ねて置く。投影由来なので mapTransform(pan/zoom)に追従する。
+// アンカーは GeoJSON 由来の駅の地点:
+//   station_1 … OSM building=train_station(国際展示場駅の駅舎)の重心
+//   station_2 … 地下駅で railway=station が無いため、北側の建物群(駅ビル)の中心に重ねる
+const stationText = (area: AreaId, lat: number, lng: number, name: string): MapText[] => {
+  const { x, y } = project(MAP_AREAS[area], lat, lng);
+  return [
+    { x, y: y - 9, t: name, size: 15, w: 600, c: "#171717", a: "c" },
+    { x, y: y + 9, t: "りんかい線", size: 9, c: "#888888", a: "c", mono: true },
+  ];
+};
+
+// campus は模式注記が実地理マップ(campusGeo)でズレるため空のまま(issue #3)。
 export const MAP_TEXTS: Record<AreaId, MapText[]> = {
   campus: [],
-  station_1: [],
-  station_2: [],
+  station_1: stationText("station_1", 35.634349, 139.791517, "国際展示場駅"),
+  station_2: stationText("station_2", 35.627095, 139.778207, "東京テレポート駅"),
 };
 
 // 圏外/別エリアのメンバーを地図端に寄せる位置(プロトタイプの CLAMP)。
