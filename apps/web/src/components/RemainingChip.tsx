@@ -1,6 +1,10 @@
 // 残り時間チップ:「残り」ラベル + tabular-nums の数値(残り5分未満で timerColor が赤)。
 // メインマップ(AreaSwitcher)と参加画面(JoinForm)で共通利用(issue #50・#32)。
-export function RemainingChip({ remaining, color }: { remaining: string; color: string }) {
+interface Props {
+  remaining: string;
+  timerColor: string;
+}
+export function RemainingChip({ remaining, timerColor }: Props) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "none" }}>
       <span style={{ fontSize: 10.5, color: "#888888", fontWeight: 500, whiteSpace: "nowrap" }}>
@@ -12,7 +16,7 @@ export function RemainingChip({ remaining, color }: { remaining: string; color: 
           fontSize: 12.5,
           fontWeight: 600,
           fontVariantNumeric: "tabular-nums",
-          color,
+          color: timerColor,
         }}
       >
         {remaining}

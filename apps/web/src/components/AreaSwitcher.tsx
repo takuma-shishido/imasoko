@@ -50,7 +50,7 @@ export function AreaSwitcher() {
         ))}
       </div>
       {/* 残り時間:「残り」ラベルで何の時間かを明示する(issue #32・背景ピルなし) */}
-      <RemainingChip remaining={v.remainingShort} color={v.timerColor} />
+      <RemainingChip remaining={v.remainingShort} timerColor={v.timerColor} />
     </div>
   );
 }

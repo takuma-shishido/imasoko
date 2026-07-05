@@ -19,7 +19,7 @@ export function JoinForm() {
         }}
       >
         <div style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{v.roomTitleDisplay}</div>
-        <RemainingChip remaining={v.remainingShort} color={v.timerColor} />
+        <RemainingChip remaining={v.remainingShort} timerColor={v.timerColor} />
       </div>
 
       <div
