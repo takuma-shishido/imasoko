@@ -9,6 +9,7 @@ import type {
   PlaceSuggestion,
   Toast,
 } from "@/types/campus";
+import type { ClientMsg } from "@/types/messages";
 import { getName } from "@/lib/api";
 
 export type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
@@ -86,12 +87,17 @@ export type Patch = Partial<State> | ((s: State) => Partial<State>);
 
 /**
  * 役割別コントローラ(engine/*Controller.ts)から見たエンジン本体(RoomEngine が実装)。
- * コントローラは state の読み取りと setState / toast だけに依存し、互いを直接参照しない。
+ * コントローラは state の読み取りとこのインターフェースだけに依存する
+ * (send / sendMeeting の実体は SocketController で、RoomEngine 経由で共有する)。
  */
 export interface EngineCore {
   readonly state: State;
   setState(patch: Patch, cb?: () => void): void;
   toast(msg: string): void;
+  /** WebSocket 送信(未接続時は何もしない)。 */
+  send(msg: ClientMsg): void;
+  /** meeting_point の送信。接続中は自分への echo を 1 回だけ無視する(自己設定の上書き防止)。 */
+  sendMeeting(point: MeetingPoint | null): void;
 }
 
 export function initialState(): State {
