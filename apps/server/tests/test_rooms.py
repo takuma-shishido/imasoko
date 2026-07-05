@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +15,8 @@ def setup_function() -> None:
 
 
 def test_expires_at_is_meet_at_plus_3h():
-    meet_at = datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
+    # 日付経過で「meet_at is too old」400 にならないよう、現在時刻基準の未来日時にする(issue #89)。
+    meet_at = (rooms_mod.now() + timedelta(days=1)).replace(second=0, microsecond=0)
     body = client.post("/api/rooms", json={"meet_at": meet_at.isoformat()}).json()
 
     assert datetime.fromisoformat(body["meet_at"]) == meet_at
