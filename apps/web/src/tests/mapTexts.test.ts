@@ -18,8 +18,8 @@ describe("MAP_TEXTS 駅名ランドマーク", () => {
     expect(s1.x).toBeCloseTo(405.7, 0);
     expect(s1.y).toBeCloseTo(162.6, 0);
     const s2 = nameOf("station_2", "東京テレポート駅");
-    expect(s2.x).toBeCloseTo(431.9, 0);
-    expect(s2.y).toBeCloseTo(299.8, 0);
+    expect(s2.x).toBeCloseTo(389.1, 0);
+    expect(s2.y).toBeCloseTo(122.5, 0);
   });
 
   it("注記座標が各エリアのマップ範囲内(pan/zoom 追従の前提)", () => {

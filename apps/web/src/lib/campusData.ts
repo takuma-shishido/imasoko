@@ -224,7 +224,7 @@ export interface MapText {
 // x/y に変換し、駅そのものに重ねて置く。投影由来なので mapTransform(pan/zoom)に追従する。
 // アンカーは GeoJSON 由来の駅の地点:
 //   station_1 … OSM building=train_station(国際展示場駅の駅舎)の重心
-//   station_2 … 駅前ロータリー(タクシー待機場)= 地下駅の地上アクセス点
+//   station_2 … 地下駅で railway=station が無いため、北側の建物群(駅ビル)の中心に重ねる
 const stationText = (area: AreaId, lat: number, lng: number, name: string): MapText[] => {
   const { x, y } = project(MAP_AREAS[area], lat, lng);
   return [
@@ -237,7 +237,7 @@ const stationText = (area: AreaId, lat: number, lng: number, name: string): MapT
 export const MAP_TEXTS: Record<AreaId, MapText[]> = {
   campus: [],
   station_1: stationText("station_1", 35.634349, 139.791517, "国際展示場駅"),
-  station_2: stationText("station_2", 35.626598, 139.778876, "東京テレポート駅"),
+  station_2: stationText("station_2", 35.627095, 139.778207, "東京テレポート駅"),
 };
 
 // 圏外/別エリアのメンバーを地図端に寄せる位置(プロトタイプの CLAMP)。
