@@ -45,15 +45,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     room.members[member_id] = member
     manager.add(room_id, member_id, ws)
 
-    await ws.send_json(
-        {
-            "type": MsgType.ROOM_STATE,
-            "self_id": member_id,
-            "members": [m.to_dict() for m in room.members.values()],
-            "meeting_point": room.meeting_point,
-            "expires_at": room.expires_at.isoformat(),
-        }
-    )
+    await ws.send_json(rooms.room_state_payload(room, member_id))
     await manager.broadcast(
         room_id, {"type": MsgType.MEMBER_JOINED, "member": member.to_dict()}, exclude=member_id
     )

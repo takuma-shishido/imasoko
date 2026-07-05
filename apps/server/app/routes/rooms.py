@@ -17,26 +17,12 @@ def create_room(req: CreateRoomReq) -> CreateRoomRes:
         room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
     except rooms.RoomError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return CreateRoomRes(
-        room_id=room.room_id,
-        host_token=room.host_token,
-        meet_at=room.meet_at.isoformat(),
-        expires_at=room.expires_at.isoformat(),
-        visibility=room.visibility,  # type: ignore[arg-type]
-    )
+    return CreateRoomRes(**rooms.create_room_wire(room))
 
 
 @router.get("/api/rooms/public")
 def public_rooms() -> list[dict]:
-    return [
-        {
-            "room_id": r.room_id,
-            "title": r.title or "無名のルーム",
-            "members": len(r.members),
-            "expires_at": r.expires_at.isoformat(),
-        }
-        for r in rooms.list_public()
-    ]
+    return [rooms.public_room_wire(r) for r in rooms.list_public()]
 
 
 @router.get("/api/rooms/{room_id}")
@@ -47,11 +33,7 @@ def room_status(room_id: str) -> dict:
     if rooms.is_expired(room):
         raise HTTPException(status_code=410, detail="gone")
     # 退出→再参加で UI が公開範囲を復元できるよう visibility も返す(issue #35)。
-    return {
-        "status": "active",
-        "expires_at": room.expires_at.isoformat(),
-        "visibility": room.visibility,
-    }
+    return rooms.room_status_wire(room)
 
 
 @router.patch("/api/rooms/{room_id}/visibility")

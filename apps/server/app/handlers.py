@@ -27,6 +27,17 @@ def parse_client(data: dict):
     return _client_adapter.validate_python(data)
 
 
+async def _broadcast_member_update(manager: ConnectionManager, room: Room, member) -> None:
+    """member の updated_at を更新し member_update を全員へ broadcast する。
+
+    position(位置)/ floor(建物・階)更新で共通の後処理(dev-docs §6)。
+    """
+    member.updated_at = now()
+    await manager.broadcast(
+        room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
+    )
+
+
 async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) -> bool:
     """1メッセージを処理する。False を返したら切断(leave)。"""
     member = room.members.get(member_id)
@@ -36,18 +47,12 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
     if isinstance(msg, PositionMsg):
         member.lat = msg.lat
         member.lng = msg.lng
-        member.updated_at = now()
-        await manager.broadcast(
-            room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
-        )
+        await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, FloorMsg):
         member.building_id = msg.building_id
         member.floor = msg.floor
-        member.updated_at = now()
-        await manager.broadcast(
-            room.room_id, {"type": MsgType.MEMBER_UPDATE, "member": member.to_dict()}
-        )
+        await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, MeetingPointMsg):
         room.meeting_point = msg.point.model_dump() if msg.point else None
