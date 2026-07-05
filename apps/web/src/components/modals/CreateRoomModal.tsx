@@ -2,6 +2,7 @@ import { useRoom } from "@/state/RoomContext";
 import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
 import { Radio } from "../ui/Radio";
+import { DialogButton } from "../ui/DialogButton";
 import { COLORS } from "@/lib/theme";
 
 // 作成モーダル(プロトタイプ固有):ルーム名・公開範囲・集合時間を指定して作成。
@@ -110,40 +111,12 @@ export function CreateRoomModal() {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          onClick={v.cancelCreate}
-          className="hv-border"
-          style={{
-            flex: 1,
-            height: 38,
-            borderRadius: 9999,
-            border: `1px solid ${COLORS.BORDER}`,
-            background: COLORS.WHITE,
-            color: COLORS.INK,
-            fontSize: 13,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        <DialogButton variant="secondary" onClick={v.cancelCreate}>
           キャンセル
-        </button>
-        <button
-          onClick={v.submitCreate}
-          style={{
-            flex: 1.4,
-            height: 38,
-            borderRadius: 9999,
-            border: 0,
-            background: COLORS.INK,
-            color: COLORS.WHITE,
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        </DialogButton>
+        <DialogButton variant="primary" flex={1.4} onClick={v.submitCreate}>
           {v.createLabel}
-        </button>
+        </DialogButton>
       </div>
     </Modal>
   );
