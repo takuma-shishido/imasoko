@@ -239,6 +239,123 @@ jobs:
 
 必要 Secrets(Settings → Secrets → Actions):`DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY`。
 
+## dev/本番の2環境デプロイ(issue #40)
+
+`develop` / `main` の push を、それぞれ dev(検証)/ 本番 の 2 環境へ自動デプロイする。**同一オリジン配信**(REST は相対 `/api/...`、WS は `location` から wss 導出、`shareUrl()` も実オリジン生成)のため、**同一イメージが両ドメインでそのまま動く**(per-domain のビルド差分・CORS は不要)。1 台のコンテナホストに 2 スタックを共存させ、ポート番号・compose プロジェクト名・デプロイ先ディレクトリで分離する。
+
+### 構成(TLS/公開層は Cloudflare + Tailscale)
+
+```
+[スマホ / ブラウザ]
+   │ HTTPS(imasoko.reimpl.com / imasoko-dev.reimpl.com)
+   ▼
+[Cloudflare]  ── client↔サーバ間の SSL を終端(公開ドメインの TLS)
+   │ HTTP
+   ▼
+[VPS: nginx]  ── TLS は終端しない。Tailscale 経由でコンテナホストへ HTTP proxy(WS の Upgrade/Connection を転送)
+   │ HTTP over Tailscale
+   ▼
+[コンテナホスト(別ノード)]
+   ├─ :8000  本番コンテナ(dir ~/imasoko     / -p imasoko     / main)
+   └─ :8001  dev  コンテナ(dir ~/imasoko-dev / -p imasoko-dev / develop)
+```
+
+- origin は **HTTP** 配信。TLS は Cloudflare が担当(コンテナホスト側に nginx/certbot は不要)。
+- VPS の nginx は TLS を終端せず、Cloudflare から受けた HTTP をコンテナホストの **Tailscale IP:8000 / :8001** へ振り分ける。
+- WebSocket(`/ws`)は Cloudflare が WSS を透過し、VPS の nginx は `Upgrade` / `Connection` を転送する(WS 透過に必須)。
+
+### 対応表
+
+| ブランチ | ドメイン | dir | compose project | port | GitHub environment |
+|---|---|---|---|---|---|
+| `main` | imasoko.reimpl.com | `~/imasoko` | `imasoko` | 8000 | production |
+| `develop` | imasoko-dev.reimpl.com | `~/imasoko-dev` | `imasoko-dev` | 8001 | develop |
+
+### コンテナホストの初期セットアップ(2 クローン)
+
+ブランチごとに別ディレクトリへ clone し、それぞれ対象ブランチを checkout する:
+
+```bash
+git clone https://github.com/takuma-shishido/imasoko.git ~/imasoko
+git -C ~/imasoko checkout main
+
+git clone https://github.com/takuma-shishido/imasoko.git ~/imasoko-dev
+git -C ~/imasoko-dev checkout develop
+```
+
+初回だけ手動で起動確認(以降は push で自動更新):
+
+```bash
+cd ~/imasoko     && APP_PORT=8000 docker compose -p imasoko     -f deploy/docker-compose.yml up -d --build
+cd ~/imasoko-dev && APP_PORT=8001 docker compose -p imasoko-dev -f deploy/docker-compose.yml up -d --build
+```
+
+> 位置状態はインメモリ・**1 ワーカー固定**([02 §9](./02_technical-design.md))。compose プロジェクト名で分離するため 2 環境は互いの状態を汚さない。
+> 8000/8001 は **Tailscale 経由でのみ**到達させる想定。公開インターフェースには晒さない(ファイアウォールで塞ぐ)。
+
+### VPS の nginx(TLS 終端なし・HTTP → Tailscale 転送)
+
+Cloudflare が TLS を担うため、VPS の nginx は 80(HTTP)で受け、コンテナホストの Tailscale IP へ proxy する。WebSocket 透過のため `Upgrade` / `Connection` の転送が必須。
+
+```nginx
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+# 本番: imasoko.reimpl.com → <コンテナホストの Tailscale IP>:8000
+server {
+    listen 80;
+    server_name imasoko.reimpl.com;
+    location / {
+        proxy_pass http://100.x.x.x:8000;       # ← コンテナホストの Tailscale IP に置き換える
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;       # WS 透過
+        proxy_set_header Connection $connection_upgrade; # WS 透過
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;               # 長時間の WS 接続が切れないように
+    }
+}
+
+# dev: imasoko-dev.reimpl.com → <コンテナホストの Tailscale IP>:8001
+server {
+    listen 80;
+    server_name imasoko-dev.reimpl.com;
+    location / {
+        proxy_pass http://100.x.x.x:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+    }
+}
+```
+
+> Cloudflare 側は DNS で両ドメインを VPS へ向け(proxied / orange cloud)、SSL/TLS モードは **Flexible**(client↔CF は HTTPS、CF↔VPS は HTTP)にする。
+
+### GitHub Secrets 登録(コンテナホストへの SSH・両環境共通)
+
+deploy ワークフローは GitHub Actions のランナーからコンテナホストへ SSH し、`git pull` + `docker compose up` を実行する。ブランチで dir/project/port を出し分けるため、Secrets は 3 つを共通で使う。
+
+```bash
+gh secret set DEPLOY_HOST    # コンテナホストのアドレス(ランナーから到達できるもの)
+gh secret set DEPLOY_USER    # SSH ユーザ
+gh secret set DEPLOY_SSH_KEY # 秘密鍵(対応する公開鍵をコンテナホストの ~/.ssh/authorized_keys に追加)
+```
+
+> GitHub-hosted ランナーは Tailscale 網の外にいる。`DEPLOY_HOST` を **Tailscale IP にすると届かない**ため、(a) ランナーから到達できる公開 SSH エンドポイントにする、または (b) ワークフローに `tailscale/github-action` を足してランナーを Tailscale に参加させる、のどちらかが必要。GitHub Environments(production / develop)で Secrets を分けるのは任意。
+> Secrets 未登録の間は `deploy.yml` の SSH ステップが `if: secrets.DEPLOY_HOST != ''` で無害にスキップされる。
+
+### 実機確認(最優先)
+
+- [ ] スマホ(HTTPS)で `https://imasoko.reimpl.com` / `https://imasoko-dev.reimpl.com` が開く
+- [ ] 位置情報の許可 → 地図に自分が表示される
+- [ ] WSS(位置共有)が疎通(別端末を join → 互いの位置が更新される)
+- [ ] 共有リンクから再参加できる
+- [ ] 2 環境が独立(片方でルーム作成 → もう片方に現れない)
+
 ## ブランチ保護(CIを必須ゲートにする)
 
 CIワークフローが1度でも走った後、`gh` で設定できる(`main` 対象)。詳細な運用ルールは [04](./04_github-templates.md)。
@@ -267,7 +384,8 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 - [x] `.github/workflows/server-ci.yml` を作成
 - [ ] ダミーPRを1本作り、両CIが緑になることを確認(GitHub上・未)
 - [ ] `main` ブランチ保護を有効化(status checks `build`/`test`、レビュー1)
-- [x] `deploy/Dockerfile` / `docker-compose.yml` を作成(**Caddyfile は不採用**、リバースプロキシは各自運用)
-- [ ] サーバーで手動デプロイを一度成功させ、**HTTPS + WSS疎通を実機確認**(最優先)
-- [x] 自動デプロイ `deploy.yml` を作成(**Secrets 登録は未**:`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`)
+- [x] `deploy/Dockerfile` / `docker-compose.yml` を作成(**Caddyfile は不採用**、リバースプロキシは各自運用。host port は `APP_PORT` で可変・issue #40)
+- [x] 自動デプロイ `deploy.yml` を **develop/main の2環境**へ出し分け(issue #40。dev→8001 / 本番→8000、TLS/公開は Cloudflare + Tailscale。手順は上記「dev/本番の2環境デプロイ」)
+- [ ] コンテナホストに 2 クローン配置 + VPS nginx 転送 + **Secrets 登録**(`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`)を運用者側で実施
+- [ ] スマホ実機で両ドメインの **HTTPS + WSS疎通**を確認(最優先)
 - [ ] mypy を `continue-on-error` から必須へ格上げ(型が整ってきたら)
