@@ -27,7 +27,12 @@ import {
   roomLookup,
   setBuildings,
 } from "@/lib/campusData";
-import { END_OFFSET, POSITION_MIN_MOVE_M, POSITION_THROTTLE_MS } from "@/lib/constants";
+import {
+  POSITION_MIN_MOVE_M,
+  POSITION_THROTTLE_MS,
+  serverConfig,
+  setServerConfig,
+} from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
@@ -246,6 +251,17 @@ export class RoomEngine {
     }
   }
 
+  // サーバー定数を実サーバーから取得し serverConfig を差し替える(有効期限・表示名上限の二重管理解消。issue #15)。
+  // 失敗時は constants.ts のフォールバック既定値を維持する。
+  async loadConfig() {
+    try {
+      setServerConfig(await api.getConfig());
+      this.setState({}); // 期限・上限表示へ反映
+    } catch {
+      /* 取得失敗時はフォールバック値のまま */
+    }
+  }
+
   // ── toast ──
   toast(msg: string) {
     const id = ++this.toastN;
@@ -387,7 +403,7 @@ export class RoomEngine {
   };
   setMeetAt = (v: string) => {
     const meetAt = fromLocalInput(v);
-    this.setState({ meetAt, expiresAt: meetAt + END_OFFSET });
+    this.setState({ meetAt, expiresAt: meetAt + serverConfig.endOffsetMs });
     this.toast("集合時間を " + fmtMeetLabel(meetAt) + " に変更しました");
   };
   goPublic = () => {
@@ -431,7 +447,7 @@ export class RoomEngine {
         roomId,
         roomTitle: title,
         isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
-        meetAt: expiresAt - END_OFFSET,
+        meetAt: expiresAt - serverConfig.endOffsetMs,
         expiresAt,
       });
     } catch (e) {
@@ -454,7 +470,7 @@ export class RoomEngine {
   // ── join ──
   tapJoin = () => {
     const n = this.state.name.trim();
-    if (!n || n.length > 20) return;
+    if (!n || n.length > serverConfig.maxNameLength) return;
     this.setState({ permModal: true });
   };
   enterRoom(viewerOnly: boolean) {
@@ -1343,7 +1359,7 @@ export class RoomEngine {
       newMeetAt: s.newMeetAt,
       onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
         this.setState({ newMeetAt: e.target.value }),
-      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + END_OFFSET),
+      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + serverConfig.endOffsetMs),
       meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
       setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
       onSetMeetAt: (e: ChangeEvent<HTMLInputElement>) => this.setMeetAt(e.target.value),
@@ -1359,8 +1375,12 @@ export class RoomEngine {
       // join
       roomTitleDisplay: (s.roomTitle || "無名のルーム") + " ・ " + s.roomId,
       name: s.name,
+      nameMax: serverConfig.maxNameLength,
       onName: (e: ChangeEvent<HTMLInputElement>) => this.setState({ name: e.target.value }),
-      nameError: s.name.length > 20 ? "20文字以内で入力してください" : "",
+      nameError:
+        s.name.length > serverConfig.maxNameLength
+          ? `${serverConfig.maxNameLength}文字以内で入力してください`
+          : "",
       joinB: s.joinB,
       onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
         this.setState({ joinB: e.target.value, joinF: "" }),
@@ -1368,7 +1388,7 @@ export class RoomEngine {
       onJoinF: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinF: e.target.value }),
       joinFloorOpts: floorsOf(s.joinB),
       buildingOpts,
-      joinDisabled: !s.name.trim() || s.name.length > 20,
+      joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
       tapJoin: this.tapJoin,
       joinViewer: this.joinViewer,
       permModal: s.permModal,
