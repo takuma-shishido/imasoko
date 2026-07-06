@@ -428,14 +428,17 @@ interface PlaceSuggestion {
 
 ## 4. 実装対応表
 
+> ルーティングは `create_app()`(`app/main.py`)が `app/routes/*` の APIRouter を `include_router` する構成(#87 でリファクタ)。
+
 | API | サーバー実装 | web 型/呼び出し |
 |---|---|---|
-| `POST /api/rooms` | `app/main.py` `create_room` / `app/rooms.py` | `lib/api.ts` `createRoom` |
-| `GET /api/rooms/{id}` | `app/main.py` `room_status` | `lib/api.ts` `getRoom` |
-| `GET /api/rooms/public` | `app/main.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
-| `PATCH …/visibility` | `app/main.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
-| `GET /api/campus` | `app/main.py` `get_campus` / `app/campus.py` | `lib/api.ts` `getCampus` |
-| `WS /ws/{id}` | `app/main.py` `ws_endpoint` / `app/ws.py` / `app/handlers.py` | `hooks/useRoomSocket.ts` |
+| `POST /api/rooms` | `app/routes/rooms.py` `create_room` / `app/rooms.py` | `lib/api.ts` `createRoom` |
+| `GET /api/rooms/{id}` | `app/routes/rooms.py` `room_status` | `lib/api.ts` `getRoom` |
+| `GET /api/rooms/public` | `app/routes/rooms.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
+| `PATCH …/visibility` | `app/routes/rooms.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
+| `GET /api/campus` | `app/routes/campus.py` / `app/campus.py` | `lib/api.ts` `getCampus` |
+| `GET /api/config` · `GET /api/health` | `app/routes/meta.py` | — |
+| `WS /ws/{id}` | `app/routes/ws.py` `ws_endpoint` / `app/handlers.py`(`establish_join`/`handle`/`cleanup_on_disconnect`)/ `app/ws.py` | `hooks/useRoomSocket.ts` |
 
 ---
 
