@@ -2,6 +2,7 @@
 // 返すキー集合・各値は RoomEngine.renderVals の「// map」セクションと完全一致させる(挙動不変)。
 // engine の可変状態(state)を読み、公開 computed(viewportRect / clampedPos / distTo /
 // resolveMeetingPos / meetingLabelOf)や bound ハンドラは engine 経由で参照する。
+// 地図ジェスチャは engine.gesture(MapGestureController)を直接参照する(純転送層を挟まない。docs/08 W1)。
 import type { MouseEvent } from "react";
 import type { AreaId, Building } from "@/types/campus";
 import { AREAS, AREA_ORDER } from "@/lib/mapAreas";
@@ -124,18 +125,18 @@ export function mapVals(engine: RoomEngine) {
         label: AREAS[id].short,
         bg: c.bg,
         fg: c.fg,
-        pick: () => engine.pickArea(id),
+        pick: () => engine.gesture.pickArea(id),
       };
     }),
     reconnecting: s.reconnecting,
     viewerOnly: s.viewerOnly,
     sharePosAgain: engine.sharePosAgain,
     vpRef: engine.vpRef,
-    onMapDown: engine.onMapDown,
-    onMapMove: engine.onMapMove,
-    onMapUp: engine.onMapUp,
-    onMapCancel: engine.onMapCancel,
-    onMapWheel: engine.onMapWheel,
+    onMapDown: engine.gesture.onMapDown,
+    onMapMove: engine.gesture.onMapMove,
+    onMapUp: engine.gesture.onMapUp,
+    onMapCancel: engine.gesture.onMapCancel,
+    onMapWheel: engine.gesture.onMapWheel,
     worldW: A.w,
     worldH: A.h,
     mapTransform: "translate(" + s.view.tx + "px," + s.view.ty + "px) scale(" + s.view.k + ")",
@@ -162,17 +163,17 @@ export function mapVals(engine: RoomEngine) {
     clearMeeting: engine.clearMeeting,
     meetingByLabel:
       s.meetingBy + "が設定" + (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
-    fabZoomIn: engine.fabZoomIn,
-    fabZoomOut: engine.fabZoomOut,
-    fabSelf: engine.fabSelf,
-    fabFit: engine.fabFit,
+    fabZoomIn: engine.gesture.fabZoomIn,
+    fabZoomOut: engine.gesture.fabZoomOut,
+    fabSelf: engine.gesture.fabSelf,
+    fabFit: engine.gesture.fabFit,
     memberCount: s.members.length,
     memberMax: serverConfig.maxMembersPerRoom, // 上限は /api/config 由来(issue #43)
     areaSummary: sumParts.join(" ・ "),
     openMembers: engine.openMembers,
     openMeeting: engine.openMeeting,
     openBuilding: engine.openBuilding,
-    openPlaces: engine.openPlaces,
+    openPlaces: engine.openMeeting, // 「空き教室」ボタンも meeting シートを開く(旧 openPlaces 別名を撤去)
     openShare: engine.openShare,
     openSettings: engine.openSettings,
     buildingBtnOpacity: s.area === "campus" ? "1" : "0.35",
