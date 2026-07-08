@@ -122,7 +122,7 @@ export function MapScreen() {
             gap: 2,
           }}
         >
-          <ActionButton onClick={v.openMeeting} label="集合場所">
+          <ActionButton onClick={v.openMeeting} label="集合場所" tutorialId="meeting-btn">
             <svg
               width="18"
               height="18"
@@ -161,7 +161,7 @@ export function MapScreen() {
               <path d="M2.5 15.5h13" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={v.openShare} label="共有">
+          <ActionButton onClick={v.openShare} label="共有" tutorialId="share-btn">
             <svg
               width="18"
               height="18"
@@ -216,6 +216,7 @@ function ActionButton({
   opacity = "1",
   color = COLORS.INK,
   hoverClass = "hv-bg",
+  tutorialId,
 }: {
   onClick: () => void;
   label: string;
@@ -223,11 +224,13 @@ function ActionButton({
   opacity?: string;
   color?: string;
   hoverClass?: string;
+  tutorialId?: string;
 }) {
   return (
     <button
       onClick={onClick}
       className={hoverClass}
+      data-tutorial={tutorialId}
       style={{
         display: "flex",
         flexDirection: "column",

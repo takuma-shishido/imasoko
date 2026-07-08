@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RoomProvider, useRoom } from "@/state/RoomContext";
 import { TopPage } from "@/pages/TopPage";
@@ -7,6 +7,7 @@ import { RoomPage } from "@/pages/RoomPage";
 import { RoomSheets } from "@/components/RoomSheets";
 import { RoomModals } from "@/components/RoomModals";
 import { Toasts } from "@/components/Toasts";
+import { Tutorial } from "@/components/tutorial/Tutorial";
 import { COLORS } from "@/lib/theme";
 
 // スマホ縦の枠(max-width 430px 中央寄せ)。design/00 の共通レイアウト。
@@ -16,6 +17,8 @@ function Frame() {
   const loc = useLocation();
   const bootRef = useRef(false);
   const leftTop = useRef(false);
+  // チュートリアル(ホーム発・実操作で進むため画面遷移をまたぐ)。Frame で保持する。
+  const [tutorial, setTutorial] = useState(false);
 
   // 共有リンク(/r/:id)で開かれたら、初回だけ実サーバーへ存在チェック(issue #13)。
   useEffect(() => {
@@ -69,9 +72,16 @@ function Frame() {
           flexDirection: "column",
         }}
       >
-        {v.isTop ? <TopPage /> : v.isPublic ? <PublicRoomsPage /> : <RoomPage />}
+        {v.isTop ? (
+          <TopPage onOpenTutorial={() => setTutorial(true)} />
+        ) : v.isPublic ? (
+          <PublicRoomsPage />
+        ) : (
+          <RoomPage />
+        )}
 
         {/* グローバル・オーバーレイ(枠内に重畳) */}
+        {tutorial && <Tutorial onClose={() => setTutorial(false)} />}
         <RoomSheets />
         <RoomModals />
         <Toasts />
