@@ -22,10 +22,10 @@
 
 ## 前提・現状
 
-- リポジトリ:`imasoko`(ブランチ `main` のみ、初期コミット済み)
-- 現状のファイル:`README.md` と `docs/` のみ。**アプリ実体(`apps/web` / `apps/server`)は未作成**
+- リポジトリ:`imasoko`(`develop`(feature PR の base)+ `main`(本番)の2ブランチ運用)
+- 実装状況:`apps/web`(React)/ `apps/server`(FastAPI)とも実装済みで、フロント↔サーバーは実配線済み。**「今どうなっているか」の一次情報は [06 実装ステータス](./06_implementation-status.md)**
 - チーム:4人(ホスト=フルスタック、初心者A/B/C)。分担は [imasoko-dev-docs.md §11](./imasoko-dev-docs.md) を基準にする
-- ホスティング:チームメンバーの個人サーバー + リバースプロキシ(TLS終端・WS中継)
+- ホスティング:Cloudflare(TLS終端)+ Tailscale + VPS nginx(HTTP転送)+ コンテナホスト(詳細は [03 §デプロイ](./03_cicd.md))
 
 ## 実行順序(フェーズ)
 
@@ -52,11 +52,11 @@
 
 各項目の詳細チェックリストは各ドキュメント末尾にある。ここは全体の進捗把握用。**細かい実装TODOと現状は [06 実装ステータス](./06_implementation-status.md) を参照。**
 
-- [x] **01 ディレクトリ設計**:`apps/web/` `apps/server/` `.github/` の骨格と `.gitignore` を作成(実装済み。3エリアは `public/map/*.svg` ではなくインライン模式SVGで実装)
-- [x] **04 GitHubテンプレート**:PR/Issueテンプレート・CODEOWNERS・CONTRIBUTING を作成(ラベル・ブランチ保護は**リポジトリ設定側で未実施**)
+- [x] **01 ディレクトリ設計**:`apps/web/` `apps/server/` `.github/` の骨格と `.gitignore` を作成(実装済み。3エリアは `public/map/*.svg` ではなく OSM GeoJSON の実地理描画で実装)
+- [x] **04 GitHubテンプレート**:PR/Issueテンプレート・CODEOWNERS・CONTRIBUTING・ラベルを作成(**ブランチ保護のみリポジトリ設定側で未実施**)
 - [x] **03 CI整備**:`web-ci` / `server-ci` ワークフロー、Lint/Format/Test/Build ゲート(ローカルで各コマンド緑。GitHub上での緑確認は未)
 - [x] **02 技術設計の確定**:定数化(config/constants)、設定/型/エラー/テストを実装。有効期限モデルは **集合時間+3h に統一済み**(issue #4)。残る要合意は **throttle 間隔**(実測)([06 §2](./06_implementation-status.md))
-- [x] **05 機能・データ設計**:マップ3エリア/建物ドリルダウン/public・private/集合場所3タイプ/空き教室 を実装(フロントは**シミュレーション自走**、サーバー雛形は用意、**両者の実配線は未接続**)
+- [x] **05 機能・データ設計**:マップ3エリア(OSM GeoJSON実地理)/建物ドリルダウン/public・private/集合場所3タイプ/空き教室 を実装。フロント↔サーバーは**実配線済み**(WS/REST/実GPS)
 - [x] **03 CD整備(任意)**:`deploy/Dockerfile` / `docker-compose.yml`(**Caddyは不採用**、リバースプロキシは各自運用)
 - [ ] フェーズ1着手のGate:`main` ブランチ保護の有効化(status checks `build`/`test` + レビュー1)は**未実施**
 

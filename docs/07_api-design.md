@@ -422,13 +422,15 @@ interface PlaceSuggestion {
 }
 ```
 
-> **注意(フロント内部表現との違い)**:デモのフロントは `apps/web/src/types/campus.ts` で `MeetingPoint` を**ワールド座標 x/y**ベースで持つ(模式SVG用)。**API のワイヤ契約は本ドキュメント(lat/lng・`roomId`/`spotId`)が正**。実配線時はフロント内部表現 ⇄ ワイヤ契約の変換を入れる([06 §2](./06_implementation-status.md))。
+> **注意(フロント内部表現との違い)**:フロントは `apps/web/src/types/campus.ts` で `MeetingPoint` を**ワールド座標 x/y**ベースで持つ(地図描画用。実地理 GeoJSON を投影した座標系)。**API のワイヤ契約は本ドキュメント(lat/lng・`roomId`/`spotId`)が正**。実配線時はフロント内部表現 ⇄ ワイヤ契約の変換を入れる([06 §2](./06_implementation-status.md))。
+>
+> **型識別子の対応**:上記ワイヤ型は Python `models.py` の識別子(`MeetingPoint` / `PlaceSuggestion`)に一致。TS `messages.ts` 側は集合場所の受信メッセージが `MeetingPointMsg`、`place_suggestions.items` は現状 `unknown[]`(緩い型)で、厳密な `PlaceSuggestion` 型はサーバー(`models.py`)側のみが持つ。
 
 ---
 
 ## 4. 実装対応表
 
-> ルーティングは `create_app()`(`app/main.py`)が `app/routes/*` の APIRouter を `include_router` する構成(#87 でリファクタ)。
+> ルーティングは `create_app()`(`app/main.py`)が `app/routes/*` の APIRouter を `include_router` する構成(#92 / PR #114 でリファクタ)。
 
 | API | サーバー実装 | web 型/呼び出し |
 |---|---|---|

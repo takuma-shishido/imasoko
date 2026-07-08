@@ -341,7 +341,7 @@ updates:
 - [x] ルートに `CONTRIBUTING.md` を作成
 - [ ] リポジトリ設定:Squash mergeのみ許可 / head branch自動削除を有効化
 - [x] ラベルを作成(`task`/`bug`/`enhancement`/`web`/`server`/`infra`/`docs`/`good first issue`/`blocked`)
-- [ ] 優先度ラベル `priority:p0` / `priority:p1` / `priority:p2` を作成し、旧 `priority:high` を p0 へ統合
+- [x] 優先度ラベル `priority:p0` / `priority:p1` / `priority:p2` を作成し、旧 `priority:high` を p0 へ統合(済み)
 - [x] `config.yml` のチームチャットURLを実URLに差し替え(Discord)
 - [x] `.github/dependabot.yml` を作成
 - [ ] キックオフで全員にこのルール(ブランチ命名・PRフロー)を共有
