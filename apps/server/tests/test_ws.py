@@ -42,6 +42,34 @@ def test_ws_meeting_point():
         assert mp["point"]["kind"] == "coords"
 
 
+def test_ws_meeting_point_unknown_member_is_ignored():
+    """ルームにいないメンバーへの追従指定(member 追従)は無視する(issue #78)。
+
+    無視しないと、退出直後のクライアントが送った古い指定などで
+    「存在しないメンバーへの追従」が全員に broadcast されてしまう。
+    """
+    rooms_mod.clear()
+    rid = client.post("/api/rooms", json={}).json()["room_id"]
+    with client.websocket_connect(f"/ws/{rid}") as ws:
+        ws.send_json({"type": "join", "name": "さき", "building_id": None, "floor": None})
+        ws.receive_json()  # room_state
+
+        # 存在しない memberId への追従 → 無視(broadcast されず、保存もされない)
+        ws.send_json({"type": "meeting_point", "point": {"kind": "member", "memberId": "ghost"}})
+        assert rooms_mod.get_room(rid).meeting_point is None
+
+        # 直後の正常な meeting_point は通る(= 無視されたメッセージへの応答が無いことも確認できる)
+        ws.send_json(
+            {
+                "type": "meeting_point",
+                "point": {"kind": "coords", "area": "campus", "lat": 35.63, "lng": 139.79},
+            }
+        )
+        mp = ws.receive_json()
+        assert mp["type"] == "meeting_point"
+        assert mp["point"]["kind"] == "coords"
+
+
 def test_ws_member_left_clears_stale_member_meeting_point():
     """集合先(member 追従)の本人が退出したら stale な meeting_point を解除する(issue #37)。
 
