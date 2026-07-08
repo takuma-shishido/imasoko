@@ -45,6 +45,10 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         await manager.broadcast(room.room_id, {"type": "member_update", "member": member.to_dict()})
 
     elif isinstance(msg, MeetingPointMsg):
+        if msg.point and getattr(msg.point, "kind", None) == "member":
+            if msg.point.memberId not in room.members:
+                return True
+
         room.meeting_point = msg.point.model_dump() if msg.point else None
         await manager.broadcast(
             room.room_id, {"type": "meeting_point", "point": room.meeting_point}
