@@ -54,7 +54,6 @@ export function topVals(engine: RoomEngine) {
     roomId: s.roomId,
 
     // top / create
-    creating: s.creating,
     createLabel: s.creating ? "作成中…" : "作成する",
     createRoom: engine.createRoom,
     goPublic: engine.goPublic,
@@ -83,7 +82,6 @@ export function topVals(engine: RoomEngine) {
     refreshPublic: engine.refreshPublic,
     refreshAnim: s.refreshing ? "ims-spin .8s linear infinite" : "none",
     publicRooms,
-    hasPublicRooms: publicRooms.length > 0,
     noPublicRooms: publicRooms.length === 0,
 
     // join
@@ -102,7 +100,7 @@ export function topVals(engine: RoomEngine) {
     onJoinF: (e: ChangeEvent<HTMLSelectElement>) => engine.setState({ joinF: e.target.value }),
     joinFloorOpts: floorsOf(s.joinB),
     buildingOpts,
-    joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
+    joinDisabled: !engine.canJoin(),
     tapJoin: engine.tapJoin,
     joinViewer: engine.joinViewer,
     permModal: s.permModal,

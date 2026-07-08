@@ -516,9 +516,13 @@ export class RoomEngine {
   };
 
   // ── join ──
+  // 参加ボタンを押せるか。ボタンの無効化(topVals の joinDisabled)と tapJoin のガードの単一ソース。
+  canJoin = () => {
+    const n = this.state.name;
+    return !!n.trim() && n.length <= serverConfig.maxNameLength;
+  };
   tapJoin = () => {
-    const n = this.state.name.trim();
-    if (!n || n.length > serverConfig.maxNameLength) return;
+    if (!this.canJoin()) return;
     this.setState({ permModal: true });
   };
   enterRoom(viewerOnly: boolean) {
@@ -793,18 +797,17 @@ export class RoomEngine {
   mtPickCoords = () => this.setState({ mtKind: "coords" });
   mtPickMember = () => this.setState({ mtKind: "member" });
   mtPickPlace = () => this.setState({ mtKind: "place" });
-  mtApply = () => {
+  // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
+  // coords はピン配置(地図で指定)で確定するため常に押せない。
+  mtCanApply = () => {
     const s = this.state;
-    // coords は「地図で指定」からピン配置で確定するため、ここでは何もしない。
-    if (s.mtKind === "coords") return;
-    if (s.mtKind === "member") {
-      if (!s.mtMember) return;
-      this.setMeeting({ kind: "member", memberId: s.mtMember }, "あなた");
-      this.setState({ sheet: null });
-      return;
-    }
-    if (!s.placeR) return;
-    if (s.placeR.startsWith("spot:"))
+    return s.mtKind === "member" ? !!s.mtMember : s.mtKind === "place" ? !!s.placeR : false;
+  };
+  mtApply = () => {
+    if (!this.mtCanApply()) return;
+    const s = this.state;
+    if (s.mtKind === "member") this.setMeeting({ kind: "member", memberId: s.mtMember! }, "あなた");
+    else if (s.placeR.startsWith("spot:"))
       this.setMeeting({ kind: "place", type: "spot", ref: s.placeR.slice(5) }, "あなた");
     else this.setMeeting({ kind: "place", type: "classroom", ref: s.placeR.slice(5) }, "あなた");
     this.setState({ sheet: null });
