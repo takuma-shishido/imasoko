@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 // watchPosition ラッパ(docs/02 §5 / 企画書 4.2)。
 // 許可 → 位置を継続取得、拒否/非対応 → 「閲覧のみ」相当。
-// ※ 本アプリのデモは擬似許可ダイアログ + シミュレーションで自走するため、
-//    このフックは実位置経路(バックエンド実配線)を有効化する際に使用する。
+// RoomContext が参加中かつ位置共有時に実 GPS を購読し、engine.onGeoPosition へ渡す(issue #2)。
 
 export type GeoStatus = "idle" | "granted" | "denied" | "unsupported";
 

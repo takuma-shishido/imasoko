@@ -4,8 +4,8 @@ import { MAP_AREAS } from "./mapAreas";
 // 緯度経度 → 自作マップ座標(dev-docs §7 / docs/05 §1)。
 // キャンパス程度の狭い範囲では線形変換で十分。エリアごとに bounds(北西/南東の実測2点)を持つ。
 //
-// 本アプリのデモはワールド x/y を直接使う(プロトタイプ忠実)ため、この変換は
-// 実位置取得経路(useGeolocation → position)を有効化する際に使用する。ユニットテスト付き(docs/02 §6)。
+// 実位置取得経路(useGeolocation → position)と WS 送受信(lib/wire.ts)で使用中。
+// ワールド x/y ⇄ lat/lng を相互変換する。ユニットテスト付き(docs/02 §6)。
 
 export interface Projected {
   x: number; // 画像左上原点の px 座標(x = u * width)

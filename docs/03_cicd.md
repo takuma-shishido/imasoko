@@ -58,7 +58,7 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]   # pycodestyle, pyflakes, isort, pyupgrade, bugbear
+select = ["E", "F", "I"]   # pycodestyle, pyflakes, isort
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -394,6 +394,8 @@ gh api -X PUT repos/{owner}/imasoko/branches/main/protection \
 ## TODO
 
 > 実際に採用した値は本文の設計スニペットと一部異なる(例:web `build` は `tsc --noEmit && vite build`、`requirements-dev` は `>=` 指定、status check job 名は `build`/`test`)。現状は [06 実装ステータス §4.3](./06_implementation-status.md) を参照。
+>
+> **自動整形(issue #83)**:上記 CI スニペットは「`format:check` / `ruff format --check` を無条件実行」の初期設計。実 workflow(`.github/workflows/{web-ci,server-ci}.yml`)は、**同一リポの PR では prettier / ruff format を bot が自動コミット**する分岐(`AUTOFIX` env + `permissions: contents: write` + head ブランチ checkout)を持ち、`--check` 系は fork PR / `main` push のみで走る。
 
 - [x] `apps/web/package.json` に scripts(`lint`/`typecheck`/`format`/`format:check`/`test`/`build`)を追加
 - [x] Prettier / ESLint(flat config)の設定ファイルを追加

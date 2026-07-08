@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WS_RECONNECT_BASE_MS, WS_RECONNECT_MAX_MS } from "@/lib/constants";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 
-// WebSocket 接続・指数バックオフ再接続・join 再送 の雛形(docs/02 §5 / dev-docs §6)。
-// ※ 本アプリのデモはシミュレーションで自走するため未使用。バックエンド(apps/server)実配線時に使用する。
+// WebSocket 接続・指数バックオフ再接続・join 再送(docs/02 §5 / dev-docs §6)。
+// RoomContext が map 画面(参加中)の間だけ実サーバー(apps/server)へ接続する(issue #1)。
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
