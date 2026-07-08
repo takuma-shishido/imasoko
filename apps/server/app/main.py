@@ -43,7 +43,19 @@ def get_config() -> dict:
 
 @app.get("/api/health")
 def get_health() -> dict:
-    return {"status": "ok"}
+    all_rooms = rooms.all_rooms()
+    active_rooms = 0
+    total_members = 0
+
+    for room in all_rooms:
+        if not rooms.is_expired(room):
+            active_rooms += 1
+            total_members += len(room.members)
+
+    return {"status": "ok",
+            "active_rooms": active_rooms,
+            "total_members": total_members
+    }
 
 
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
