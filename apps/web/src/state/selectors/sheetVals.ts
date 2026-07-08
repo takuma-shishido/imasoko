@@ -94,8 +94,9 @@ export function sheetVals(engine: RoomEngine) {
   for (const f of placeB.floors)
     for (const r of f.rooms)
       placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
+  // coords はピン配置(地図で指定)で確定するため「この場所にする」は常に無効。
   const mtApplyDisabled =
-    s.mtKind === "member" ? !s.mtMember : s.mtKind === "place" ? !s.placeR : false;
+    s.mtKind === "member" ? !s.mtMember : s.mtKind === "place" ? !s.placeR : true;
 
   const suggestions = s.suggestions.map((sg) => ({
     label: roomFull(sg.ref),
@@ -141,10 +142,13 @@ export function sheetVals(engine: RoomEngine) {
     roomSuggest: engine.roomSuggest,
 
     // meeting sheet
+    mtIsCoords: s.mtKind === "coords",
     mtIsMember: s.mtKind === "member",
     mtIsPlace: s.mtKind === "place",
+    mtDotCoords: selDot(s.mtKind === "coords"),
     mtDotMember: selDot(s.mtKind === "member"),
     mtDotPlace: selDot(s.mtKind === "place"),
+    mtPickCoords: engine.mtPickCoords,
     mtPickMember: engine.mtPickMember,
     mtPickPlace: engine.mtPickPlace,
     memberChips,
