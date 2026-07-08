@@ -90,9 +90,11 @@ export function JoinForm() {
           位置情報を許可すると、地図に自分のピンが表示されます。位置は最新の値だけが共有され、履歴は残りません。
         </div>
 
-        <Button variant="primary" size="lg" disabled={v.joinDisabled} onClick={v.tapJoin}>
-          参加する
-        </Button>
+        <div data-tutorial="join-submit" style={{ display: "flex", flexDirection: "column" }}>
+          <Button variant="primary" size="lg" disabled={v.joinDisabled} onClick={v.tapJoin}>
+            参加する
+          </Button>
+        </div>
 
         <div style={{ textAlign: "center" }}>
           <button

@@ -10,8 +10,8 @@ const FEATURES = [
   ["03", "ルームは2時間で自動的に消滅"],
 ];
 
-// トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線。
-export function TopPage() {
+// トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線 + 使い方(チュートリアル)。
+export function TopPage({ onOpenTutorial }: { onOpenTutorial: () => void }) {
   const v = useRoom();
   return (
     <div
@@ -34,7 +34,7 @@ export function TopPage() {
           minHeight: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
               fontFamily: "'Geist Mono',monospace",
@@ -42,6 +42,7 @@ export function TopPage() {
               letterSpacing: ".14em",
               color: COLORS.INK,
               fontWeight: 500,
+              flex: 1,
             }}
           >
             IMASOKO
@@ -56,6 +57,22 @@ export function TopPage() {
           >
             有明キャンパス
           </div>
+          <button
+            onClick={onOpenTutorial}
+            className="hv-border-ink"
+            style={{
+              background: COLORS.WHITE,
+              border: `1px solid ${COLORS.BORDER}`,
+              borderRadius: 9999,
+              fontSize: 11,
+              fontFamily: "inherit",
+              color: COLORS.INK,
+              padding: "4px 12px",
+              cursor: "pointer",
+            }}
+          >
+            ? 使い方
+          </button>
         </div>
 
         <div style={{ marginTop: 44 }}>
@@ -125,9 +142,11 @@ export function TopPage() {
         <div style={{ flex: 1 }} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Button variant="primary" size="lg" onClick={v.createRoom}>
-            ルームを作る
-          </Button>
+          <div data-tutorial="create-room" style={{ display: "flex", flexDirection: "column" }}>
+            <Button variant="primary" size="lg" onClick={v.createRoom}>
+              ルームを作る
+            </Button>
+          </div>
           <Button variant="secondary" size="lg" onClick={v.goPublic}>
             公開ルームを探す
           </Button>
