@@ -3,6 +3,8 @@
 // 返すキー集合・各値・キー順は RoomEngine.renderVals の該当セクションと完全一致させる(挙動不変)。
 // engine の可変状態(state)を読み、公開 computed(resolveMeetingPos / distTo / locLabel /
 // addPlanVals)や bound ハンドラ・setState は engine 経由で参照する。
+// シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
+// engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
 import { BUILDINGS, bById, roomFull } from "@/lib/campusData";
 import { selChip, selDot } from "@/lib/chipColors";
@@ -35,8 +37,8 @@ export function sheetVals(engine: RoomEngine) {
         return;
       }
       if (m.area !== s.area)
-        engine.setState({ area: m.area }, () => engine.centerOn(m.x, m.y, 1.2));
-      else engine.centerOn(m.x, m.y, Math.max(s.view.k, 1.2));
+        engine.setState({ area: m.area }, () => engine.gesture.centerOn(m.x, m.y, 1.2));
+      else engine.gesture.centerOn(m.x, m.y, Math.max(s.view.k, 1.2));
     },
   }));
 
@@ -104,12 +106,12 @@ export function sheetVals(engine: RoomEngine) {
     // sheets
     sheetOpen: !!s.sheet,
     sheetClosing: s.sheetClosing,
-    closeSheet: engine.closeSheet,
+    closeSheet: engine.sheetCtl.close,
     sheetRef: engine.sheetRef,
-    hDown: engine.hDown,
-    hMove: engine.hMove,
-    hUp: engine.hUp,
-    hCancel: engine.hCancel,
+    hDown: engine.sheetCtl.hDown,
+    hMove: engine.sheetCtl.hMove,
+    hUp: engine.sheetCtl.hUp,
+    hCancel: engine.sheetCtl.hCancel,
     shMembers: s.sheet === "members",
     shBuilding: s.sheet === "building",
     shMeeting: s.sheet === "meeting",

@@ -3,7 +3,7 @@
 // this.setState → 内部マージ + 購読者通知、React.createRef → 素の ref オブジェクトに置換。
 // 派生値は renderVals()(プロトタイプと同名)で計算する。
 
-import type { ChangeEvent, PointerEvent, RefObject, WheelEvent } from "react";
+import type { ChangeEvent, RefObject } from "react";
 import type {
   AreaId,
   DemoRoom,
@@ -130,10 +130,12 @@ export class RoomEngine {
   sheetRef: RefObject<HTMLDivElement> = { current: null };
 
   private listeners = new Set<() => void>();
-  // 地図ジェスチャ(パン / ピンチ / ホイール / fit・center / FAB)は MapGestureController に委譲(issue #103)。
-  private gesture: MapGestureController;
-  // シート開閉アニメ・ハンドルのドラッグ・退場タイマーは SheetController に委譲(issue #104)。
-  private sheetCtl: SheetController;
+  // 地図ジェスチャ(パン / ピンチ / ホイール / fit・center / FAB)の実体(issue #103)。
+  // selector(mapVals / sheetVals)からも直接参照する(純転送層を挟まない。docs/08 W1)。
+  readonly gesture: MapGestureController;
+  // シート開閉アニメ・ハンドルのドラッグ・退場タイマーの実体(issue #104)。
+  // selector からも直接参照する(docs/08 W2)。
+  readonly sheetCtl: SheetController;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
@@ -547,7 +549,7 @@ export class RoomEngine {
         selfF: s.joinF,
       },
       () => {
-        requestAnimationFrame(() => this.fitArea());
+        requestAnimationFrame(() => this.gesture.fitArea());
       }
     );
     this.toast(s.isHost ? "ルームを作成しました。「共有」からURLを送りましょう" : "参加しました");
@@ -585,7 +587,8 @@ export class RoomEngine {
     // 最初の測位でビューを現在エリアへ合わせる(現在エリアの自動選択)。
     if (this.geoFirstFix && !loc.lost) {
       this.geoFirstFix = false;
-      if (loc.area !== this.state.area) this.setState({ area: loc.area }, () => this.fitArea());
+      if (loc.area !== this.state.area)
+        this.setState({ area: loc.area }, () => this.gesture.fitArea());
     }
     // throttle:初回は即送信、以降は 2秒 かつ 前回送信位置から 5m 以上動いたら送る(docs/02 §2)。
     const now = Date.now();
@@ -609,20 +612,7 @@ export class RoomEngine {
     );
   };
 
-  // ── map view(ジェスチャ実体は MapGestureController。ここは公開名維持のための委譲。issue #103)──
-  fitArea() {
-    this.gesture.fitArea();
-  }
-  centerOn(x: number, y: number, k?: number) {
-    this.gesture.centerOn(x, y, k);
-  }
-  pickArea(id: AreaId) {
-    this.gesture.pickArea(id);
-  }
-  onMapDown = (e: PointerEvent<HTMLDivElement>) => this.gesture.onMapDown(e);
-  onMapMove = (e: PointerEvent<HTMLDivElement>) => this.gesture.onMapMove(e);
-  onMapUp = (e: PointerEvent<HTMLDivElement>) => this.gesture.onMapUp(e);
-  onMapCancel = (e: PointerEvent<HTMLDivElement>) => this.gesture.onMapCancel(e);
+  // ── map view(ジェスチャは this.gesture を直接参照。旧・公開名維持の委譲は撤去。docs/08 W1)──
   startPick = () => this.setState({ pickMode: true, sheet: null });
   cancelPick = () => this.setState({ pickMode: false });
   cancelPin = () => this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
@@ -636,32 +626,17 @@ export class RoomEngine {
     );
     this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
   };
-  onMapWheel = (e: WheelEvent<HTMLDivElement>) => this.gesture.onMapWheel(e);
-  fabZoomIn = () => this.gesture.fabZoomIn();
-  fabZoomOut = () => this.gesture.fabZoomOut();
-  fabSelf = () => this.gesture.fabSelf();
-  fabFit = () => this.gesture.fabFit();
-
-  // ── sheets(開閉アニメ・ドラッグ・退場タイマーの実体は SheetController。ここは公開名維持のための委譲。issue #104)──
-  private openSheet(name: SheetName) {
-    this.sheetCtl.open(name);
-  }
-  closeSheet = () => this.sheetCtl.close();
-  hDown = (e: PointerEvent<HTMLDivElement>) => this.sheetCtl.hDown(e);
-  hMove = (e: PointerEvent<HTMLDivElement>) => this.sheetCtl.hMove(e);
-  hUp = () => this.sheetCtl.hUp();
-  hCancel = () => this.sheetCtl.hCancel();
-  openMembers = () => this.openSheet("members");
-  openMeeting = () => this.openSheet("meeting");
-  openPlaces = () => this.openSheet("meeting");
-  openShare = () => this.openSheet("share");
-  openSettings = () => this.openSheet("settings");
+  // ── sheets(開閉・ドラッグは this.sheetCtl を直接参照。旧・公開名維持の委譲は撤去。docs/08 W2)──
+  openMembers = () => this.sheetCtl.open("members");
+  openMeeting = () => this.sheetCtl.open("meeting");
+  openShare = () => this.sheetCtl.open("share");
+  openSettings = () => this.sheetCtl.open("settings");
   openBuilding = () => {
     if (this.state.area !== "campus") {
       this.toast("建物はキャンパスエリアで利用できます");
       return;
     }
-    this.openSheet("building");
+    this.sheetCtl.open("building");
   };
 
   // ── building panel ──
