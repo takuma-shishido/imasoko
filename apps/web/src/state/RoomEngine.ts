@@ -134,7 +134,8 @@ export class RoomEngine {
   // selector(mapVals / sheetVals)からも直接参照する(純転送層を挟まない。docs/08 W1)。
   readonly gesture: MapGestureController;
   // シート開閉アニメ・ハンドルのドラッグ・退場タイマーの実体(issue #104)。
-  // selector からも直接参照する(docs/08 W2)。
+  // selector からも直接参照する(docs/08 W2)。ただしシートを開く操作は sheetCtl.open を
+  // 直接呼ばず engine の open*(openBuilding のエリアガード等)を経由すること。
   readonly sheetCtl: SheetController;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
