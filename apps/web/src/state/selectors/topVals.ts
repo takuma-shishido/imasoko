@@ -102,7 +102,7 @@ export function topVals(engine: RoomEngine) {
     onJoinF: (e: ChangeEvent<HTMLSelectElement>) => engine.setState({ joinF: e.target.value }),
     joinFloorOpts: floorsOf(s.joinB),
     buildingOpts,
-    joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
+    joinDisabled: !engine.canJoin(),
     tapJoin: engine.tapJoin,
     joinViewer: engine.joinViewer,
     permModal: s.permModal,
