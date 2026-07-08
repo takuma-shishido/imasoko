@@ -126,6 +126,9 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, MeetingPointMsg):
+        # ルームにいないメンバーへの追従指定は無視する(issue #78)
+        if isinstance(msg.point, MPMember) and msg.point.memberId not in room.members:
+            return True
         room.meeting_point = msg.point
         await manager.broadcast(
             room.room_id, MeetingPointBroadcastMsg(point=room.meeting_point).model_dump()
