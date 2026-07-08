@@ -126,23 +126,16 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
         await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, MeetingPointMsg):
-        if msg.point and getattr(msg.point, "kind", None) == "member":
-            if msg.point.memberId not in room.members:
-                return True
-
-        room.meeting_point = msg.point.model_dump() if msg.point else None
-
+        # ルームにいないメンバーへの追従指定は無視する(issue #78)
+        if isinstance(msg.point, MPMember) and msg.point.memberId not in room.members:
+            return True
+        room.meeting_point = msg.point
         await manager.broadcast(
             room.room_id, MeetingPointBroadcastMsg(point=room.meeting_point).model_dump()
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
-        already_exists = False
-        for item in room.place_suggestions:
-            if item["place"].get("roomId") == msg.place.roomId:
-                already_exists = True
-                break
-
+        already_exists = any(item.place == msg.place for item in room.place_suggestions)
         if already_exists:
             return True
 
