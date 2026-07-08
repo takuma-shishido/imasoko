@@ -13,7 +13,7 @@ const NORTH_DEG: Record<AreaId, number> = Object.fromEntries(
   (Object.keys(AREA_GEO) as AreaId[]).map((id) => [id, northDegOf(AREA_GEO[id].projection)])
 ) as Record<AreaId, number>;
 
-// 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装した模式版)。
+// 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装。基図は実地理 GeoJSON)。
 // SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
 export function MapView() {
   const v = useRoom();
