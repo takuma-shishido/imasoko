@@ -68,39 +68,44 @@ export function MeetingPointPicker() {
 
       {/* coords */}
       <div
+        onClick={v.mtPickCoords}
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
           padding: "12px 4px",
           borderBottom: `1px solid ${COLORS.BORDER}`,
+          cursor: "pointer",
         }}
       >
-        <Radio dot="transparent" />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
-          <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
-            好きな地点をタップ。説明も付けられます
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Radio dot={v.mtDotCoords} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
+              好きな地点をタップ。説明も付けられます
+            </div>
           </div>
         </div>
-        <button
-          onClick={v.startPick}
-          style={{
-            height: 32,
-            padding: "0 14px",
-            borderRadius: 9999,
-            border: 0,
-            background: COLORS.INK,
-            color: COLORS.WHITE,
-            fontSize: 12,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          地図で指定
-        </button>
+        {v.mtIsCoords && (
+          <div style={{ margin: "10px 0 2px 26px" }}>
+            <button
+              onClick={v.startPick}
+              style={{
+                height: 32,
+                padding: "0 14px",
+                borderRadius: 9999,
+                border: 0,
+                background: COLORS.INK,
+                color: COLORS.WHITE,
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              地図で指定
+            </button>
+          </div>
+        )}
       </div>
 
       {/* member */}

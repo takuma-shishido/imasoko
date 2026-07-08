@@ -100,7 +100,7 @@ export interface State {
   pinModal: boolean;
   pendingPin: PendingPin | null;
   pinNote: string;
-  mtKind: "member" | "place";
+  mtKind: "coords" | "member" | "place";
   mtMember: string | null;
   placeB: string;
   placeR: string;
@@ -790,10 +790,13 @@ export class RoomEngine {
     const p = bAnchor(hit.b);
     return { area: "campus", x: p.x, y: p.y };
   }
+  mtPickCoords = () => this.setState({ mtKind: "coords" });
   mtPickMember = () => this.setState({ mtKind: "member" });
   mtPickPlace = () => this.setState({ mtKind: "place" });
   mtApply = () => {
     const s = this.state;
+    // coords は「地図で指定」からピン配置で確定するため、ここでは何もしない。
+    if (s.mtKind === "coords") return;
     if (s.mtKind === "member") {
       if (!s.mtMember) return;
       this.setMeeting({ kind: "member", memberId: s.mtMember }, "あなた");
