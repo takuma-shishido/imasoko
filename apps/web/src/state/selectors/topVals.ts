@@ -1,0 +1,117 @@
+// renderVals() の top(トップ/作成)・public(公開ルーム一覧)・join(参加フォーム)・
+// timer(残り時間)派生値と、画面遷移フラグ(screens)を切り出した pure セレクタ(issue #102)。
+// 返すキー集合・各値・キー順は RoomEngine.renderVals の該当セクションと完全一致させる(挙動不変)。
+// engine の可変状態(state)を読み、bound ハンドラ・setState は engine 経由で参照する。
+// buildingOpts / floorsOf は join セレクト用。sheets 側(selectors/sheetVals)は同一値の floorsOf を
+// 独自保持しており、役割(join vs members/building シート)が別のため各所保持とする(issue #102 報告)。
+import type { ChangeEvent } from "react";
+import { BUILDINGS, bById } from "@/lib/campusData";
+import { serverConfig } from "@/lib/constants";
+import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
+import { selDot } from "@/lib/chipColors";
+import { getHostToken } from "@/lib/api";
+import type { RoomEngine } from "@/state/RoomEngine";
+import { COLORS } from "@/lib/theme";
+
+export function topVals(engine: RoomEngine) {
+  const s = engine.state;
+  const remaining = s.expiresAt ? Math.max(0, s.expiresAt - s.now) : 0;
+
+  // buildings(データ定義 → コンポーネント描画。join セレクトで参照)
+  const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
+
+  // floor opts for selects(join セレクトで参照。sheets 側は selectors/sheetVals が保持)
+  const floorsOf = (bid: string) => {
+    const b = bById(bid);
+    return b ? b.floors.map((f) => ({ id: f.level, name: f.level })) : [];
+  };
+
+  // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
+  // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
+  const publicRooms = s.publicList
+    .filter((r) => r.exp > s.now)
+    .map((r) => {
+      const own = getHostToken(r.id) !== null;
+      return {
+        title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
+        members: r.members,
+        remaining: fmtShort(r.exp - s.now),
+        open: () => engine.openPublicRoom(r),
+      };
+    });
+
+  return {
+    // screens
+    isTop: s.screen === "top",
+    isPublic: s.screen === "public",
+    isJoin: s.screen === "join",
+    isMap: s.screen === "map",
+    isExpired: s.screen === "expired",
+    isEnded: s.screen === "ended",
+    isNotFound: s.screen === "notfound",
+    isFull: s.screen === "full",
+    screen: s.screen,
+    roomId: s.roomId,
+
+    // top / create
+    creating: s.creating,
+    createLabel: s.creating ? "作成中…" : "作成する",
+    createRoom: engine.createRoom,
+    goPublic: engine.goPublic,
+    goTop: engine.goTop,
+    openRoomById: engine.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
+    createOpen: s.createOpen,
+    cancelCreate: engine.cancelCreate,
+    submitCreate: engine.submitCreate,
+    newTitle: s.newTitle,
+    onNewTitle: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ newTitle: e.target.value }),
+    newVisPub: s.newVis === "public",
+    newVisDotPriv: selDot(s.newVis === "private"),
+    newVisDotPub: selDot(s.newVis === "public"),
+    pickNewPriv: () => engine.setState({ newVis: "private" }),
+    pickNewPub: () => engine.setState({ newVis: "public" }),
+    newMeetAt: s.newMeetAt,
+    onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
+      engine.setState({ newMeetAt: e.target.value }),
+    newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + serverConfig.endOffsetMs),
+    meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
+    setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
+    onSetMeetAt: (e: ChangeEvent<HTMLInputElement>) => engine.setMeetAt(e.target.value),
+    curEndAt: s.expiresAt ? fmtMeetLabel(s.expiresAt) : "—",
+
+    // public
+    refreshPublic: engine.refreshPublic,
+    refreshAnim: s.refreshing ? "ims-spin .8s linear infinite" : "none",
+    publicRooms,
+    hasPublicRooms: publicRooms.length > 0,
+    noPublicRooms: publicRooms.length === 0,
+
+    // join
+    roomTitleDisplay: (s.roomTitle || "無名のルーム") + " ・ " + s.roomId,
+    name: s.name,
+    nameMax: serverConfig.maxNameLength,
+    onName: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ name: e.target.value }),
+    nameError:
+      s.name.length > serverConfig.maxNameLength
+        ? `${serverConfig.maxNameLength}文字以内で入力してください`
+        : "",
+    joinB: s.joinB,
+    onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
+      engine.setState({ joinB: e.target.value, joinF: "" }),
+    joinF: s.joinF,
+    onJoinF: (e: ChangeEvent<HTMLSelectElement>) => engine.setState({ joinF: e.target.value }),
+    joinFloorOpts: floorsOf(s.joinB),
+    buildingOpts,
+    joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
+    tapJoin: engine.tapJoin,
+    joinViewer: engine.joinViewer,
+    permModal: s.permModal,
+    permAllow: engine.permAllow,
+    permDeny: engine.permDeny,
+
+    // timer
+    remainingShort: fmtShort(remaining),
+    remainingLong: fmtLong(remaining),
+    timerColor: remaining < 300000 ? COLORS.ERR : COLORS.INK,
+  };
+}

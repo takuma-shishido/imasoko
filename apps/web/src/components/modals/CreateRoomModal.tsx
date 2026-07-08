@@ -2,6 +2,8 @@ import { useRoom } from "@/state/RoomContext";
 import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
 import { Radio } from "../ui/Radio";
+import { DialogButton } from "../ui/DialogButton";
+import { COLORS } from "@/lib/theme";
 
 // 作成モーダル(プロトタイプ固有):ルーム名・公開範囲・集合時間を指定して作成。
 export function CreateRoomModal() {
@@ -14,7 +16,7 @@ export function CreateRoomModal() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 10,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         NEW ROOM
@@ -43,9 +45,11 @@ export function CreateRoomModal() {
         <Radio dot={v.newVisDotPriv} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>
-            非公開<span style={{ color: "#888888", fontWeight: 400 }}>(既定)</span>
+            非公開<span style={{ color: COLORS.GRAY, fontWeight: 400 }}>(既定)</span>
           </div>
-          <div style={{ fontSize: 11, color: "#888888" }}>URLを知っている人だけが参加できます</div>
+          <div style={{ fontSize: 11, color: COLORS.GRAY }}>
+            URLを知っている人だけが参加できます
+          </div>
         </div>
       </div>
       <div
@@ -61,7 +65,7 @@ export function CreateRoomModal() {
         <Radio dot={v.newVisDotPub} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>公開</div>
-          <div style={{ fontSize: 11, color: "#888888" }}>
+          <div style={{ fontSize: 11, color: COLORS.GRAY }}>
             公開ルーム一覧に載り、誰でも参加できます
           </div>
         </div>
@@ -69,8 +73,8 @@ export function CreateRoomModal() {
       {v.newVisPub && (
         <div
           style={{
-            background: "#ffefcf",
-            color: "#ab570a",
+            background: COLORS.AMBER_BG,
+            color: COLORS.AMBER,
             fontSize: 11.5,
             borderRadius: 6,
             padding: "8px 10px",
@@ -92,55 +96,27 @@ export function CreateRoomModal() {
         style={{
           width: "100%",
           height: 40,
-          border: "1px solid #ebebeb",
+          border: `1px solid ${COLORS.BORDER}`,
           borderRadius: 6,
-          background: "#fff",
+          background: COLORS.WHITE,
           fontFamily: "inherit",
           fontSize: 13,
-          color: "#171717",
+          color: COLORS.INK,
           padding: "0 10px",
           boxSizing: "border-box",
         }}
       />
-      <div style={{ fontSize: 11, color: "#888888", marginTop: 6, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 11, color: COLORS.GRAY, marginTop: 6, lineHeight: 1.6 }}>
         集合の3時間後({v.newEndAt})に自動的に終了します。
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          onClick={v.cancelCreate}
-          className="hv-border"
-          style={{
-            flex: 1,
-            height: 38,
-            borderRadius: 9999,
-            border: "1px solid #ebebeb",
-            background: "#fff",
-            color: "#171717",
-            fontSize: 13,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        <DialogButton variant="secondary" onClick={v.cancelCreate}>
           キャンセル
-        </button>
-        <button
-          onClick={v.submitCreate}
-          style={{
-            flex: 1.4,
-            height: 38,
-            borderRadius: 9999,
-            border: 0,
-            background: "#171717",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-          }}
-        >
+        </DialogButton>
+        <DialogButton variant="primary" flex={1.4} onClick={v.submitCreate}>
           {v.createLabel}
-        </button>
+        </DialogButton>
       </div>
     </Modal>
   );

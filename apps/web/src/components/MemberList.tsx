@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { FloorSelector } from "./FloorSelector";
+import { COLORS } from "@/lib/theme";
 
 // メンバー一覧シート(design/04)。自分の場所(建物+階)変更 + 各メンバー行(タップで地図を寄せる)。
 export function MemberList() {
@@ -11,7 +12,7 @@ export function MemberList() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 10.5,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         MEMBERS
@@ -22,7 +23,7 @@ export function MemberList() {
 
       <div
         style={{
-          background: "#f5f5f5",
+          background: COLORS.BG,
           borderRadius: 8,
           padding: "10px 12px",
           display: "flex",
@@ -31,7 +32,7 @@ export function MemberList() {
           marginBottom: 10,
         }}
       >
-        <div style={{ fontSize: 12, color: "#4d4d4d", whiteSpace: "nowrap", flex: "none" }}>
+        <div style={{ fontSize: 12, color: COLORS.SUBTLE, whiteSpace: "nowrap", flex: "none" }}>
           自分の場所
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -59,7 +60,7 @@ export function MemberList() {
             alignItems: "center",
             gap: 12,
             padding: "12px 2px",
-            borderBottom: "1px solid #ebebeb",
+            borderBottom: `1px solid ${COLORS.BORDER}`,
             cursor: "pointer",
           }}
         >
@@ -88,8 +89,8 @@ export function MemberList() {
                 <span
                   style={{
                     fontSize: 10,
-                    color: "#4d4d4d",
-                    background: "#f5f5f5",
+                    color: COLORS.SUBTLE,
+                    background: COLORS.BG,
                     borderRadius: 9999,
                     padding: "1px 8px",
                   }}
@@ -98,13 +99,13 @@ export function MemberList() {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, color: "#888888", marginTop: 2 }}>{m.loc}</div>
+            <div style={{ fontSize: 12, color: COLORS.GRAY, marginTop: 2 }}>{m.loc}</div>
           </div>
           <div
             style={{
               fontFamily: "'Geist Mono',monospace",
               fontSize: 11,
-              color: "#4d4d4d",
+              color: COLORS.SUBTLE,
               textAlign: "right",
             }}
           >
@@ -113,7 +114,7 @@ export function MemberList() {
         </div>
       ))}
 
-      <div style={{ fontSize: 11.5, color: "#888888", marginTop: 12 }}>
+      <div style={{ fontSize: 11.5, color: COLORS.GRAY, marginTop: 12 }}>
         タップすると地図がその人の位置へ移動します。集合場所を設定すると、各メンバーからのおおよその距離が表示されます。
       </div>
     </div>

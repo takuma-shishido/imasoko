@@ -7,9 +7,13 @@
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from .config import settings
+from .models import MeetingPoint, PlaceSuggestion, RoomStateMsg
+
+
+class RoomError(ValueError):
+    """ドメイン層のルーム操作エラー(HTTP 概念を持たない)。route 側で HTTP に変換する。"""
 
 
 def now() -> datetime:
@@ -25,10 +29,10 @@ def _as_utc(dt: datetime) -> datetime:
 class Member:
     id: str
     name: str
-    building_id: Optional[str] = None
-    floor: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    building_id: str | None = None
+    floor: str | None = None
+    lat: float | None = None
+    lng: float | None = None
     updated_at: datetime = field(default_factory=now)
 
     def to_dict(self) -> dict:
@@ -53,21 +57,66 @@ class Room:
     meet_at: datetime  # 集合時間(有効期限の起点・issue #4)
     expires_at: datetime
     members: dict[str, Member] = field(default_factory=dict)
-    meeting_point: Optional[dict] = None
-    place_suggestions: list[dict] = field(default_factory=list)
+    meeting_point: MeetingPoint | None = None
+    place_suggestions: list[PlaceSuggestion] = field(default_factory=list)
+
+
+# ── serialize(散在していた isoformat / dict 手組みを集約)──────────
+# 送出 JSON(キー・値・型)は従来と厳密一致。member 表現は Member.to_dict() を単一の真実とし、
+# room_state / member_joined / member_update すべてで共有する。
+def create_room_wire(room: Room) -> dict:
+    """POST /api/rooms のレスポンス(CreateRoomRes 相当)。"""
+    return {
+        "room_id": room.room_id,
+        "host_token": room.host_token,
+        "meet_at": room.meet_at.isoformat(),
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
+
+
+def public_room_wire(room: Room) -> dict:
+    """GET /api/rooms/public の1件。"""
+    return {
+        "room_id": room.room_id,
+        "title": room.title or "無名のルーム",
+        "members": len(room.members),
+        "expires_at": room.expires_at.isoformat(),
+    }
+
+
+def room_status_wire(room: Room) -> dict:
+    """GET /api/rooms/{room_id} の active レスポンス(issue #35)。"""
+    return {
+        "status": "active",
+        "expires_at": room.expires_at.isoformat(),
+        "visibility": room.visibility,
+    }
+
+
+def room_state_payload(room: Room, self_id: str) -> dict:
+    """WS 接続直後に本人へ送る room_state(dev-docs §6)。"""
+    return RoomStateMsg(
+        self_id=self_id,
+        members=[m.to_dict() for m in room.members.values()],
+        meeting_point=room.meeting_point,
+        expires_at=room.expires_at.isoformat(),
+    ).model_dump()
 
 
 _rooms: dict[str, Room] = {}
 
 
 def create_room(
-    title: str = "", visibility: str = "private", meet_at: Optional[datetime] = None
+    title: str = "", visibility: str = "private", meet_at: datetime | None = None
 ) -> Room:
     room_id = secrets.token_urlsafe(settings.room_id_bytes)
     host_token = secrets.token_urlsafe(settings.host_token_bytes)
     created = now()
     # 集合時間が未指定なら作成時刻を集合時間とみなす(issue #4)
     meet = _as_utc(meet_at) if meet_at is not None else created
+    if meet + timedelta(seconds=settings.end_offset_seconds) <= created:
+        raise RoomError("meet_at is too old")
     room = Room(
         room_id=room_id,
         host_token=host_token,
@@ -81,7 +130,7 @@ def create_room(
     return room
 
 
-def get_room(room_id: str) -> Optional[Room]:
+def get_room(room_id: str) -> Room | None:
     return _rooms.get(room_id)
 
 
@@ -94,14 +143,17 @@ def delete_room(room_id: str) -> None:
 
 
 def list_public() -> list[Room]:
-    return [r for r in _rooms.values() if r.visibility == "public" and not is_expired(r)]
+    return sorted(
+        [r for r in _rooms.values() if r.visibility == "public" and not is_expired(r)],
+        key=lambda r: r.meet_at,
+    )
 
 
 def all_rooms() -> list[Room]:
     return list(_rooms.values())
 
 
-def set_visibility(room: Room, visibility: str, title: Optional[str]) -> None:
+def set_visibility(room: Room, visibility: str, title: str | None) -> None:
     room.visibility = visibility
     if title is not None:
         room.title = title

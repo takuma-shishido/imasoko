@@ -2,10 +2,7 @@
 // 生成ロジックは areaGeo.buildAreaGeo に共通化。号館(b1〜b6)を基準にフィットし、大きく中心へ配置する。
 
 import rawGeojson from "@/data/campus.geojson.json";
-import { buildAreaGeo, featuresOf, type AreaShape, type AreaShapeKind } from "./areaGeo";
-
-export type CampusShapeKind = AreaShapeKind;
-export type CampusShape = AreaShape;
+import { buildAreaGeo, featuresOf, type AreaShape } from "./areaGeo";
 
 // OSM way ID → 号館(ユーザー提供の対応)。
 const BUILDING_WAYS: Record<string, string> = {
@@ -22,7 +19,7 @@ const geo = buildAreaGeo(featuresOf(rawGeojson), {
   pad: 0.15,
 });
 
-export const CAMPUS_GEO: CampusShape[] = geo.shapes;
+export const CAMPUS_GEO: AreaShape[] = geo.shapes;
 export const CAMPUS_BUILDINGS = geo.buildings;
 export const CAMPUS_PROJECTION = geo.projection;
 export const CAMPUS_GEO_SIZE = geo.size;
