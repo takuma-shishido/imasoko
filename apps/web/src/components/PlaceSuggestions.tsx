@@ -111,14 +111,14 @@ function RoomCell({ rc, style }: { rc: RoomVals["addPlanTop"][number]; style: CS
         {rc.free !== null && (
           <span
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: 9999,
+              fontSize: 9,
+              lineHeight: 1,
               flex: "none",
-              background: rc.free ? COLORS.BLUE : "transparent",
-              border: rc.free ? 0 : `1px solid ${COLORS.MUTED}`,
+              color: rc.free ? COLORS.BLUE : COLORS.MUTED,
             }}
-          />
+          >
+            {rc.free ? "●" : "×"}
+          </span>
         )}
         {rc.n}
       </span>
@@ -328,8 +328,19 @@ function AddPanel() {
             選択中({v.addSelCount}):{v.addSelLabel}
           </div>
           {v.addSelAvail.map((line, i) => (
-            <div key={i} style={{ fontSize: 10.5, color: COLORS.GRAY, lineHeight: 1.6 }}>
-              {line}
+            <div key={i} style={{ fontSize: 11, color: COLORS.SUBTLE, lineHeight: 1.7 }}>
+              {line.free !== null && (
+                <span
+                  style={{
+                    color: line.free ? COLORS.BLUE : COLORS.ERR,
+                    fontWeight: 600,
+                    marginRight: 4,
+                  }}
+                >
+                  {line.free ? "●" : "×"}
+                </span>
+              )}
+              {line.text}
             </div>
           ))}
         </div>

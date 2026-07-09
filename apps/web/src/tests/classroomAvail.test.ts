@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  classroomAvailLabel,
   classroomDataDate,
   classroomDataStale,
   classroomFreeAt,
+  classroomNowLabel,
   setClassrooms,
 } from "@/lib/campusData";
 import type { CampusClassroom } from "@/types/messages";
@@ -60,14 +60,30 @@ describe("classroomFreeAt", () => {
   });
 });
 
-describe("classroomAvailLabel / classroomDataDate / classroomDataStale", () => {
-  it("空き時間帯を表示用文字列にする(データ無しは空文字)", () => {
+describe("classroomNowLabel", () => {
+  it("空き中は「いつまで空きか」、使用中は「いつから空くか」を返す", () => {
     setClassrooms(rooms);
-    expect(classroomAvailLabel("b1-201")).toBe("00:00-08:50 / 10:30-13:10 / 19:00-24:00");
-    expect(classroomAvailLabel("b1-307")).toBe("");
-    expect(classroomAvailLabel("b9-999")).toBe("");
+    expect(classroomNowLabel("b1-201", at("11:00"))).toEqual({
+      free: true,
+      text: "空き(13:10まで)",
+    });
+    expect(classroomNowLabel("b1-201", at("09:30"))).toEqual({
+      free: false,
+      text: "使用中(10:30から空き)",
+    });
   });
 
+  it("この後空きが無い教室・データが無い教室", () => {
+    setClassrooms(rooms);
+    expect(classroomNowLabel("b1-307", at("12:00"))).toEqual({
+      free: false,
+      text: "使用中(本日はこのあと空きなし)",
+    });
+    expect(classroomNowLabel("b9-999", at("12:00"))).toBeNull();
+  });
+});
+
+describe("classroomDataDate / classroomDataStale", () => {
   it("エクスポート対象日と判定日が別日なら stale", () => {
     setClassrooms(rooms);
     expect(classroomDataDate()).toBe("2026-07-09");

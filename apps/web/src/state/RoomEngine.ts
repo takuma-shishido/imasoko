@@ -20,11 +20,11 @@ import {
   bAnchor,
   bById,
   bSpot,
-  classroomAvailLabel,
   classroomById,
   classroomDataDate,
   classroomDataStale,
   classroomFreeAt,
+  classroomNowLabel,
   mergeCampus,
   roomFull,
   roomLookup,
@@ -1049,17 +1049,19 @@ export class RoomEngine {
       addPlanHasBottom: f.rooms.length > half,
       // 空き情報の凡例(データが無ければ非表示)。別日のデータなら古い旨を注意表示
       addAvailLegend: dataDate
-        ? "● 空き ・ ○ 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
+        ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
         : "",
       addAvailStale: dataDate ? classroomDataStale(availAt) : false,
       addRSel: s.addRs.length > 0,
       addSelCount: s.addRs.length,
       addSelLabel: s.addRs.map((rid) => roomFull(rid)).join(" / "),
-      // 選択中の各教室の「現在」の状態 + 空き時間帯(空き情報が無い教室は「空き情報なし」)
+      // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
       addSelAvail: s.addRs.map((rid) => {
-        const nowFree = classroomFreeAt(rid, Date.now());
-        const nowLabel = nowFree === null ? "" : nowFree ? "現在空き ・ " : "現在使用中 ・ ";
-        return roomFull(rid) + ":" + nowLabel + (classroomAvailLabel(rid) || "空き情報なし");
+        const now = classroomNowLabel(rid, Date.now());
+        return {
+          free: now ? now.free : null,
+          text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
+        };
       }),
       addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",
     };

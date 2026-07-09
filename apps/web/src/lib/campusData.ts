@@ -235,11 +235,23 @@ export function classroomFreeAt(rid: string, atMs: number): boolean | null {
   return c.available.some((r) => hmToMin(r.start) <= min && min < hmToMin(r.end));
 }
 
-/** 空き時間帯の表示用文字列("10:30-13:10 / 19:00-24:00")。データが無ければ ""。 */
-export const classroomAvailLabel = (rid: string): string => {
+/** 現在(atMs)の状態を短い文にする。空き→「いつまで空きか」、使用中→「いつから空くか」。
+ *  データが無い教室は null。available は開始時刻の昇順(生成スクリプト仕様)。 */
+export function classroomNowLabel(
+  rid: string,
+  atMs: number
+): { free: boolean; text: string } | null {
   const c = classroomById(rid);
-  return c ? c.available.map((r) => r.start + "-" + r.end).join(" / ") : "";
-};
+  if (!c) return null;
+  const d = new Date(atMs);
+  const min = d.getHours() * 60 + d.getMinutes();
+  for (const r of c.available) {
+    if (hmToMin(r.start) <= min && min < hmToMin(r.end))
+      return { free: true, text: "空き(" + r.end + "まで)" };
+    if (min < hmToMin(r.start)) return { free: false, text: "使用中(" + r.start + "から空き)" };
+  }
+  return { free: false, text: "使用中(本日はこのあと空きなし)" };
+}
 
 /** 空き情報のエクスポート対象日(YYYY-MM-DD)。データが無ければ ""。
  *  classrooms.csv は単一日の MUSCAT エクスポートから生成されるため全行同一日(docs/05 §5)。 */
