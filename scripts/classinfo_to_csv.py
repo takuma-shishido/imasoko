@@ -24,13 +24,6 @@ from pathlib import Path
 SLOT_MINUTES = 10
 SLOTS_PER_DAY = 24 * 60 // SLOT_MINUTES
 
-OCCUPIED_CLASSES = {
-    "reservedColorLecture",
-    "reservedColorOther",
-    "reservedColorDuplicate",
-    "reservedColorSelected",
-}
-
 # 有明<号館>-<数字3桁の教室>(NFKC 正規化後)。それ以外は機械判定できないので除外する
 FACILITY_RE = re.compile(r"^有明(\d+)-(\d{3})$")
 
@@ -63,8 +56,9 @@ class MatrixParser(HTMLParser):
             self._text_buf = []
         elif self._current is not None and any(c.startswith("hour") for c in classes):
             datakey = attrs.get("data-reserveddatakey", "").strip()
-            occupied = bool(classes & OCCUPIED_CLASSES) or bool(datakey)
-            self._current["slots"].append(not occupied)
+            # 空きは「reservedColorDefault かつ予約キーなし」に限定(未知の予約クラスは使用中に倒す)
+            free = "reservedColorDefault" in classes and not datakey
+            self._current["slots"].append(free)
             # 予約キーは "11-20260709-0850-1030-A1201-1928306" 形式。2番目が対象日
             if datakey:
                 parts = datakey.split("-")
@@ -161,7 +155,9 @@ def main():
     records.sort(key=lambda r: (r["building_id"], r["room_id"]))
     with dst.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["building_id", "floor", "room_id", "name", "capacity", "date", "available"]
+            f,
+            fieldnames=["building_id", "floor", "room_id", "name", "capacity", "date", "available"],
+            lineterminator="\n",
         )
         writer.writeheader()
         writer.writerows(records)
