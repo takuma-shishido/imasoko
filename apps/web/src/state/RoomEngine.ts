@@ -20,7 +20,7 @@ import {
   bAnchor,
   bById,
   bSpot,
-  classroomById,
+  classroomCapacityLabel,
   classroomDataDate,
   classroomDataStale,
   classroomFreeAt,
@@ -1020,11 +1020,10 @@ export class RoomEngine {
     const availAt = s.meetAt || Date.now();
     const cell = (r: Room) => {
       const c = selChip(sel.has(r.id));
-      const info = classroomById(r.id);
       return {
         n: r.n,
         t: r.t || "",
-        cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
+        cap: classroomCapacityLabel(r.id), // 欠損(=0)は非表示
         free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
         bg: c.bg,
         fg: c.fg,
@@ -1059,9 +1058,11 @@ export class RoomEngine {
       // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
       addSelAvail: s.addRs.map((rid) => {
         const now = classroomNowLabel(rid, Date.now());
+        const cap = classroomCapacityLabel(rid);
         return {
           free: now ? now.free : null,
-          text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
+          text:
+            roomFull(rid) + (cap ? "(" + cap + ")" : "") + ":" + (now ? now.text : "空き情報なし"),
         };
       }),
       addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",

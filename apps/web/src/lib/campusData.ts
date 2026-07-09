@@ -235,6 +235,12 @@ export function classroomFreeAt(rid: string, atMs: number): boolean | null {
   return c.available.some((r) => hmToMin(r.start) <= min && min < hmToMin(r.end));
 }
 
+/** 収容人数の表示用文字列("40人")。データが無い・欠損(0)は ""。 */
+export const classroomCapacityLabel = (rid: string): string => {
+  const c = classroomById(rid);
+  return c && c.capacity > 0 ? c.capacity + "人" : "";
+};
+
 /** 現在(atMs)の状態を短い文にする。空き→「いつまで空きか」、使用中→「いつから空くか」。
  *  データが無い教室は null。available は開始時刻の昇順(生成スクリプト仕様)。 */
 export function classroomNowLabel(
