@@ -3,10 +3,9 @@
 // this.setState → 内部マージ + 購読者通知、React.createRef → 素の ref オブジェクトに置換。
 // 派生値は renderVals()(プロトタイプと同名)で計算する。
 
-import type { ChangeEvent, MouseEvent, PointerEvent, RefObject, WheelEvent } from "react";
+import type { ChangeEvent, RefObject } from "react";
 import type {
   AreaId,
-  Building,
   DemoRoom,
   MeetingPoint,
   Member,
@@ -14,11 +13,10 @@ import type {
   Room,
   Toast,
 } from "@/types/campus";
-import { AREAS, AREA_ORDER, MAP_AREAS } from "@/lib/mapAreas";
+import { AREAS, MAP_AREAS } from "@/lib/mapAreas";
 import {
   BUILDINGS,
   CLAMP,
-  MAP_TEXTS,
   bAnchor,
   bById,
   bSpot,
@@ -33,7 +31,11 @@ import {
   serverConfig,
   setServerConfig,
 } from "@/lib/constants";
-import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
+import { fmtMeetLabel, fromLocalInput, toLocalInput } from "@/lib/format";
+import { selChip } from "@/lib/chipColors";
+import { topVals } from "@/state/selectors/topVals";
+import { mapVals } from "@/state/selectors/mapVals";
+import { sheetVals } from "@/state/selectors/sheetVals";
 import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
@@ -44,13 +46,13 @@ import {
   memberFromWire,
   suggestionsFromWire,
 } from "@/lib/wire";
+import { MapGestureController } from "./MapGestureController";
+import { SheetController } from "./SheetController";
+import { COLORS } from "@/lib/theme";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "share" | "settings";
 type Visibility = "private" | "public";
-
-// ボトムシート退場アニメーションの長さ(ms)。global.css の ims-sheet-out / ims-fade-out と一致させる(issue #71)。
-const SHEET_EXIT_MS = 200;
 
 interface View {
   tx: number;
@@ -98,7 +100,7 @@ export interface State {
   pinModal: boolean;
   pendingPin: PendingPin | null;
   pinNote: string;
-  mtKind: "member" | "place";
+  mtKind: "coords" | "member" | "place";
   mtMember: string | null;
   placeB: string;
   placeR: string;
@@ -128,15 +130,12 @@ export class RoomEngine {
   sheetRef: RefObject<HTMLDivElement> = { current: null };
 
   private listeners = new Set<() => void>();
-  private drag: { sx: number; sy: number; tx: number; ty: number; moved: boolean } | null = null;
-  // 地図上のアクティブなポインタを pointerId 単位で保持(1本=パン / 2本=ピンチズーム。issue #68)。
-  private pointers = new Map<number, { x: number; y: number }>();
-  // 現在のジェスチャがピンチを含んだか(ピンチを集合地点タップに誤反応させないため)。
-  private pinched = false;
-  // t0 はフリック速度算出用(issue #71)。
-  private sheetDrag: { sy: number; t0: number; dy?: number } | null = null;
-  // ボトムシート退場アニメーション完了後に実際にアンマウントするためのタイマー(issue #71)。
-  private sheetCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  // 地図ジェスチャ(パン / ピンチ / ホイール / fit・center / FAB)の実体(issue #103)。
+  // selector(mapVals / sheetVals)からも直接参照する(純転送層を挟まない。docs/08 W1)。
+  readonly gesture: MapGestureController;
+  // シート開閉アニメ・ハンドルのドラッグ・退場タイマーの実体(issue #104)。
+  // selector からも直接参照する(docs/08 W2)。
+  readonly sheetCtl: SheetController;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
@@ -150,6 +149,17 @@ export class RoomEngine {
 
   constructor() {
     this.state = this.initialState();
+    this.gesture = new MapGestureController({
+      getVp: () => this.vpRef.current,
+      getState: () => this.state,
+      setState: (patch, cb) => this.setState(patch, cb),
+      toast: (msg) => this.toast(msg),
+    });
+    this.sheetCtl = new SheetController({
+      getSheetEl: () => this.sheetRef.current,
+      getState: () => this.state,
+      setState: (patch, cb) => this.setState(patch, cb),
+    });
   }
 
   // ── external store glue ──
@@ -162,7 +172,8 @@ export class RoomEngine {
     this.version++;
     this.listeners.forEach((fn) => fn());
   }
-  private setState(patch: Patch, cb?: () => void) {
+  // selectors/*(mapVals・sheetVals)から状態更新ハンドラを組み立てるため public 化(issue #101)。
+  setState(patch: Patch, cb?: () => void) {
     const p = typeof patch === "function" ? patch(this.state) : patch;
     this.state = { ...this.state, ...p };
     this.emit();
@@ -244,7 +255,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
-    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
+    this.sheetCtl.stop();
   }
 
   // キャンパスマスタを実サーバーから取得し建物データを差し替える(issue #14)。
@@ -304,63 +315,95 @@ export class RoomEngine {
     this.state.members.find((m) => m.id === memberId)?.name ?? "誰か";
 
   // サーバー → クライアントの各メッセージを内部状態へ反映する(dev-docs §6)。
+  // 各 case の処理は per-message ハンドラ(onRoomState 等)へ切り出し、ここは振り分けのみ(issue #108)。
+  // 状態遷移・副作用(setState 内容 / echo 無視 / マージ規則 / toast / keepMeetingOnLeave)は従来と同一。
   onServerMsg = (msg: ServerMsg) => {
     switch (msg.type) {
       case "room_state":
-        this.setState({
-          selfId: msg.self_id,
-          members: msg.members.map(memberFromWire),
-          meeting: meetingFromWire(msg.meeting_point),
-          expiresAt: Date.parse(msg.expires_at),
-        });
+        this.onRoomState(msg);
         break;
-      case "member_joined": {
-        const nm = memberFromWire(msg.member);
-        this.setState((s) => ({
-          members: s.members.some((m) => m.id === nm.id)
-            ? s.members.map((m) => (m.id === nm.id ? nm : m))
-            : [...s.members, nm],
-        }));
-        if (nm.id !== this.state.selfId) this.toast(nm.name + "さんが参加しました");
+      case "member_joined":
+        this.onMemberJoined(msg);
         break;
-      }
-      case "member_update": {
-        const nm = memberFromWire(msg.member);
-        this.setState((s) => ({ members: s.members.map((m) => (m.id === nm.id ? nm : m)) }));
+      case "member_update":
+        this.onMemberUpdate(msg);
         break;
-      }
-      case "member_left": {
-        const left = this.state.members.find((m) => m.id === msg.id);
-        this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
-        if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
+      case "member_left":
+        this.onMemberLeft(msg);
         break;
-      }
       case "meeting_point":
-        // 自分が設定した分は setMeeting で反映済み。その echo は 1 回だけ無視して
-        // ローカルの meeting(coords の note など)と meetingBy「あなた」を保持する。
-        if (this.ignoreMeetingEcho) {
-          this.ignoreMeetingEcho = false;
-          break;
-        }
-        this.setState({
-          meeting: meetingFromWire(msg.point),
-          meetingBy: msg.point ? "メンバー" : "",
-        });
+        this.onMeetingPoint(msg);
         break;
       case "place_suggestions":
-        this.setState({ suggestions: suggestionsFromWire(msg.items, this.nameOf) });
+        this.onPlaceSuggestions(msg);
         break;
       case "room_full":
-        // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
-        this.setState({ screen: "full", sheet: null });
+        this.onRoomFull();
         break;
       case "room_expired":
-        // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
-        if (this.state.screen === "map") this.setState({ screen: "ended", sheet: null });
-        else if (this.state.screen === "join") this.setState({ screen: "expired" });
+        this.onRoomExpired();
         break;
     }
   };
+
+  private onRoomState(msg: Extract<ServerMsg, { type: "room_state" }>) {
+    this.setState({
+      selfId: msg.self_id,
+      members: msg.members.map(memberFromWire),
+      meeting: meetingFromWire(msg.meeting_point),
+      expiresAt: Date.parse(msg.expires_at),
+    });
+  }
+
+  private onMemberJoined(msg: Extract<ServerMsg, { type: "member_joined" }>) {
+    const nm = memberFromWire(msg.member);
+    this.setState((s) => ({
+      members: s.members.some((m) => m.id === nm.id)
+        ? s.members.map((m) => (m.id === nm.id ? nm : m))
+        : [...s.members, nm],
+    }));
+    if (nm.id !== this.state.selfId) this.toast(nm.name + "さんが参加しました");
+  }
+
+  private onMemberUpdate(msg: Extract<ServerMsg, { type: "member_update" }>) {
+    const nm = memberFromWire(msg.member);
+    this.setState((s) => ({ members: s.members.map((m) => (m.id === nm.id ? nm : m)) }));
+  }
+
+  private onMemberLeft(msg: Extract<ServerMsg, { type: "member_left" }>) {
+    const left = this.state.members.find((m) => m.id === msg.id);
+    this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
+    if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
+    if (left) this.keepMeetingOnLeave(left);
+  }
+
+  private onMeetingPoint(msg: Extract<ServerMsg, { type: "meeting_point" }>) {
+    // 自分が設定した分は setMeeting で反映済み。その echo は 1 回だけ無視して
+    // ローカルの meeting(coords の note など)と meetingBy「あなた」を保持する。
+    if (this.ignoreMeetingEcho) {
+      this.ignoreMeetingEcho = false;
+      return;
+    }
+    this.setState({
+      meeting: meetingFromWire(msg.point),
+      meetingBy: msg.point ? "メンバー" : "",
+    });
+  }
+
+  private onPlaceSuggestions(msg: Extract<ServerMsg, { type: "place_suggestions" }>) {
+    this.setState({ suggestions: suggestionsFromWire(msg.items, this.nameOf) });
+  }
+
+  private onRoomFull() {
+    // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
+    this.setState({ screen: "full", sheet: null });
+  }
+
+  private onRoomExpired() {
+    // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
+    if (this.state.screen === "map") this.setState({ screen: "ended", sheet: null });
+    else if (this.state.screen === "join") this.setState({ screen: "expired" });
+  }
 
   // ── navigation ──
   goTop = () => {
@@ -475,9 +518,13 @@ export class RoomEngine {
   };
 
   // ── join ──
+  // 参加ボタンを押せるか。ボタンの無効化(topVals の joinDisabled)と tapJoin のガードの単一ソース。
+  canJoin = () => {
+    const n = this.state.name;
+    return !!n.trim() && n.length <= serverConfig.maxNameLength;
+  };
   tapJoin = () => {
-    const n = this.state.name.trim();
-    if (!n || n.length > serverConfig.maxNameLength) return;
+    if (!this.canJoin()) return;
     this.setState({ permModal: true });
   };
   enterRoom(viewerOnly: boolean) {
@@ -502,7 +549,7 @@ export class RoomEngine {
         selfF: s.joinF,
       },
       () => {
-        requestAnimationFrame(() => this.fitArea());
+        requestAnimationFrame(() => this.gesture.fitArea());
       }
     );
     this.toast(s.isHost ? "ルームを作成しました。「共有」からURLを送りましょう" : "参加しました");
@@ -540,7 +587,8 @@ export class RoomEngine {
     // 最初の測位でビューを現在エリアへ合わせる(現在エリアの自動選択)。
     if (this.geoFirstFix && !loc.lost) {
       this.geoFirstFix = false;
-      if (loc.area !== this.state.area) this.setState({ area: loc.area }, () => this.fitArea());
+      if (loc.area !== this.state.area)
+        this.setState({ area: loc.area }, () => this.gesture.fitArea());
     }
     // throttle:初回は即送信、以降は 2秒 かつ 前回送信位置から 5m 以上動いたら送る(docs/02 §2)。
     const now = Date.now();
@@ -564,152 +612,11 @@ export class RoomEngine {
     );
   };
 
-  // ── map view ──
-  fitArea() {
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const A = AREAS[this.state.area];
-    const k = Math.min(r.width / A.w, r.height / A.h) * 0.98;
-    this.setState({ view: { k, tx: (r.width - A.w * k) / 2, ty: (r.height - A.h * k) / 2 } });
-  }
-  centerOn(x: number, y: number, k?: number) {
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const kk = k || Math.max(this.state.view.k, 1);
-    this.setState({ view: { k: kk, tx: r.width / 2 - x * kk, ty: r.height / 2 - y * kk } });
-  }
-  pickArea(id: AreaId) {
-    if (id === this.state.area) return;
-    this.setState({ area: id }, () => this.fitArea());
-  }
-  onMapDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
-      return;
-    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (this.pointers.size >= 2) {
-      // 2本目の指:ピンチへ遷移。単一パンは破棄し、以降は 2点間距離でズームする(issue #68)。
-      this.drag = null;
-      this.pinched = true;
-      return;
-    }
-    // 1本目の指:従来どおりパン開始(この時点で新しいジェスチャの開始)。
-    this.pinched = false;
-    this.drag = {
-      sx: e.clientX,
-      sy: e.clientY,
-      tx: this.state.view.tx,
-      ty: this.state.view.ty,
-      moved: false,
-    };
-  };
-  onMapMove = (e: PointerEvent<HTMLDivElement>) => {
-    const p = this.pointers.get(e.pointerId);
-    if (!p) return;
-
-    // 2ポインタ:ピンチズーム。2点間距離の比でスケールし、2点の中点を中心にする。
-    // 中点の移動分がそのままパンになる(ピンチしながらの平行移動に追従)。issue #68。
-    if (this.pointers.size >= 2) {
-      // 先頭2つの pointerId をピンチの2点として扱う(3本目以降は追跡のみで計算に使わない)。
-      const [id0, id1] = [...this.pointers.keys()];
-      const p0 = this.pointers.get(id0)!;
-      const p1 = this.pointers.get(id1)!;
-      const prevMidX = (p0.x + p1.x) / 2;
-      const prevMidY = (p0.y + p1.y) / 2;
-      const prevDist = Math.hypot(p0.x - p1.x, p0.y - p1.y);
-      // 動いたポインタの新座標を反映(p は p0/p1 いずれかと同一参照)。prev は反映前に確定済み。
-      p.x = e.clientX;
-      p.y = e.clientY;
-      const curMidX = (p0.x + p1.x) / 2;
-      const curMidY = (p0.y + p1.y) / 2;
-      const curDist = Math.hypot(p0.x - p1.x, p0.y - p1.y);
-      if (prevDist === 0 || curDist === 0) return;
-      const vp = this.vpRef.current;
-      if (!vp) return;
-      const r = vp.getBoundingClientRect();
-      const { tx, ty, k } = this.state.view;
-      const A = AREAS[this.state.area];
-      const fit = Math.min(r.width / A.w, r.height / A.h);
-      // onMapWheel / zoomBy と同じ nk クランプ(fit*0.7〜3.5)。
-      const nk = Math.min(3.5, Math.max(fit * 0.7, k * (curDist / prevDist)));
-      const pmx = prevMidX - r.left;
-      const pmy = prevMidY - r.top;
-      const cmx = curMidX - r.left;
-      const cmy = curMidY - r.top;
-      this.setState({
-        view: { k: nk, tx: cmx - ((pmx - tx) / k) * nk, ty: cmy - ((pmy - ty) / k) * nk },
-      });
-      return;
-    }
-
-    // 1ポインタ:従来どおりパン。格納座標も最新化しておく。パン中は drag だけ更新すると
-    // pointers の座標が down 時のまま陳腐化し、この指が後からピンチの1本目になった際に
-    // 2本目 down 直後の prevDist/prevMid が古くなって初回フレームがポップする(issue #68)。
-    p.x = e.clientX;
-    p.y = e.clientY;
-    if (!this.drag) return;
-    const dx = e.clientX - this.drag.sx;
-    const dy = e.clientY - this.drag.sy;
-    if (Math.hypot(dx, dy) > 6) this.drag.moved = true;
-    if (this.drag.moved)
-      this.setState({ view: { ...this.state.view, tx: this.drag.tx + dx, ty: this.drag.ty + dy } });
-  };
-  onMapUp = (e: PointerEvent<HTMLDivElement>) => {
-    const wasTracked = this.pointers.delete(e.pointerId);
-    // まだ 2 本以上残っていればピンチ継続。
-    if (this.pointers.size >= 2) return;
-    // ピンチ → 1 本に減った場合:残る指でパンを継続(指を離した瞬間の破綻を防ぐ)。
-    if (this.pointers.size === 1) {
-      this.resumePanFromRemaining();
-      return;
-    }
-    // 全ての指が離れた:ジェスチャ終了。
-    const d = this.drag;
-    const pinched = this.pinched;
-    this.drag = null;
-    this.pinched = false;
-    // ピンチだった/地図外(FAB 等の追跡外)は集合地点タップにしない。
-    if (pinched || !wasTracked) return;
-    if (!this.state.pickMode || !d || d.moved) return;
-    if ((e.target as HTMLElement).closest && (e.target as HTMLElement).closest("[data-nopan]"))
-      return;
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const { tx, ty, k } = this.state.view;
-    const wx = (e.clientX - r.left - tx) / k;
-    const wy = (e.clientY - r.top - ty) / k;
-    const A = AREAS[this.state.area];
-    if (wx < 0 || wy < 0 || wx > A.w || wy > A.h) return;
-    this.setState({
-      pickMode: false,
-      pinModal: true,
-      pendingPin: { area: this.state.area, x: wx, y: wy },
-      pinNote: "",
-    });
-  };
-  // 指が離れた/中断された時のポインタ解放(pointercancel も同じ扱い。issue #68)。
-  onMapCancel = (e: PointerEvent<HTMLDivElement>) => {
-    this.pointers.delete(e.pointerId);
-    if (this.pointers.size === 1) this.resumePanFromRemaining();
-    else if (this.pointers.size === 0) {
-      this.drag = null;
-      this.pinched = false;
-    }
-  };
-  // ピンチ(2本)から 1 本に減った際、残る指の現在位置からパンを引き継ぐ。
-  // moved:true で開始し、この持ち替えが集合地点タップに化けないようにする。
-  private resumePanFromRemaining() {
-    const [id] = [...this.pointers.keys()];
-    const rp = this.pointers.get(id);
-    if (!rp) return;
-    this.drag = { sx: rp.x, sy: rp.y, tx: this.state.view.tx, ty: this.state.view.ty, moved: true };
-  }
+  // ── map view(ジェスチャは this.gesture を直接参照。旧・公開名維持の委譲は撤去。docs/08 W1)──
   startPick = () => this.setState({ pickMode: true, sheet: null });
   cancelPick = () => this.setState({ pickMode: false });
   cancelPin = () => this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
+  onPinNote = (e: ChangeEvent<HTMLInputElement>) => this.setState({ pinNote: e.target.value });
   confirmPin = () => {
     const p = this.state.pendingPin;
     if (!p) return;
@@ -719,160 +626,22 @@ export class RoomEngine {
     );
     this.setState({ pinModal: false, pendingPin: null, pinNote: "" });
   };
-  onMapWheel = (e: WheelEvent<HTMLDivElement>) => {
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const { tx, ty, k } = this.state.view;
-    const A = AREAS[this.state.area];
-    const fit = Math.min(r.width / A.w, r.height / A.h);
-    const nk = Math.min(3.5, Math.max(fit * 0.7, k * Math.exp(-e.deltaY * 0.0016)));
-    const cx = e.clientX - r.left;
-    const cy = e.clientY - r.top;
-    this.setState({
-      view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk },
-    });
-  };
-  private zoomBy(f: number) {
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const { tx, ty, k } = this.state.view;
-    const A = AREAS[this.state.area];
-    const fit = Math.min(r.width / A.w, r.height / A.h);
-    const nk = Math.min(3.5, Math.max(fit * 0.7, k * f));
-    const cx = r.width / 2;
-    const cy = r.height / 2;
-    this.setState({
-      view: { k: nk, tx: cx - ((cx - tx) / k) * nk, ty: cy - ((cy - ty) / k) * nk },
-    });
-  }
-  fabZoomIn = () => this.zoomBy(1.35);
-  fabZoomOut = () => this.zoomBy(1 / 1.35);
-  fabSelf = () => {
-    const self = this.state.members.find((m) => m.id === this.state.selfId);
-    if (!self || self.viewer) {
-      this.toast("位置情報を共有していません");
-      return;
-    }
-    if (self.area !== this.state.area) {
-      this.setState({ area: self.area }, () => this.centerOn(self.x, self.y, 1.2));
-      return;
-    }
-    this.centerOn(self.x, self.y, Math.max(this.state.view.k, 1.2));
-  };
-  fabFit = () => {
-    const pts = this.state.members.filter(
-      (m) => !m.lost && !m.viewer && m.area === this.state.area
-    );
-    if (!pts.length) {
-      this.fitArea();
-      return;
-    }
-    const vp = this.vpRef.current;
-    if (!vp) return;
-    const r = vp.getBoundingClientRect();
-    const x0 = Math.min(...pts.map((p) => p.x)) - 70;
-    const x1 = Math.max(...pts.map((p) => p.x)) + 70;
-    const y0 = Math.min(...pts.map((p) => p.y)) - 90;
-    const y1 = Math.max(...pts.map((p) => p.y)) + 60;
-    const k = Math.min(3, Math.min(r.width / (x1 - x0), r.height / (y1 - y0)));
-    this.setState({
-      view: { k, tx: r.width / 2 - ((x0 + x1) / 2) * k, ty: r.height / 2 - ((y0 + y1) / 2) * k },
-    });
-  };
-
-  // ── sheets ──
-  private openSheet(name: SheetName) {
-    // 閉じ中に開き直したら退場をキャンセルして即表示する(入場アニメーションで開く)。
-    if (this.sheetCloseTimer) {
-      clearTimeout(this.sheetCloseTimer);
-      this.sheetCloseTimer = null;
-    }
-    // 退場のために付けた inline の transition/transform を消し、再オープンを綺麗な状態から始める。
-    const el = this.sheetRef.current;
-    if (el) {
-      el.style.transition = "";
-      el.style.transform = "";
-    }
-    this.setState({ sheet: name, sheetClosing: false });
-  }
-  // 退場アニメーション付きで閉じる。closing の間もシートをマウントしたまま、
-  // 現在の transform(ドラッグ途中の translateY(dy) でもタップ時の 0 でも)から
-  // translateY(100%) へ CSS transition で連続的にスライドさせる(途中から閉じても
-  // 全開位置へ戻らず滑らかに閉じる。issue #71)。アニメーション長 SHEET_EXIT_MS 経過後に取り外す。
-  // 背景タップ・ハンドルのドラッグ/フリック(hUp)いずれの閉じ操作もここを通る。
-  closeSheet = () => {
-    if (!this.state.sheet || this.state.sheetClosing) return;
-    const el = this.sheetRef.current;
-    if (el) {
-      el.style.transition = "transform " + SHEET_EXIT_MS + "ms cubic-bezier(.4,0,.6,1)";
-      el.style.transform = "translateY(100%)";
-    }
-    this.setState({ sheetClosing: true });
-    if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
-    this.sheetCloseTimer = setTimeout(() => {
-      this.sheetCloseTimer = null;
-      this.setState({ sheet: null, sheetClosing: false, selRoom: null, addOpen: false });
-    }, SHEET_EXIT_MS);
-  };
-  hDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-    // ドラッグ追従は即時にする(前回の退場/戻しで付いた transition を解除)。
-    if (this.sheetRef.current) this.sheetRef.current.style.transition = "";
-    this.sheetDrag = { sy: e.clientY, t0: Date.now() };
-  };
-  hMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!this.sheetDrag) return;
-    const dy = Math.max(0, e.clientY - this.sheetDrag.sy);
-    this.sheetDrag.dy = dy;
-    if (this.sheetRef.current) this.sheetRef.current.style.transform = "translateY(" + dy + "px)";
-  };
-  hUp = () => {
-    const d = this.sheetDrag;
-    this.sheetDrag = null;
-    const el = this.sheetRef.current;
-    if (!d || !d.dy) {
-      if (el) el.style.transform = ""; // ほぼ動いていない(タップ相当)→ そのまま
-      return;
-    }
-    // 距離(70px 超)で閉じる。加えて携帯での素早いフリック(短距離でも速い下ドラッグ)でも
-    // 閉じられるようにする(しきい値だけだと携帯でハンドルを掴んで軽く下ろしても閉じにくい。issue #71)。
-    // velocity は down→up 全体の平均速度(離す瞬間の瞬間速度ではない)。長く保持してから払うと
-    // 平均が下がりフリック判定に乗らないが、その場合も距離(70px)経路が拾うため実害は小さい。
-    const dt = Math.max(1, Date.now() - d.t0);
-    const velocity = d.dy / dt; // px/ms(平均)
-    if (d.dy > 70 || (d.dy > 24 && velocity > 0.5)) {
-      this.closeSheet(); // 現在の translateY(dy) から連続して退場(transform は戻さない)
-    } else if (el) {
-      // 閾値未満:掴んだ位置から元位置へアニメーションで戻す(スナップバック)。
-      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
-      el.style.transform = "";
-    }
-  };
-  // ハンドルのドラッグがシステム中断された場合の解放(ヒット領域拡大で発火機会が増える。issue #71)。
-  hCancel = () => {
-    this.sheetDrag = null;
-    const el = this.sheetRef.current;
-    if (el) {
-      el.style.transition = "transform .18s cubic-bezier(.3,.8,.4,1)";
-      el.style.transform = "";
-    }
-  };
-  openMembers = () => this.openSheet("members");
-  openMeeting = () => this.openSheet("meeting");
-  openPlaces = () => this.openSheet("meeting");
-  openShare = () => this.openSheet("share");
-  openSettings = () => this.openSheet("settings");
+  // ── sheets(開閉・ドラッグは this.sheetCtl を直接参照。旧・公開名維持の委譲は撤去。docs/08 W2)──
+  openMembers = () => this.sheetCtl.open("members");
+  openMeeting = () => this.sheetCtl.open("meeting");
+  openShare = () => this.sheetCtl.open("share");
+  openSettings = () => this.sheetCtl.open("settings");
   openBuilding = () => {
     if (this.state.area !== "campus") {
       this.toast("建物はキャンパスエリアで利用できます");
       return;
     }
-    this.openSheet("building");
+    this.sheetCtl.open("building");
   };
 
   // ── building panel ──
+  // マップ上の建物タップ:その建物を選択して建物シートを開く(renderVals の map 派生値から利用)。
+  pickMapBuilding = (id: string) => this.setState({ selB: id, sheet: "building" });
   pickBuilding(id: string) {
     this.setState({ selB: id, selRoom: null });
   }
@@ -941,6 +710,36 @@ export class RoomEngine {
     this.send({ type: "meeting_point", point: null });
     this.toast("集合場所を解除しました");
   };
+  // 集合先(member 追従)の相手が退出しても集合場所を失わないようにする(issue #37 案B)。
+  // 最後の位置が分かる場合は coords に固定し、位置未共有・全エリア外は固定できないため解除する。
+  // サーバーの meeting_point が member のまま残ると再参加・途中参加で集合先が消えるため、
+  // 残メンバーのうち id 最小のクライアントが代表して固定結果を送信する(重複送信の回避)。
+  // note はワイヤ(coords は lat/lng のみ)に乗らないため、代表送信の echo を受けた非代表端末では
+  // 汎用ラベル(「◯◯の地点」)に落ちる(pin-drop の note と同じ既存制約。ピン位置・距離は維持される)。
+  private keepMeetingOnLeave(left: Member) {
+    const mt = this.state.meeting;
+    if (!mt || mt.kind !== "member" || mt.memberId !== left.id) return;
+    const fixed: MeetingPoint | null =
+      left.viewer || left.lost
+        ? null
+        : {
+            kind: "coords",
+            area: left.area,
+            x: left.x,
+            y: left.y,
+            note: left.name + "さんが最後にいた場所",
+          };
+    this.setState({ meeting: fixed });
+    this.toast(
+      fixed
+        ? "集合場所を" + left.name + "さんが最後にいた場所に固定しました"
+        : "集合先の" + left.name + "さんの位置が分からないため、集合場所を解除しました"
+    );
+    const leaderId = this.state.members.map((m) => m.id).sort()[0];
+    if (!leaderId || leaderId !== this.state.selfId) return;
+    if (this.socketSend) this.ignoreMeetingEcho = true;
+    this.send({ type: "meeting_point", point: meetingToWire(fixed) });
+  }
   meetingLabelOf(pt: MeetingPoint | null): string {
     if (!pt) return "";
     if (pt.kind === "coords") return pt.note ? pt.note : AREAS[pt.area].short + "の地点";
@@ -970,18 +769,20 @@ export class RoomEngine {
     const p = bAnchor(hit.b);
     return { area: "campus", x: p.x, y: p.y };
   }
+  mtPickCoords = () => this.setState({ mtKind: "coords" });
   mtPickMember = () => this.setState({ mtKind: "member" });
   mtPickPlace = () => this.setState({ mtKind: "place" });
-  mtApply = () => {
+  // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
+  // coords はピン配置(地図で指定)で確定するため常に押せない。
+  mtCanApply = () => {
     const s = this.state;
-    if (s.mtKind === "member") {
-      if (!s.mtMember) return;
-      this.setMeeting({ kind: "member", memberId: s.mtMember }, "あなた");
-      this.setState({ sheet: null });
-      return;
-    }
-    if (!s.placeR) return;
-    if (s.placeR.startsWith("spot:"))
+    return s.mtKind === "member" ? !!s.mtMember : s.mtKind === "place" ? !!s.placeR : false;
+  };
+  mtApply = () => {
+    if (!this.mtCanApply()) return;
+    const s = this.state;
+    if (s.mtKind === "member") this.setMeeting({ kind: "member", memberId: s.mtMember! }, "あなた");
+    else if (s.placeR.startsWith("spot:"))
       this.setMeeting({ kind: "place", type: "spot", ref: s.placeR.slice(5) }, "あなた");
     else this.setMeeting({ kind: "place", type: "classroom", ref: s.placeR.slice(5) }, "あなた");
     this.setState({ sheet: null });
@@ -1104,7 +905,7 @@ export class RoomEngine {
   };
   // ── render helpers ──
   // 現在見えている表示領域をワールド座標の矩形で返す(範囲外ピンを画面端に出すため。issue #3)。
-  private viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
+  viewportRect(): { xmin: number; ymin: number; xmax: number; ymax: number } {
     const A = AREAS[this.state.area];
     const vp = this.vpRef.current;
     if (!vp) return { xmin: 26, ymin: 26, xmax: A.w - 26, ymax: A.h - 26 };
@@ -1119,7 +920,7 @@ export class RoomEngine {
     };
   }
 
-  private clampedPos(
+  clampedPos(
     m: Member,
     idxMap: Record<string, number>,
     vr: { xmin: number; ymin: number; xmax: number; ymax: number }
@@ -1157,7 +958,8 @@ export class RoomEngine {
       out: false,
     };
   }
-  private locLabel(m: Member): string {
+  // selectors/sheetVals の memberRows から参照するため public 化(issue #101)。
+  locLabel(m: Member): string {
     if (m.viewer) return "閲覧のみ・位置非共有";
     if (m.lost) return "範囲外(全エリア外)";
     const areaN = AREAS[m.area].name;
@@ -1166,7 +968,7 @@ export class RoomEngine {
   }
   // 目的地(集合場所)までの距離を GPS 実座標(緯度経度)から計算する(issue #28)。
   // 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は resolveMeetingPos の x/y を unproject で復元。
-  private distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
+  distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
     // 閲覧のみ/位置未共有は「—」。範囲外(lost)でも GPS があれば実距離を出す(issue #28)。
     if (!mp || m.viewer || m.lat == null || m.lng == null) return "—";
     const dest = unproject(MAP_AREAS[mp.area], mp.x, mp.y);
@@ -1179,440 +981,19 @@ export class RoomEngine {
 
   renderVals() {
     const s = this.state;
-    const remaining = s.expiresAt ? Math.max(0, s.expiresAt - s.now) : 0;
-    const mp = this.resolveMeetingPos();
-    const A = AREAS[s.area];
-    const invScale = Math.min(2.6, Math.max(0.85, 1 / s.view.k)).toFixed(3);
-
-    // pins
-    const meetTargetId = s.meeting && s.meeting.kind === "member" ? s.meeting.memberId : null;
-    const idxMap: Record<string, number> = { lost: 0 };
-    const vr = this.viewportRect();
-    const pinList = [];
-    for (const m of s.members) {
-      if (m.viewer) continue;
-      const pos = this.clampedPos(m, idxMap, vr);
-      const self = m.id === s.selfId;
-      const isMeet = m.id === meetTargetId && !pos.out;
-      const floorTag = m.building
-        ? " ・ " + bById(m.building)!.name.replace("号館", "") + "号館" + m.floor
-        : "";
-      pinList.push({
-        x: pos.x.toFixed(1),
-        y: pos.y.toFixed(1),
-        label: pos.out
-          ? m.name + " ・ 範囲外"
-          : isMeet
-            ? "集合 ・ " + m.name + (self ? "(自分)" : "")
-            : self
-              ? m.name + "(自分)"
-              : m.name + floorTag,
-        chipBg: pos.out ? "#f5f5f5" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-        chipFg: pos.out ? "#888888" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
-        chipBd: pos.out ? "#e0e0e0" : isMeet ? "#0070f3" : self ? "#171717" : "#ebebeb",
-        dotBg: pos.out ? "#bdbdbd" : isMeet ? "#0070f3" : self ? "#171717" : "#ffffff",
-        dotBd: pos.out ? "#f5f5f5" : isMeet ? "#ffffff" : self ? "#ffffff" : "#171717",
-        anim: self && !pos.out ? "ims-pulse 2.2s infinite" : "none",
-      });
-    }
-
-    // meeting pin(member追従型は対象メンバーのピン自体を青くするため描画しない)
-    let meetingPinOn = false;
-    let meetingPinX = "0";
-    let meetingPinY = "0";
-    if (mp && !meetTargetId && mp.area === s.area && s.screen === "map") {
-      meetingPinOn = true;
-      meetingPinX = mp.x.toFixed(1);
-      meetingPinY = mp.y.toFixed(1);
-    }
-
-    // member rows
-    const selfM = s.members.find((m) => m.id === s.selfId);
-    const memberRows = s.members.map((m) => ({
-      id: m.id,
-      initial: (m.name || "?")[0],
-      avBg: m.id === s.selfId ? "#171717" : "#ffffff",
-      avFg: m.id === s.selfId ? "#ffffff" : "#171717",
-      avBd: m.id === s.selfId ? "#171717" : "#a1a1a1",
-      name: m.name,
-      tag: m.id === s.selfId ? (s.isHost ? "あなた ・ host" : "あなた") : "",
-      loc: this.locLabel(m),
-      dist: this.distTo(m, mp),
-      focus: () => {
-        if (m.viewer) {
-          this.toast("位置を共有していないメンバーです");
-          return;
-        }
-        this.setState({ sheet: null });
-        if (m.lost) {
-          this.toast(m.name + "さんは範囲外です");
-          return;
-        }
-        if (m.area !== s.area) this.setState({ area: m.area }, () => this.centerOn(m.x, m.y, 1.2));
-        else this.centerOn(m.x, m.y, Math.max(s.view.k, 1.2));
-      },
-    }));
-
-    // area summary
-    const counts: Record<string, number> = {};
-    let lostN = 0;
-    for (const m of s.members) {
-      if (m.viewer) continue;
-      if (m.lost) {
-        lostN++;
-        continue;
-      }
-      counts[m.area] = (counts[m.area] || 0) + 1;
-    }
-    const sumParts = Object.keys(counts).map((k) => AREAS[k as AreaId].short + " " + counts[k]);
-    if (lostN) sumParts.push("範囲外 " + lostN);
-    const viewers = s.members.filter((m) => m.viewer).length;
-    if (viewers) sumParts.push("閲覧 " + viewers);
-
-    // buildings(データ定義 → コンポーネント描画)
-    const selB = bById(s.selB) || BUILDINGS[0];
-    const campusBuildings = BUILDINGS.map((b: Building) => {
-      const active = s.sheet === "building" && s.selB === b.id;
-      return {
-        id: b.id,
-        x: b.x,
-        y: b.y,
-        w: b.w,
-        h: b.h,
-        name: b.name,
-        cap: b.cap || "",
-        fs: b.fs || 19,
-        bd: active ? "#171717" : "#a1a1a1",
-        bw: active ? 3 : 1.5,
-        pick: (e: MouseEvent) => {
-          e.stopPropagation();
-          this.setState({ selB: b.id, sheet: "building" });
-        },
-      };
-    });
-    const mapTexts = (MAP_TEXTS[s.area] || []).map((t) => ({
-      x: t.x,
-      y: t.y,
-      t: t.t,
-      size: t.size,
-      c: t.c,
-      w: t.w || 400,
-      ff: t.mono ? "'Geist Mono',monospace" : "inherit",
-      ls: t.mono ? ".05em" : "0",
-      tf:
-        t.a === "l"
-          ? "translate(0,-50%)"
-          : t.a === "r"
-            ? "translate(-100%,-50%)"
-            : "translate(-50%,-50%)",
-    }));
-    const buildingOpts = BUILDINGS.map((b) => ({ id: b.id, name: b.name }));
-    const buildingChips = BUILDINGS.map((b) => ({
-      name: b.name,
-      bg: s.selB === b.id ? "#171717" : "#ffffff",
-      fg: s.selB === b.id ? "#ffffff" : "#171717",
-      bd: s.selB === b.id ? "#171717" : "#ebebeb",
-      pick: () => this.pickBuilding(b.id),
-    }));
-    const floorRows = selB.floors.map((f) => {
-      const key = selB.id + "-" + f.level;
-      const open = !!s.openFloors[key];
-      const names = s.members
-        .filter((m) => m.building === selB.id && m.floor === f.level)
-        .map((m) => m.name)
-        .join("・");
-      return {
-        level: f.level,
-        sub: f.rooms.length + "室",
-        names,
-        arrow: open ? "▲" : "▼",
-        open,
-        toggle: () => this.toggleFloor(key),
-        here: (e: MouseEvent) => {
-          e.stopPropagation();
-          this.setSelfFloor(selB.id, f.level);
-        },
-        rooms: f.rooms.map((r) => ({
-          label: r.n + (r.t ? " " + r.t : ""),
-          bg: s.selRoom === r.id ? "#171717" : "#ffffff",
-          fg: s.selRoom === r.id ? "#ffffff" : "#171717",
-          bd: s.selRoom === r.id ? "#171717" : "#ebebeb",
-          pick: () => this.pickRoom(r.id),
-        })),
-      };
-    });
-
-    // floor opts for selects
-    const floorsOf = (bid: string) => {
-      const b = bById(bid);
-      return b ? b.floors.map((f) => ({ id: f.level, name: f.level })) : [];
-    };
-
-    // meeting sheet
-    const others = s.members;
-    const memberChips = others.map((m) => ({
-      name: m.name + (m.id === s.selfId ? "(自分)" : ""),
-      bg: s.mtMember === m.id ? "#171717" : "#ffffff",
-      fg: s.mtMember === m.id ? "#ffffff" : "#171717",
-      bd: s.mtMember === m.id ? "#171717" : "#ebebeb",
-      pick: (e: MouseEvent) => {
-        e.stopPropagation();
-        this.setState({ mtMember: m.id, mtKind: "member" });
-      },
-    }));
-    const placeB = bById(s.placeB) || BUILDINGS[0];
-    const placeOpts = [{ id: "spot:" + placeB.id, name: placeB.name + "前(屋外)" }];
-    for (const f of placeB.floors)
-      for (const r of f.rooms)
-        placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-    const mtApplyDisabled =
-      s.mtKind === "member" ? !s.mtMember : s.mtKind === "place" ? !s.placeR : false;
-
-    const suggestions = s.suggestions.map((sg) => ({
-      label: roomFull(sg.ref),
-      meta: (sg.note ? "「" + sg.note + "」 ・ " : "") + sg.by + "さんが追加",
-      adopt: () => this.adoptSuggestion(sg),
-    }));
-
-    // public rooms(実サーバー /api/rooms/public 由来。自分のルームは host_token 保有で判定)
-    // 自分のルームでもタップで再参加できる(host は openRoomById で復元。issue #21)。
-    const publicRooms = s.publicList
-      .filter((r) => r.exp > s.now)
-      .map((r) => {
-        const own = getHostToken(r.id) !== null;
-        return {
-          title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
-          members: r.members,
-          remaining: fmtShort(r.exp - s.now),
-          open: () => this.openPublicRoom(r),
-        };
-      });
-
-    const meetingLabel = this.meetingLabelOf(s.meeting);
-    const selfDist = selfM ? this.distTo(selfM, mp) : "—";
     const onMap = s.screen === "map";
 
     return {
-      // screens
-      isTop: s.screen === "top",
-      isPublic: s.screen === "public",
-      isJoin: s.screen === "join",
-      isMap: s.screen === "map",
-      isExpired: s.screen === "expired",
-      isEnded: s.screen === "ended",
-      isNotFound: s.screen === "notfound",
-      isFull: s.screen === "full",
-      screen: s.screen,
-      roomId: s.roomId,
+      // top / public / join / timer + screens(トップ〜参加フォームの派生値は
+      // selectors/topVals へ分離。出力キー・値・キー順は不変。issue #102)
+      ...topVals(this),
 
-      // top / create
-      creating: s.creating,
-      createLabel: s.creating ? "作成中…" : "作成する",
-      createRoom: this.createRoom,
-      goPublic: this.goPublic,
-      goTop: this.goTop,
-      openRoomById: this.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
-      createOpen: s.createOpen,
-      cancelCreate: this.cancelCreate,
-      submitCreate: this.submitCreate,
-      newTitle: s.newTitle,
-      onNewTitle: (e: ChangeEvent<HTMLInputElement>) => this.setState({ newTitle: e.target.value }),
-      newVisPub: s.newVis === "public",
-      newVisDotPriv: s.newVis === "private" ? "#171717" : "transparent",
-      newVisDotPub: s.newVis === "public" ? "#171717" : "transparent",
-      pickNewPriv: () => this.setState({ newVis: "private" }),
-      pickNewPub: () => this.setState({ newVis: "public" }),
-      newMeetAt: s.newMeetAt,
-      onNewMeetAt: (e: ChangeEvent<HTMLInputElement>) =>
-        this.setState({ newMeetAt: e.target.value }),
-      newEndAt: fmtMeetLabel(fromLocalInput(s.newMeetAt) + serverConfig.endOffsetMs),
-      meetAtLabel: s.meetAt ? fmtMeetLabel(s.meetAt) : "—",
-      setMeetAtVal: s.meetAt ? toLocalInput(s.meetAt) : "",
-      onSetMeetAt: (e: ChangeEvent<HTMLInputElement>) => this.setMeetAt(e.target.value),
-      curEndAt: s.expiresAt ? fmtMeetLabel(s.expiresAt) : "—",
+      // map(地図画面の派生値は selectors/mapVals へ分離。出力キー・値は不変。issue #100)
+      ...mapVals(this),
 
-      // public
-      refreshPublic: this.refreshPublic,
-      refreshAnim: s.refreshing ? "ims-spin .8s linear infinite" : "none",
-      publicRooms,
-      hasPublicRooms: publicRooms.length > 0,
-      noPublicRooms: publicRooms.length === 0,
-
-      // join
-      roomTitleDisplay: (s.roomTitle || "無名のルーム") + " ・ " + s.roomId,
-      name: s.name,
-      nameMax: serverConfig.maxNameLength,
-      onName: (e: ChangeEvent<HTMLInputElement>) => this.setState({ name: e.target.value }),
-      nameError:
-        s.name.length > serverConfig.maxNameLength
-          ? `${serverConfig.maxNameLength}文字以内で入力してください`
-          : "",
-      joinB: s.joinB,
-      onJoinB: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setState({ joinB: e.target.value, joinF: "" }),
-      joinF: s.joinF,
-      onJoinF: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ joinF: e.target.value }),
-      joinFloorOpts: floorsOf(s.joinB),
-      buildingOpts,
-      joinDisabled: !s.name.trim() || s.name.length > serverConfig.maxNameLength,
-      tapJoin: this.tapJoin,
-      joinViewer: this.joinViewer,
-      permModal: s.permModal,
-      permAllow: this.permAllow,
-      permDeny: this.permDeny,
-
-      // timer
-      remainingShort: fmtShort(remaining),
-      remainingLong: fmtLong(remaining),
-      timerColor: remaining < 300000 ? "#ee0000" : "#171717",
-
-      // map
-      areasSeg: AREA_ORDER.map((id) => ({
-        label: AREAS[id].short,
-        bg: s.area === id ? "#171717" : "transparent",
-        fg: s.area === id ? "#ffffff" : "#4d4d4d",
-        pick: () => this.pickArea(id),
-      })),
-      reconnecting: s.reconnecting,
-      viewerOnly: s.viewerOnly,
-      sharePosAgain: this.sharePosAgain,
-      vpRef: this.vpRef,
-      onMapDown: this.onMapDown,
-      onMapMove: this.onMapMove,
-      onMapUp: this.onMapUp,
-      onMapCancel: this.onMapCancel,
-      onMapWheel: this.onMapWheel,
-      worldW: A.w,
-      worldH: A.h,
-      mapTransform: "translate(" + s.view.tx + "px," + s.view.ty + "px) scale(" + s.view.k + ")",
-      invScale,
-      area: s.area,
-      isCampusArea: s.area === "campus",
-      isSt1: s.area === "station_1",
-      isSt2: s.area === "station_2",
-      campusBuildings,
-      mapTexts,
-      pinList,
-      meetingPinOn,
-      meetingPinX,
-      meetingPinY,
-      pickMode: s.pickMode,
-      cancelPick: this.cancelPick,
-      startPick: this.startPick,
-      pinModal: s.pinModal,
-      pinNote: s.pinNote,
-      onPinNote: (e: ChangeEvent<HTMLInputElement>) => this.setState({ pinNote: e.target.value }),
-      confirmPin: this.confirmPin,
-      cancelPin: this.cancelPin,
-      meetingSet: !!s.meeting,
-      meetingLabel,
-      meetingDistSelf: "あなたから " + selfDist,
-      clearMeeting: this.clearMeeting,
-      meetingByLabel:
-        s.meetingBy +
-        "が設定" +
-        (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
-      fabZoomIn: this.fabZoomIn,
-      fabZoomOut: this.fabZoomOut,
-      fabSelf: this.fabSelf,
-      fabFit: this.fabFit,
-      memberCount: s.members.length,
-      memberMax: serverConfig.maxMembersPerRoom, // 上限は /api/config 由来(issue #43)
-      areaSummary: sumParts.join(" ・ "),
-      openMembers: this.openMembers,
-      openMeeting: this.openMeeting,
-      openBuilding: this.openBuilding,
-      openPlaces: this.openPlaces,
-      openShare: this.openShare,
-      openSettings: this.openSettings,
-      buildingBtnOpacity: s.area === "campus" ? "1" : "0.35",
-      tapLeave: this.tapLeave,
-
-      // sheets
-      sheetOpen: !!s.sheet,
-      sheetClosing: s.sheetClosing,
-      closeSheet: this.closeSheet,
-      sheetRef: this.sheetRef,
-      hDown: this.hDown,
-      hMove: this.hMove,
-      hUp: this.hUp,
-      hCancel: this.hCancel,
-      shMembers: s.sheet === "members",
-      shBuilding: s.sheet === "building",
-      shMeeting: s.sheet === "meeting",
-      shShare: s.sheet === "share",
-      shSettings: s.sheet === "settings",
-      visBadge: s.visibility === "public" ? "公開" : "非公開",
-      visBadgeColor: s.visibility === "public" ? "#ab570a" : "#171717",
-
-      // members sheet
-      memberRows,
-      selfB: s.selfB || "",
-      onSelfB: (e: ChangeEvent<HTMLSelectElement>) => this.setSelfFloor(e.target.value, ""),
-      selfF: s.selfF || "",
-      onSelfF: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setSelfFloor(s.selfB || "", e.target.value),
-      selfFloorOpts: floorsOf(s.selfB || ""),
-
-      // building sheet
-      buildingChips,
-      spotLabel: selB.name + "前",
-      spotMeet: this.spotMeet,
-      floorRows,
-      roomSel: !!s.selRoom,
-      roomSelLabel: s.selRoom ? roomFull(s.selRoom) : "",
-      roomMeet: this.roomMeet,
-      roomSuggest: this.roomSuggest,
-
-      // meeting sheet
-      mtIsMember: s.mtKind === "member",
-      mtIsPlace: s.mtKind === "place",
-      mtDotMember: s.mtKind === "member" ? "#171717" : "transparent",
-      mtDotPlace: s.mtKind === "place" ? "#171717" : "transparent",
-      mtPickMember: this.mtPickMember,
-      mtPickPlace: this.mtPickPlace,
-      memberChips,
-      placeB: s.placeB,
-      onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
-        this.setState({ placeB: e.target.value, placeR: "" }),
-      placeR: s.placeR,
-      onPlaceR: (e: ChangeEvent<HTMLSelectElement>) => this.setState({ placeR: e.target.value }),
-      placeOpts,
-      mtApply: this.mtApply,
-      mtApplyDisabled,
-      suggestions,
-      noSuggestions: suggestions.length === 0,
-      addOpen: s.addOpen,
-      addClosed: !s.addOpen,
-      toggleAdd: this.toggleAdd,
-      addB: s.addB,
-      onAddB: (e: ChangeEvent<HTMLSelectElement>) => {
-        const b = bById(e.target.value);
-        this.setState({ addB: e.target.value, addF: b ? b.floors[0].level : "" });
-      },
-      ...this.addPlanVals(),
-      addNote: s.addNote,
-      onAddNote: (e: ChangeEvent<HTMLInputElement>) => this.setState({ addNote: e.target.value }),
-      submitAdd: this.submitAdd,
-
-      // settings sheet
-      shareUrl: this.shareUrl(),
-      copyLink: this.copyLink,
-      webShare: this.webShare,
-      isHost: s.isHost,
-      visPublic: s.visibility === "public",
-      visDotPriv: s.visibility === "private" ? "#171717" : "transparent",
-      visDotPub: s.visibility === "public" ? "#171717" : "transparent",
-      pickPrivate: this.pickPrivate,
-      pickPublic: this.pickPublic,
-      titleVal: s.roomTitle,
-      onTitle: (e: ChangeEvent<HTMLInputElement>) => this.setState({ roomTitle: e.target.value }),
-      warnPublic: s.warnPublic,
-      confirmPublic: this.confirmPublic,
-      cancelPublic: this.cancelPublic,
-      leaveOpen: s.leaveOpen,
-      doLeave: this.doLeave,
-      cancelLeave: this.cancelLeave,
+      // sheets(共通枠 + members / building / meeting / settings は selectors/sheetVals へ分離。
+      // 出力キー・値・キー順は不変。issue #101)
+      ...sheetVals(this),
 
       // toasts(map 画面は下シートを避けて高めに出す)
       toasts: s.toasts,
@@ -1621,28 +1002,32 @@ export class RoomEngine {
   }
 
   // 空き教室追加パネルの派生値(プロトタイプの IIFE を切り出し)。
-  private addPlanVals() {
+  // selectors/sheetVals の meeting シートから spread するため public 化(issue #101)。
+  addPlanVals() {
     const s = this.state;
     const b = bById(s.addB) || BUILDINGS[0];
     const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
     const sel = new Set(s.addRs);
-    const cell = (r: Room) => ({
-      n: r.n,
-      t: r.t || "",
-      bg: sel.has(r.id) ? "#171717" : "#ffffff",
-      fg: sel.has(r.id) ? "#ffffff" : "#171717",
-      pick: () =>
-        this.setState((st) => ({
-          addRs: st.addRs.includes(r.id) ? st.addRs.filter((x) => x !== r.id) : [...st.addRs, r.id],
-        })),
-    });
+    const cell = (r: Room) => {
+      const c = selChip(sel.has(r.id));
+      return {
+        n: r.n,
+        t: r.t || "",
+        bg: c.bg,
+        fg: c.fg,
+        pick: () =>
+          this.setState((st) => ({
+            addRs: st.addRs.includes(r.id)
+              ? st.addRs.filter((x) => x !== r.id)
+              : [...st.addRs, r.id],
+          })),
+      };
+    };
     const half = Math.ceil(f.rooms.length / 2);
     return {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
-        bg: f.level === fl.level ? "#171717" : "#ffffff",
-        fg: f.level === fl.level ? "#ffffff" : "#4d4d4d",
-        bd: f.level === fl.level ? "#171717" : "#ebebeb",
+        ...selChip(f.level === fl.level, COLORS.SUBTLE),
         pick: () => this.setState({ addF: fl.level }),
       })),
       addPlanTitle: b.name + " " + f.level,

@@ -19,13 +19,13 @@ imasoko/
 ├─ apps/
 │  ├─ web/                       # React + TypeScript (Vite)
 │  │  ├─ public/
-│  │  │  └─ map/                 # 自作マップSVG(3エリア, 05)
+│  │  │  └─ map/                 # ⚠ 不採用:実装は src/data の OSM GeoJSON + src/components/map(#3)。下記 svg は未使用
 │  │  │     ├─ station-1.svg     # 国際展示場駅
 │  │  │     ├─ station-2.svg     # 東京テレポート駅
 │  │  │     └─ campus.svg        # 有明キャンパス(建物クリック領域つき)
 │  │  ├─ src/
 │  │  │  ├─ components/          # 表示コンポーネント
-│  │  │  │  ├─ MapView.tsx       # Leaflet地図・ピン描画
+│  │  │  │  ├─ MapView.tsx       # 地図表示(CSS transform の pan/zoom + ピンオーバーレイ、基図は実地理GeoJSON)
 │  │  │  │  ├─ JoinForm.tsx      # 名前・階数入力
 │  │  │  │  ├─ ShareButton.tsx   # URLコピー/共有
 │  │  │  │  ├─ MemberList.tsx    # 参加者一覧(名前・階数・エリア/圏外)
@@ -40,10 +40,17 @@ imasoko/
 │  │  │  │  ├─ useGeolocation.ts # watchPosition ラッパ
 │  │  │  │  └─ useRoomSocket.ts  # WS接続・再接続・状態管理
 │  │  │  ├─ lib/
-│  │  │  │  ├─ coords.ts         # 緯度経度→マップ座標変換(エリア別, dev-docs §7/05)
-│  │  │  │  ├─ mapAreas.ts       # 3エリアのSVG・キャリブレーション定義(05)
+│  │  │  │  ├─ coords.ts         # 緯度経度→マップ座標変換・resolveArea・クランプ(dev-docs §7/05)
+│  │  │  │  ├─ areaGeo.ts        # GeoJSON→アフィン投影の共通生成(実地理化, #3)
+│  │  │  │  ├─ campusGeo.ts / station1Geo.ts / station2Geo.ts  # 3エリアの投影データ
+│  │  │  │  ├─ areaRegistry.ts   # AreaId→{geo,projection,size,bounds} レジストリ(#105)
+│  │  │  │  ├─ mapAreas.ts       # エリア寸法・投影(coords が参照)
+│  │  │  │  ├─ wire.ts           # WS 受信 dict → 内部型への変換
 │  │  │  │  ├─ api.ts            # REST呼び出し
+│  │  │  │  ├─ format.ts / campusData.ts   # 表示整形 / キャンパスマスタ整形
+│  │  │  │  ├─ theme.ts / chipColors.ts    # 色トークン / 選択チップ色(#88)
 │  │  │  │  └─ constants.ts      # throttle間隔などフロント定数(02)
+│  │  │  ├─ data/               # OSM 由来 GeoJSON(campus/station1/station2, #3)
 │  │  │  ├─ types/
 │  │  │  │  ├─ messages.ts       # WS/RESTの型定義(serverと対応, 02)
 │  │  │  │  └─ campus.ts         # MapArea/Building/Floor/教室/MeetingPoint(05)
@@ -51,6 +58,11 @@ imasoko/
 │  │  │  │  ├─ TopPage.tsx       # "/" ルーム作成 + 公開ルーム導線
 │  │  │  │  ├─ PublicRoomsPage.tsx # "/public" 公開ルーム一覧(design)
 │  │  │  │  └─ RoomPage.tsx      # "/r/:roomId"(未参加=参加フォーム / 参加後=地図)
+│  │  │  ├─ state/              # 状態機械と派生値(リファクタ #88)
+│  │  │  │  ├─ RoomEngine.ts     # 中核の状態機械(renderVals はセレクタのスプレッド合成)
+│  │  │  │  ├─ RoomContext.tsx   # useSyncExternalStore で React にブリッジ
+│  │  │  │  ├─ MapGestureController.ts / SheetController.ts  # 地図ジェスチャ / シート操作
+│  │  │  │  └─ selectors/        # renderVals の派生値(mapVals / sheetVals / topVals)
 │  │  │  ├─ App.tsx              # ルーティング
 │  │  │  └─ main.tsx             # エントリ
 │  │  ├─ tests/                  # または各 *.test.ts を隣接配置
@@ -65,21 +77,28 @@ imasoko/
 │  └─ server/                    # Python + FastAPI
 │     ├─ app/
 │     │  ├─ __init__.py
-│     │  ├─ main.py              # FastAPIエントリ・静的配信・ルーティング(担当:ホスト)
+│     │  ├─ main.py              # create_app() ファクトリ + app 生成(#87 でリファクタ)
+│     │  ├─ routes/              # APIRouter 分割(#87、旧 main.py のルートを移設)
+│     │  │  ├─ meta.py           # GET /api/config・/api/health
+│     │  │  ├─ rooms.py          # POST/GET/PATCH /api/rooms*
+│     │  │  ├─ campus.py         # GET /api/campus
+│     │  │  ├─ ws.py             # WS /ws/{id}(accept→establish_join→ループ→cleanup の薄い層)
+│     │  │  └─ spa.py            # SPA / 静的ファイル fallback
 │     │  ├─ config.py            # 設定/定数(TTL等)一元管理(02, 担当:ホスト)
-│     │  ├─ rooms.py             # ルーム作成・取得・有効期限(担当:初心者A)
+│     │  ├─ rooms.py             # ルーム作成・取得・有効期限・serialize(担当:初心者A)
 │     │  ├─ expiry.py            # 期限チェック・掃除タスク(担当:初心者B) ※rooms.pyに含めても可
-│     │  ├─ ws.py               # WSエンドポイント・ConnectionManager骨格(担当:ホスト)
-│     │  ├─ handlers.py          # WSメッセージ処理 join/floor/退出/集合場所/空き教室(担当:初心者C)
+│     │  ├─ ws.py               # ConnectionManager(担当:ホスト)
+│     │  ├─ handlers.py          # WS処理 join確立/各メッセージ/切断cleanup(担当:初心者C)
 │     │  ├─ campus.py            # 建物/教室マスタ読込・GET /api/campus(担当:初心者B, 05)
-│     │  └─ models.py            # Pydanticモデル(メッセージ定義)
+│     │  └─ models.py            # Pydanticモデル(client/server メッセージ・RoomStateMsg 等の型付き server→client・MsgType)
 │     ├─ data/                   # キャンパスマスタ(05)
 │     │  ├─ buildings.json       # 建物→階→教室 + SVGクリック領域・ランドマーク
 │     │  └─ classrooms.csv       # 空き教室マスタ(当面は手入力)
 │     ├─ tests/
 │     │  ├─ test_rooms.py
 │     │  ├─ test_expiry.py
-│     │  └─ test_ws.py
+│     │  ├─ test_config.py
+│     │  └─ test_ws.py         # join/position/floor/meeting_point/place/leave/不正 の回帰
 │     ├─ static/                 # web ビルド成果物の配置先(本番, .gitignore対象)
 │     │  └─ .gitkeep
 │     ├─ pyproject.toml          # ruff/pytest設定
@@ -130,7 +149,7 @@ imasoko/
 | `apps/server/app/expiry.py` | `expires_at`チェック・掃除タスク | 初心者B |
 | `apps/server/app/campus.py` / `data/` | 建物/教室マスタ読込・`GET /api/campus`([05](./05_feature-design.md)) | 初心者B |
 | `apps/server/app/handlers.py` | WSメッセージ処理(退出・集合場所3タイプ・空き教室) | 初心者C |
-| `apps/server/app/ws.py` / `main.py` / `config.py` | 骨格・配信・設定 | ホスト |
+| `apps/server/app/main.py` / `routes/` / `ws.py` / `config.py` | ルーティング(`create_app`+APIRouter)・WS骨格・設定 | ホスト |
 
 ## 命名規約
 
@@ -181,13 +200,13 @@ apps/server/static/*
 - [x] ルート `.gitignore` を上記内容で作成(`.DS_Store` は追跡外・ignore 済み)
 - [x] `apps/web/` を Vite + React + TS で初期化
 - [x] `apps/web/src/` 配下にディレクトリ(components/hooks/lib/types/**state**/pages)を作成(空スタブではなく**実装済み**)
-- [ ] `apps/web/public/map/` に3エリアSVG置き場 → **不採用**:`src/components/map/*Svg.tsx` のインライン模式SVGで実装([06 §2](./06_implementation-status.md))
+- [x] `apps/web/public/map/` の3エリアSVG置き場 → **不採用**:`src/data/*.geojson.json`(OSM)を `src/components/map/AreaSvg.tsx` で実地理描画([06 §2](./06_implementation-status.md))
 - [x] `apps/web/vite.config.ts` に `server.proxy`(`/api`・`/ws`, `ws:true`)を設定
-- [x] `apps/server/app/` に `__init__.py` と各モジュール(`main/config/rooms/expiry/ws/handlers/campus/models`)を作成(実装済み)
+- [x] `apps/server/app/` に `__init__.py` と各モジュール(`main/config/rooms/expiry/ws/handlers/campus/models`)を作成(実装済み)。リファクタ(#87)で REST/WS を `app/routes/*` の APIRouter に分割
 - [x] `apps/server/data/` に `buildings.json` / `classrooms.csv` を配置
 - [x] `apps/server/requirements.txt`(fastapi, uvicorn[standard], pydantic, pydantic-settings)を作成
 - [x] `apps/server/static/.gitkeep` を作成
-- [x] `apps/server/tests/` にテスト(rooms/expiry/ws)を配置
+- [x] `apps/server/tests/` にテスト(rooms/expiry/ws/config)を配置
 - [x] `.editorconfig` を作成
 - [x] `README.md` に「起動手順・ディレクトリ概要・docsへのリンク」を追記
 - [x] `.github/` ディレクトリを [03](./03_cicd.md) / [04](./04_github-templates.md) で作成

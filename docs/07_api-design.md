@@ -422,20 +422,25 @@ interface PlaceSuggestion {
 }
 ```
 
-> **注意(フロント内部表現との違い)**:デモのフロントは `apps/web/src/types/campus.ts` で `MeetingPoint` を**ワールド座標 x/y**ベースで持つ(模式SVG用)。**API のワイヤ契約は本ドキュメント(lat/lng・`roomId`/`spotId`)が正**。実配線時はフロント内部表現 ⇄ ワイヤ契約の変換を入れる([06 §2](./06_implementation-status.md))。
+> **注意(フロント内部表現との違い)**:フロントは `apps/web/src/types/campus.ts` で `MeetingPoint` を**ワールド座標 x/y**ベースで持つ(地図描画用。実地理 GeoJSON を投影した座標系)。**API のワイヤ契約は本ドキュメント(lat/lng・`roomId`/`spotId`)が正**。実配線時はフロント内部表現 ⇄ ワイヤ契約の変換を入れる([06 §2](./06_implementation-status.md))。
+>
+> **型識別子の対応**:上記ワイヤ型は Python `models.py` の識別子(`MeetingPoint` / `PlaceSuggestion`)に一致。TS `messages.ts` 側は集合場所の受信メッセージが `MeetingPointMsg`、`place_suggestions.items` は現状 `unknown[]`(緩い型)で、厳密な `PlaceSuggestion` 型はサーバー(`models.py`)側のみが持つ。
 
 ---
 
 ## 4. 実装対応表
 
+> ルーティングは `create_app()`(`app/main.py`)が `app/routes/*` の APIRouter を `include_router` する構成(#92 / PR #114 でリファクタ)。
+
 | API | サーバー実装 | web 型/呼び出し |
 |---|---|---|
-| `POST /api/rooms` | `app/main.py` `create_room` / `app/rooms.py` | `lib/api.ts` `createRoom` |
-| `GET /api/rooms/{id}` | `app/main.py` `room_status` | `lib/api.ts` `getRoom` |
-| `GET /api/rooms/public` | `app/main.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
-| `PATCH …/visibility` | `app/main.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
-| `GET /api/campus` | `app/main.py` `get_campus` / `app/campus.py` | `lib/api.ts` `getCampus` |
-| `WS /ws/{id}` | `app/main.py` `ws_endpoint` / `app/ws.py` / `app/handlers.py` | `hooks/useRoomSocket.ts` |
+| `POST /api/rooms` | `app/routes/rooms.py` `create_room` / `app/rooms.py` | `lib/api.ts` `createRoom` |
+| `GET /api/rooms/{id}` | `app/routes/rooms.py` `room_status` | `lib/api.ts` `getRoom` |
+| `GET /api/rooms/public` | `app/routes/rooms.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
+| `PATCH …/visibility` | `app/routes/rooms.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
+| `GET /api/campus` | `app/routes/campus.py` / `app/campus.py` | `lib/api.ts` `getCampus` |
+| `GET /api/config` · `GET /api/health` | `app/routes/meta.py`(health は `status` に加え稼働状況 `active_rooms` / `total_members` を返す。issue #10) | — |
+| `WS /ws/{id}` | `app/routes/ws.py` `ws_endpoint` / `app/handlers.py`(`establish_join`/`handle`/`cleanup_on_disconnect`)/ `app/ws.py` | `hooks/useRoomSocket.ts` |
 
 ---
 

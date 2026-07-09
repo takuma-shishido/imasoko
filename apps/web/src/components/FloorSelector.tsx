@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import { COLORS } from "@/lib/theme";
 
 // 建物(任意)+ 階の手動選択(design/03・design/05)。参加フォームとメンバー一覧で再利用。
 interface Opt {
@@ -32,12 +33,12 @@ export function FloorSelector({
 }: Props) {
   const base = {
     height,
-    border: "1px solid #ebebeb",
+    border: `1px solid ${COLORS.BORDER}`,
     borderRadius: 6,
-    background: "#fff",
+    background: COLORS.WHITE,
     fontFamily: "inherit",
     fontSize,
-    color: "#171717",
+    color: COLORS.INK,
     padding: "0 8px",
     minWidth: 0,
   } as const;

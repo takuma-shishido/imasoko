@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import { COLORS } from "@/lib/theme";
 
 // Ink & Mesh Design System の Input(label + input + error)を再現。
 type Size = "md" | "lg";
@@ -22,7 +23,7 @@ export function Input({ label, placeholder, value, onChange, error, size = "md" 
         value={value}
         onChange={onChange}
       />
-      {error && <div style={{ fontSize: 12, color: "#ee0000", marginTop: 5 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12, color: COLORS.ERR, marginTop: 5 }}>{error}</div>}
     </div>
   );
 }

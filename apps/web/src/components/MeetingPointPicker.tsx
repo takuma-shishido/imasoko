@@ -2,6 +2,7 @@ import { useRoom } from "@/state/RoomContext";
 import { Button } from "./ui/Button";
 import { Radio } from "./ui/Radio";
 import { PlaceSuggestions } from "./PlaceSuggestions";
+import { COLORS } from "@/lib/theme";
 
 // 集合場所シート(design/06)。3タイプ(coords / member / place)の指定 + 空き教室候補。
 export function MeetingPointPicker() {
@@ -13,7 +14,7 @@ export function MeetingPointPicker() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 10.5,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         MEETING POINT
@@ -26,7 +27,7 @@ export function MeetingPointPicker() {
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: "#f5f5f5",
+            background: COLORS.BG,
             borderRadius: 8,
             padding: "10px 12px",
             marginBottom: 12,
@@ -36,14 +37,14 @@ export function MeetingPointPicker() {
             style={{
               width: 10,
               height: 10,
-              background: "#0070f3",
+              background: COLORS.BLUE,
               transform: "rotate(45deg)",
               flex: "none",
             }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{v.meetingLabel}</div>
-            <div style={{ fontSize: 11.5, color: "#888888" }}>{v.meetingByLabel}</div>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>{v.meetingByLabel}</div>
           </div>
           <button
             onClick={v.clearMeeting}
@@ -52,9 +53,9 @@ export function MeetingPointPicker() {
               height: 28,
               padding: "0 12px",
               borderRadius: 9999,
-              border: "1px solid #ebebeb",
-              background: "#fff",
-              color: "#4d4d4d",
+              border: `1px solid ${COLORS.BORDER}`,
+              background: COLORS.WHITE,
+              color: COLORS.SUBTLE,
               fontSize: 11.5,
               fontFamily: "inherit",
               cursor: "pointer",
@@ -67,51 +68,60 @@ export function MeetingPointPicker() {
 
       {/* coords */}
       <div
+        onClick={v.mtPickCoords}
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
           padding: "12px 4px",
-          borderBottom: "1px solid #ebebeb",
+          borderBottom: `1px solid ${COLORS.BORDER}`,
+          cursor: "pointer",
         }}
       >
-        <Radio dot="transparent" />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
-          <div style={{ fontSize: 11.5, color: "#888888" }}>
-            好きな地点をタップ。説明も付けられます
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Radio dot={v.mtDotCoords} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
+              好きな地点をタップ。説明も付けられます
+            </div>
           </div>
         </div>
-        <button
-          onClick={v.startPick}
-          style={{
-            height: 32,
-            padding: "0 14px",
-            borderRadius: 9999,
-            border: 0,
-            background: "#171717",
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          地図で指定
-        </button>
+        {v.mtIsCoords && (
+          <div style={{ margin: "10px 0 2px 26px" }}>
+            <button
+              onClick={v.startPick}
+              style={{
+                height: 32,
+                padding: "0 14px",
+                borderRadius: 9999,
+                border: 0,
+                background: COLORS.INK,
+                color: COLORS.WHITE,
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              地図で指定
+            </button>
+          </div>
+        )}
       </div>
 
       {/* member */}
       <div
         onClick={v.mtPickMember}
-        style={{ padding: "12px 4px", borderBottom: "1px solid #ebebeb", cursor: "pointer" }}
+        style={{
+          padding: "12px 4px",
+          borderBottom: `1px solid ${COLORS.BORDER}`,
+          cursor: "pointer",
+        }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Radio dot={v.mtDotMember} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>誰かのところ</div>
-            <div style={{ fontSize: 11.5, color: "#888888" }}>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
               その人が動くと集合地点も追従します
             </div>
           </div>
@@ -148,7 +158,7 @@ export function MeetingPointPicker() {
           <Radio dot={v.mtDotPlace} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>場所から選ぶ</div>
-            <div style={{ fontSize: 11.5, color: "#888888" }}>
+            <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
               教室・「◯号館前」などのランドマーク
             </div>
           </div>
@@ -161,12 +171,12 @@ export function MeetingPointPicker() {
               style={{
                 flex: 1,
                 height: 36,
-                border: "1px solid #ebebeb",
+                border: `1px solid ${COLORS.BORDER}`,
                 borderRadius: 6,
-                background: "#fff",
+                background: COLORS.WHITE,
                 fontFamily: "inherit",
                 fontSize: 12.5,
-                color: "#171717",
+                color: COLORS.INK,
                 padding: "0 8px",
                 minWidth: 0,
               }}
@@ -183,12 +193,12 @@ export function MeetingPointPicker() {
               style={{
                 flex: 1.3,
                 height: 36,
-                border: "1px solid #ebebeb",
+                border: `1px solid ${COLORS.BORDER}`,
                 borderRadius: 6,
-                background: "#fff",
+                background: COLORS.WHITE,
                 fontFamily: "inherit",
                 fontSize: 12.5,
-                color: "#171717",
+                color: COLORS.INK,
                 padding: "0 8px",
                 minWidth: 0,
               }}
@@ -210,7 +220,7 @@ export function MeetingPointPicker() {
         </Button>
       </div>
 
-      <div style={{ borderTop: "1px solid #ebebeb", margin: "20px -20px 16px" }} />
+      <div style={{ borderTop: `1px solid ${COLORS.BORDER}`, margin: "20px -20px 16px" }} />
 
       <PlaceSuggestions />
     </div>

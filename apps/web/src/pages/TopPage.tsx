@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { useRoom } from "@/state/RoomContext";
 import { Button } from "@/components/ui/Button";
 import { MeshGradient } from "@/components/MeshGradient";
+import { COLORS } from "@/lib/theme";
 
 const FEATURES = [
   ["01", "ログイン・アカウント登録は不要"],
@@ -9,8 +10,8 @@ const FEATURES = [
   ["03", "ルームは2時間で自動的に消滅"],
 ];
 
-// トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線。
-export function TopPage() {
+// トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線 + 使い方(チュートリアル)。
+export function TopPage({ onOpenTutorial }: { onOpenTutorial: () => void }) {
   const v = useRoom();
   return (
     <div
@@ -33,14 +34,15 @@ export function TopPage() {
           minHeight: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
               fontFamily: "'Geist Mono',monospace",
               fontSize: 11,
               letterSpacing: ".14em",
-              color: "#171717",
+              color: COLORS.INK,
               fontWeight: 500,
+              flex: 1,
             }}
           >
             IMASOKO
@@ -50,11 +52,27 @@ export function TopPage() {
               fontFamily: "'Geist Mono',monospace",
               fontSize: 10,
               letterSpacing: ".12em",
-              color: "#888888",
+              color: COLORS.GRAY,
             }}
           >
             有明キャンパス
           </div>
+          <button
+            onClick={onOpenTutorial}
+            className="hv-border-ink"
+            style={{
+              background: COLORS.WHITE,
+              border: `1px solid ${COLORS.BORDER}`,
+              borderRadius: 9999,
+              fontSize: 11,
+              fontFamily: "inherit",
+              color: COLORS.INK,
+              padding: "4px 12px",
+              cursor: "pointer",
+            }}
+          >
+            ? 使い方
+          </button>
         </div>
 
         <div style={{ marginTop: 44 }}>
@@ -84,7 +102,7 @@ export function TopPage() {
             style={
               {
                 fontSize: 14,
-                color: "#4d4d4d",
+                color: COLORS.SUBTLE,
                 margin: "10px 0 0",
                 lineHeight: 1.75,
                 textWrap: "pretty",
@@ -99,7 +117,7 @@ export function TopPage() {
 
         <div style={{ flex: 1 }} />
 
-        <div style={{ borderTop: "1px solid #ebebeb" }}>
+        <div style={{ borderTop: `1px solid ${COLORS.BORDER}` }}>
           {FEATURES.map(([n, label]) => (
             <div
               key={n}
@@ -108,15 +126,15 @@ export function TopPage() {
                 alignItems: "center",
                 gap: 14,
                 padding: "12px 0",
-                borderBottom: "1px solid #ebebeb",
+                borderBottom: `1px solid ${COLORS.BORDER}`,
               }}
             >
               <span
-                style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: "#888888" }}
+                style={{ fontFamily: "'Geist Mono',monospace", fontSize: 10.5, color: COLORS.GRAY }}
               >
                 {n}
               </span>
-              <span style={{ fontSize: 13, color: "#171717" }}>{label}</span>
+              <span style={{ fontSize: 13, color: COLORS.INK }}>{label}</span>
             </div>
           ))}
         </div>
@@ -124,14 +142,16 @@ export function TopPage() {
         <div style={{ flex: 1 }} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Button variant="primary" size="lg" onClick={v.createRoom}>
-            ルームを作る
-          </Button>
+          <div data-tutorial="create-room" style={{ display: "flex", flexDirection: "column" }}>
+            <Button variant="primary" size="lg" onClick={v.createRoom}>
+              ルームを作る
+            </Button>
+          </div>
           <Button variant="secondary" size="lg" onClick={v.goPublic}>
             公開ルームを探す
           </Button>
         </div>
-        <div style={{ marginTop: 16, fontSize: 11.5, color: "#888888", textAlign: "center" }}>
+        <div style={{ marginTop: 16, fontSize: 11.5, color: COLORS.GRAY, textAlign: "center" }}>
           参加すると、現在地がルーム内で共有されます。
         </div>
       </div>

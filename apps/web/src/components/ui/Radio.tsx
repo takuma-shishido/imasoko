@@ -1,3 +1,4 @@
+import { COLORS } from "@/lib/theme";
 // ラジオ選択の丸(プロトタイプ共通:16px リング + 8px 内丸)。
 export function Radio({ dot }: { dot: string }) {
   return (
@@ -6,7 +7,7 @@ export function Radio({ dot }: { dot: string }) {
         width: 16,
         height: 16,
         borderRadius: "50%",
-        border: "1.5px solid #171717",
+        border: `1.5px solid ${COLORS.INK}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

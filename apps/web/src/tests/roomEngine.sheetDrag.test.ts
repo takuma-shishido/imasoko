@@ -32,9 +32,9 @@ const drag = (fromY: number, toY: number, dtMs: number) => {
   vi.spyOn(Date, "now")
     .mockReturnValueOnce(1000)
     .mockReturnValueOnce(1000 + dtMs);
-  e.hDown(down(fromY));
-  e.hMove(move(toY));
-  e.hUp();
+  e.sheetCtl.hDown(down(fromY));
+  e.sheetCtl.hMove(move(toY));
+  e.sheetCtl.hUp();
 };
 
 describe("ボトムシートのドラッグで閉じる(issue #71)", () => {
@@ -72,10 +72,10 @@ describe("ボトムシートのドラッグで閉じる(issue #71)", () => {
     vi.spyOn(Date, "now")
       .mockReturnValueOnce(1000)
       .mockReturnValueOnce(1000 + 300);
-    e.hDown(down(100));
-    e.hMove(move(150)); // dy=50
+    e.sheetCtl.hDown(down(100));
+    e.sheetCtl.hMove(move(150)); // dy=50
     expect((e.sheetRef.current as HTMLDivElement).style.transform).toBe("translateY(50px)");
-    e.hUp(); // dy=50<70 かつ 300ms(0.16px/ms)で低速 → 閉じない
+    e.sheetCtl.hUp(); // dy=50<70 かつ 300ms(0.16px/ms)で低速 → 閉じない
     expect((e.sheetRef.current as HTMLDivElement).style.transform).toBe(""); // 離すと元に戻す
     expect(e.state.sheet).toBe("members"); // 開いたまま
   });

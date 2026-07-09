@@ -22,7 +22,7 @@ describe("ボトムシートの閉じるアニメーション(issue #71)", () =>
 
   it("closeSheet は退場中フラグを立て、200ms 後に実際に閉じる", () => {
     const e = withSheet();
-    e.closeSheet();
+    e.sheetCtl.close();
     // 直後:マウントしたまま退場アニメーション中
     expect(e.state.sheetClosing).toBe(true);
     expect(e.state.sheet).toBe("members");
@@ -37,7 +37,7 @@ describe("ボトムシートの閉じるアニメーション(issue #71)", () =>
 
   it("退場中に開き直すと退場をキャンセルして即表示に戻る(inline transform も消える)", () => {
     const e = withSheet();
-    e.closeSheet();
+    e.sheetCtl.close();
     expect(e.state.sheetClosing).toBe(true);
     e.openMembers(); // 開き直す
     expect(e.state.sheetClosing).toBe(false);
@@ -50,8 +50,8 @@ describe("ボトムシートの閉じるアニメーション(issue #71)", () =>
 
   it("既に閉じ中に closeSheet を重ねても二重に走らない", () => {
     const e = withSheet();
-    e.closeSheet();
-    e.closeSheet(); // no-op(sheetClosing 中)
+    e.sheetCtl.close();
+    e.sheetCtl.close(); // no-op(sheetClosing 中)
     vi.advanceTimersByTime(200);
     expect(e.state.sheet).toBeNull();
   });

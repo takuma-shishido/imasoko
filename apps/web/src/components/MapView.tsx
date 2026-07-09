@@ -1,23 +1,19 @@
 import type { ReactNode } from "react";
 import type { AreaId, AreaProjection } from "@/types/campus";
 import { useRoom } from "@/state/RoomContext";
-import { CAMPUS_PROJECTION } from "@/lib/campusGeo";
-import { STATION1_PROJECTION } from "@/lib/station1Geo";
-import { STATION2_PROJECTION } from "@/lib/station2Geo";
-import { CampusSvg } from "./map/CampusSvg";
-import { Station1Svg } from "./map/Station1Svg";
-import { Station2Svg } from "./map/Station2Svg";
+import { AREA_GEO } from "@/lib/areaRegistry";
+import { AreaSvg } from "./map/AreaSvg";
+import { COLORS } from "@/lib/theme";
 
 // 実地図は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)をエリア別に用意。
 // 北方向の画面ベクトルは (bx, by)。上向き矢印をこの角度だけ時計回りに回すと北を指す。
+// 投影はエリアレジストリ(areaRegistry)から引き、エリア別の手書き列挙をやめる(issue #105)。
 const northDegOf = (p: AreaProjection): number => (Math.atan2(p.bx, -p.by) * 180) / Math.PI;
-const NORTH_DEG: Record<AreaId, number> = {
-  campus: northDegOf(CAMPUS_PROJECTION),
-  station_1: northDegOf(STATION1_PROJECTION),
-  station_2: northDegOf(STATION2_PROJECTION),
-};
+const NORTH_DEG: Record<AreaId, number> = Object.fromEntries(
+  (Object.keys(AREA_GEO) as AreaId[]).map((id) => [id, northDegOf(AREA_GEO[id].projection)])
+) as Record<AreaId, number>;
 
-// 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装した模式版)。
+// 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装。基図は実地理 GeoJSON)。
 // SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
 export function MapView() {
   const v = useRoom();
@@ -33,7 +29,7 @@ export function MapView() {
         flex: 1,
         position: "relative",
         overflow: "hidden",
-        background: "#f5f5f5",
+        background: COLORS.BG,
         touchAction: "none",
         userSelect: "none", // ドラッグ/長押しで地図上テキストが選択されるのを防ぐ(issue #36)
         WebkitUserSelect: "none", // Safari / iOS
@@ -51,9 +47,7 @@ export function MapView() {
           transformOrigin: "0 0",
         }}
       >
-        {v.isCampusArea && <CampusSvg />}
-        {v.isSt1 && <Station1Svg />}
-        {v.isSt2 && <Station2Svg />}
+        <AreaSvg areaId={v.area} />
 
         {/* 注記テキストレイヤー */}
         {v.mapTexts.map((tx, i) => (
@@ -91,7 +85,7 @@ export function MapView() {
                 top: cb.y,
                 width: cb.w,
                 height: cb.h,
-                background: "#ffffff",
+                background: COLORS.WHITE,
                 border: `${cb.bw}px solid ${cb.bd}`,
                 borderRadius: 7,
                 cursor: "pointer",
@@ -111,7 +105,7 @@ export function MapView() {
                   fontSize: Math.min(cb.fs, 13),
                   fontWeight: 600,
                   letterSpacing: -0.5,
-                  color: "#171717",
+                  color: COLORS.INK,
                   lineHeight: 1.1,
                   maxWidth: "100%",
                   whiteSpace: "nowrap",
@@ -125,7 +119,7 @@ export function MapView() {
                 <span
                   style={{
                     fontSize: 9,
-                    color: "#888888",
+                    color: COLORS.GRAY,
                     lineHeight: 1.2,
                     maxWidth: "100%",
                     whiteSpace: "nowrap",
@@ -158,8 +152,8 @@ export function MapView() {
           >
             <div
               style={{
-                background: "#0070f3",
-                color: "#fff",
+                background: COLORS.BLUE,
+                color: COLORS.WHITE,
                 borderRadius: 9999,
                 padding: "2px 9px",
                 fontSize: 10.5,
@@ -174,8 +168,8 @@ export function MapView() {
               style={{
                 width: 13,
                 height: 13,
-                background: "#0070f3",
-                border: "2px solid #fff",
+                background: COLORS.BLUE,
+                border: `2px solid ${COLORS.WHITE}`,
                 transform: "rotate(45deg)",
                 boxShadow: "0 1px 3px rgba(0,0,0,.25)",
               }}
@@ -239,8 +233,8 @@ export function MapView() {
             top: 10,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#171717",
-            color: "#fff",
+            background: COLORS.INK,
+            color: COLORS.WHITE,
             borderRadius: 9999,
             padding: "7px 8px 7px 16px",
             fontSize: 12,
@@ -261,7 +255,7 @@ export function MapView() {
               borderRadius: 9999,
               border: 0,
               background: "rgba(255,255,255,.18)",
-              color: "#fff",
+              color: COLORS.WHITE,
               fontSize: 11,
               fontFamily: "inherit",
               cursor: "pointer",
@@ -286,7 +280,7 @@ export function MapView() {
             width: 36,
             height: 36,
             borderRadius: 9999,
-            background: "#fff",
+            background: COLORS.WHITE,
             boxShadow: "0 2px 8px rgba(0,0,0,.12)",
             zIndex: 6,
             display: "flex",
@@ -301,9 +295,9 @@ export function MapView() {
             viewBox="-18 -18 36 36"
             style={{ transform: `rotate(${NORTH_DEG[v.area]}deg)` }}
           >
-            <path d="M0 -12 L4 1 L0 -2 L-4 1 Z" fill="#ee0000" />
+            <path d="M0 -12 L4 1 L0 -2 L-4 1 Z" fill={COLORS.ERR} />
             <path d="M0 -2 L4 1 L0 12 L-4 1 Z" fill="#c8c8c8" />
-            <text x="0" y="-13" textAnchor="middle" fontSize="7" fontWeight="700" fill="#ee0000">
+            <text x="0" y="-13" textAnchor="middle" fontSize="7" fontWeight="700" fill={COLORS.ERR}>
               N
             </text>
           </svg>
@@ -377,10 +371,10 @@ function FabButton({
         width: 38,
         height: 38,
         borderRadius: 9999,
-        border: "1px solid #ebebeb",
-        background: "#fff",
+        border: `1px solid ${COLORS.BORDER}`,
+        background: COLORS.WHITE,
         cursor: "pointer",
-        color: "#171717",
+        color: COLORS.INK,
         fontSize: 17,
         boxShadow: "0 2px 8px rgba(0,0,0,.10)",
         display: "flex",

@@ -1,15 +1,15 @@
 # いまそこ
 
-**集合、リンク一本で。** — URLを共有するだけで、参加者全員の現在地をリアルタイムにキャンパスマップ上へ表示する集合支援 Web アプリ(ログイン不要・インストール不要)。MUDS hackathon 2026。
+**集合、リンク一本で。** — URLを共有するだけで、参加者全員の現在地をリアルタイムにキャンパスマップ上へ表示する集合支援 Webアプリ  
 
-Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、`docs/` のディレクトリ設計に沿って実装したもの。
+for MUDS Hackathon 2026
 
 ## 構成
 
 ```
 apps/
-├─ web/     React + TypeScript (Vite)  … プロトタイプの忠実移植(フロント)
-└─ server/  Python + FastAPI            … REST/WS/ルーム管理の雛形(docs/01・02・05 準拠)
+├─ web/     React + TypeScript (Vite)  … フロント(画面・地図表示)
+└─ server/  Python + FastAPI            … REST/WS・ルーム管理(インメモリ / docs/01・02・05 準拠)
 docs/       企画書・技術文書・画面設計
 ```
 
@@ -43,7 +43,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-`npm run build`(tsc + vite)/ `npm test`(座標変換のユニットテスト, Vitest)/ `npm run lint`。
+`npm run build`(tsc + vite)/ `npm test`(ユニットテスト, Vitest)/ `npm run lint`。
 
 - フロントは**プロトタイプのシミュレーションで自走**する(歩くメンバー・DEMOパネル・擬似WS状態)。
   バックエンドが無くても全画面を確認できる。右下の **DEMO** チップから各状態(期限切れ/満員/再接続 等)を切替可能。
@@ -52,7 +52,7 @@ npm run dev          # http://localhost:5173
 
 ```bash
 cd apps/server
-python -m venv .venv && source .venv/bin/activate
+uv venv --python 3.12 .venv && source .venv/bin/activate   # Python 3.12 必須
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload   # http://localhost:8000
 pytest                          # rooms / expiry / ws の最小テスト

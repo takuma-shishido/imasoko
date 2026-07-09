@@ -1,8 +1,7 @@
 // WS / REST メッセージ契約(TS 側)。docs/02 §4 の方針どおり server(Pydantic)と二重定義になるため、
 // dev-docs §5/§6 + docs/05 §6 を単一の真実として突き合わせる。変更時は server/app/models.py と同PRで更新する。
 //
-// ※ 本アプリのデモはシミュレーションで自走するため、これらの型は現状「バックエンド雛形との契約」用。
-//    実配線(useRoomSocket / api.ts)を有効化する際に使用する。
+// 実配線(useRoomSocket / api.ts)で実際に使用中のワイヤ契約。
 
 import type { AreaId } from "./campus";
 

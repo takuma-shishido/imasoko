@@ -1,6 +1,7 @@
 import { useRoom } from "@/state/RoomContext";
 import { Input } from "./ui/Input";
 import { Radio } from "./ui/Radio";
+import { COLORS } from "@/lib/theme";
 
 // 設定シート(design/07)。公開範囲(host のみ)+ 残り/集合時間 + 集合時間変更 + 退出。
 export function RoomVisibility() {
@@ -12,7 +13,7 @@ export function RoomVisibility() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 10.5,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         SETTINGS
@@ -27,12 +28,12 @@ export function RoomVisibility() {
                 fontFamily: "'Geist Mono',monospace",
                 fontSize: 10.5,
                 letterSpacing: ".14em",
-                color: "#888888",
+                color: COLORS.GRAY,
               }}
             >
               VISIBILITY
             </div>
-            <div style={{ fontSize: 10.5, color: "#888888" }}>host のみ</div>
+            <div style={{ fontSize: 10.5, color: COLORS.GRAY }}>host のみ</div>
           </div>
           <div style={{ fontSize: 15, fontWeight: 600, margin: "3px 0 6px" }}>公開範囲</div>
 
@@ -49,9 +50,9 @@ export function RoomVisibility() {
             <Radio dot={v.visDotPriv} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>
-                非公開<span style={{ color: "#888888", fontWeight: 400 }}>(既定)</span>
+                非公開<span style={{ color: COLORS.GRAY, fontWeight: 400 }}>(既定)</span>
               </div>
-              <div style={{ fontSize: 11.5, color: "#888888" }}>
+              <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
                 URLを知っている人だけが参加できます
               </div>
             </div>
@@ -70,7 +71,7 @@ export function RoomVisibility() {
             <Radio dot={v.visDotPub} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>公開</div>
-              <div style={{ fontSize: 11.5, color: "#ab570a" }}>
+              <div style={{ fontSize: 11.5, color: COLORS.AMBER }}>
                 公開ルーム一覧に載り、誰でも参加できます
               </div>
             </div>
@@ -90,7 +91,7 @@ export function RoomVisibility() {
         </>
       )}
 
-      <div style={{ borderTop: "1px solid #ebebeb", margin: "20px -20px 16px" }} />
+      <div style={{ borderTop: `1px solid ${COLORS.BORDER}`, margin: "20px -20px 16px" }} />
 
       <div
         style={{
@@ -100,7 +101,7 @@ export function RoomVisibility() {
           marginBottom: 10,
         }}
       >
-        <span style={{ fontSize: 12.5, color: "#4d4d4d" }}>残り時間</span>
+        <span style={{ fontSize: 12.5, color: COLORS.SUBTLE }}>残り時間</span>
         <span
           style={{
             fontFamily: "'Geist Mono',monospace",
@@ -120,7 +121,7 @@ export function RoomVisibility() {
           marginBottom: 14,
         }}
       >
-        <span style={{ fontSize: 12.5, color: "#4d4d4d" }}>集合時間</span>
+        <span style={{ fontSize: 12.5, color: COLORS.SUBTLE }}>集合時間</span>
         <span style={{ fontFamily: "'Geist Mono',monospace", fontSize: 13, fontWeight: 500 }}>
           {v.meetAtLabel}
         </span>
@@ -138,18 +139,18 @@ export function RoomVisibility() {
             style={{
               width: "100%",
               height: 40,
-              border: "1px solid #ebebeb",
+              border: `1px solid ${COLORS.BORDER}`,
               borderRadius: 6,
-              background: "#fff",
+              background: COLORS.WHITE,
               fontFamily: "inherit",
               fontSize: 13,
-              color: "#171717",
+              color: COLORS.INK,
               padding: "0 10px",
               boxSizing: "border-box",
               marginBottom: 6,
             }}
           />
-          <div style={{ fontSize: 11, color: "#888888", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: COLORS.GRAY, marginBottom: 16 }}>
             集合の3時間後({v.curEndAt})に自動終了します。
           </div>
         </>
@@ -163,8 +164,8 @@ export function RoomVisibility() {
           height: 44,
           borderRadius: 9999,
           border: "1px solid #f7d4d6",
-          background: "#fff",
-          color: "#ee0000",
+          background: COLORS.WHITE,
+          color: COLORS.ERR,
           fontWeight: 500,
           fontSize: 14,
           fontFamily: "inherit",

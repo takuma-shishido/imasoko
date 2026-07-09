@@ -5,17 +5,29 @@ dev-docs §6 + docs/05 §6。位置は最新値のみ保持(履歴なし)。
 
 import uuid
 
+from fastapi import WebSocket
 from pydantic import TypeAdapter
 
+from .config import settings
 from .models import (
     AddPlaceSuggestionMsg,
     ClientMsg,
     FloorMsg,
+    JoinMsg,
     LeaveMsg,
+    MeetingPointBroadcastMsg,
     MeetingPointMsg,
+    MemberJoinedMsg,
+    MemberLeftMsg,
+    MemberUpdateMsg,
+    MPMember,
+    PlaceSuggestion,
+    PlaceSuggestionsMsg,
     PositionMsg,
+    RoomExpiredMsg,
+    RoomFullMsg,
 )
-from .rooms import Room, now
+from .rooms import Member, Room, is_expired, now, room_state_payload
 from .ws import ConnectionManager
 
 _client_adapter: TypeAdapter = TypeAdapter(ClientMsg)
@@ -24,6 +36,77 @@ _client_adapter: TypeAdapter = TypeAdapter(ClientMsg)
 def parse_client(data: dict):
     """dict → ClientMsg(不正なら例外)。"""
     return _client_adapter.validate_python(data)
+
+
+async def establish_join(
+    ws: WebSocket, room: Room | None, manager: ConnectionManager
+) -> Member | None:
+    """accept 済みの WS に対して join を確立する(dev-docs §6)。
+
+    期限切れ(room_expired)/最初のメッセージが join でない/満員(room_full)なら
+    送出・close して None を返す。成功時は Member を生成し room_state 送出と
+    member_joined broadcast まで済ませて Member を返す。送出メッセージ・close・
+    順序は現状不変。
+    """
+    if room is None or is_expired(room):
+        await ws.send_json(RoomExpiredMsg().model_dump())
+        await ws.close()
+        return None
+
+    # 最初のメッセージは join(dev-docs §6)
+    try:
+        first = await ws.receive_json()
+        msg = parse_client(first)
+    except Exception:
+        await ws.close()
+        return None
+    if not isinstance(msg, JoinMsg):
+        await ws.close()
+        return None
+    if len(room.members) >= settings.max_members_per_room:
+        await ws.send_json(RoomFullMsg().model_dump())
+        await ws.close()
+        return None
+
+    member_id = uuid.uuid4().hex[:8]
+    member = Member(id=member_id, name=msg.name, building_id=msg.building_id, floor=msg.floor)
+    room.members[member_id] = member
+    manager.add(room.room_id, member_id, ws)
+
+    await ws.send_json(room_state_payload(room, member_id))
+    await manager.broadcast(
+        room.room_id,
+        MemberJoinedMsg(member=member.to_dict()).model_dump(),
+        exclude=member_id,
+    )
+    return member
+
+
+async def cleanup_on_disconnect(room: Room, member: Member, manager: ConnectionManager) -> None:
+    """切断時の後始末(dev-docs §6 / issue #37)。
+
+    接続除去 → ルームからメンバー除去 → stale な meeting_point 解除 → member_left broadcast。
+    退出者が集合先(member 追従)なら stale な meeting_point を解除する(issue #37)。
+    最後の位置(coords)への固定は area を解決できる web 側(残メンバーの代表)が行い、
+    ここでの解除は全員退出後の再参加・途中参加が「存在しないメンバー追従」を
+    受け取らないための保険。broadcast はしない:接続中のクライアントは member_left で
+    各自固定済みで、null を流すとそれを上書きしてしまう。
+    """
+    manager.remove(room.room_id, member.id)
+    room.members.pop(member.id, None)
+    mp = room.meeting_point
+    if isinstance(mp, MPMember) and mp.memberId == member.id:
+        room.meeting_point = None
+    await manager.broadcast(room.room_id, MemberLeftMsg(id=member.id).model_dump())
+
+
+async def _broadcast_member_update(manager: ConnectionManager, room: Room, member) -> None:
+    """member の updated_at を更新し member_update を全員へ broadcast する。
+
+    position(位置)/ floor(建物・階)更新で共通の後処理(dev-docs §6)。
+    """
+    member.updated_at = now()
+    await manager.broadcast(room.room_id, MemberUpdateMsg(member=member.to_dict()).model_dump())
 
 
 async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) -> bool:
@@ -35,33 +118,38 @@ async def handle(manager: ConnectionManager, room: Room, member_id: str, msg) ->
     if isinstance(msg, PositionMsg):
         member.lat = msg.lat
         member.lng = msg.lng
-        member.updated_at = now()
-        await manager.broadcast(room.room_id, {"type": "member_update", "member": member.to_dict()})
+        await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, FloorMsg):
         member.building_id = msg.building_id
         member.floor = msg.floor
-        member.updated_at = now()
-        await manager.broadcast(room.room_id, {"type": "member_update", "member": member.to_dict()})
+        await _broadcast_member_update(manager, room, member)
 
     elif isinstance(msg, MeetingPointMsg):
-        room.meeting_point = msg.point.model_dump() if msg.point else None
+        # ルームにいないメンバーへの追従指定は無視する(issue #78)
+        if isinstance(msg.point, MPMember) and msg.point.memberId not in room.members:
+            return True
+        room.meeting_point = msg.point
         await manager.broadcast(
-            room.room_id, {"type": "meeting_point", "point": room.meeting_point}
+            room.room_id, MeetingPointBroadcastMsg(point=room.meeting_point).model_dump()
         )
 
     elif isinstance(msg, AddPlaceSuggestionMsg):
+        already_exists = any(item.place == msg.place for item in room.place_suggestions)
+        if already_exists:
+            return True
+
         room.place_suggestions.append(
-            {
-                "id": uuid.uuid4().hex[:8],
-                "place": msg.place.model_dump(),
-                "note": msg.note or "",
-                "addedBy": member_id,
-                "createdAt": now().isoformat(),
-            }
+            PlaceSuggestion(
+                id=uuid.uuid4().hex[:8],
+                place=msg.place,
+                note=msg.note or "",
+                addedBy=member_id,
+                createdAt=now().isoformat(),
+            )
         )
         await manager.broadcast(
-            room.room_id, {"type": "place_suggestions", "items": room.place_suggestions}
+            room.room_id, PlaceSuggestionsMsg(items=room.place_suggestions).model_dump()
         )
 
     elif isinstance(msg, LeaveMsg):
