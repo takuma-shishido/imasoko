@@ -5,6 +5,7 @@ REST(rooms/campus)+ WebSocket(/ws/{room_id})+ SPA 配信(本番は apps/web の 
 
 import asyncio
 import uuid
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,6 +32,13 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="いまそこ", lifespan=lifespan)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+app = FastAPI(title="いまそこ", lifespan=lifespan)
 
 @app.get("/api/config")
 def get_config() -> dict:
@@ -62,6 +70,7 @@ def get_health() -> dict:
 @app.post("/api/rooms", response_model=CreateRoomRes)
 def create_room(req: CreateRoomReq) -> CreateRoomRes:
     room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
+    logging.info(f"部屋が作成されました: room_id={room.room_id}, title={room.title}")
     return CreateRoomRes(
         room_id=room.room_id,
         host_token=room.host_token,
@@ -147,6 +156,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     room.members[member_id] = member
     manager.add(room_id, member_id, ws)
 
+    logging.info(f"ユーザーが接続しました: room_id={room_id}, member_id={member_id}, name={member.name}")
     await ws.send_json(
         {
             "type": "room_state",
@@ -175,6 +185,7 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     finally:
         manager.remove(room_id, member_id)
         room.members.pop(member_id, None)
+        logging.info(f"ユーザーが切断しました: room_id={room_id}, member_id={member_id}")
         await manager.broadcast(room_id, {"type": "member_left", "id": member_id})
 
 

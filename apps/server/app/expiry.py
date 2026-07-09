@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import logging
 
 from . import rooms
 from .config import settings
@@ -23,6 +24,7 @@ async def cleanup_once() -> int:
                     pass
             manager.active.pop(room.room_id, None)
             rooms.delete_room(room.room_id)
+            logging.info(f"期限切れの部屋をかたづけました: room_id={room.room_id}")
             removed += 1
     return removed
 
