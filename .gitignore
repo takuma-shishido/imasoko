@@ -3,6 +3,7 @@
 
 # Node / web
 node_modules/
+package-lock.json
 apps/web/dist/
 *.local
 

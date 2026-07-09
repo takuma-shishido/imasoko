@@ -33,9 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - run: npm ci
+      - run: npm install
       # ── 自動整形(issue #83):差分があれば bot がコミットして push する。
       #    GITHUB_TOKEN の push は workflow を再トリガーしないため無限ループはしない。
       #    以降の lint / typecheck / test / build は整形後のツリーで検証される。
