@@ -96,14 +96,19 @@ export function sheetVals(engine: RoomEngine) {
   for (const f of placeB.floors)
     for (const r of f.rooms)
       placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-  // 候補の空き状態は集合時刻時点(未設定なら現在時刻)で判定する(issue #142)
-  const suggestAvailAt = s.meetAt || Date.now();
+  // 候補の空き状態は「現在」を基本に表示し、集合時刻の判定が現在と異なる場合のみ併記する(issue #142)
+  const nowMs = Date.now();
   const suggestions = s.suggestions.map((sg) => {
-    const free = classroomFreeAt(sg.ref, suggestAvailAt);
+    const freeNow = classroomFreeAt(sg.ref, nowMs);
+    const freeMeet = s.meetAt ? classroomFreeAt(sg.ref, s.meetAt) : freeNow;
+    const parts: string[] = [];
+    if (freeNow !== null) parts.push(freeNow ? "現在空き" : "現在使用中");
+    if (freeMeet !== null && freeMeet !== freeNow)
+      parts.push("集合時刻は" + (freeMeet ? "空き" : "使用中"));
     return {
       label: roomFull(sg.ref),
       meta:
-        (free === null ? "" : (free ? "空き" : "使用中") + " ・ ") +
+        (parts.length ? parts.join(" ・ ") + " ・ " : "") +
         (sg.note ? "「" + sg.note + "」 ・ " : "") +
         sg.by +
         "さんが追加",

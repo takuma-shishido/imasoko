@@ -1055,10 +1055,12 @@ export class RoomEngine {
       addRSel: s.addRs.length > 0,
       addSelCount: s.addRs.length,
       addSelLabel: s.addRs.map((rid) => roomFull(rid)).join(" / "),
-      // 選択中の各教室の空き時間帯(空き情報が無い教室は「空き情報なし」)
-      addSelAvail: s.addRs.map(
-        (rid) => roomFull(rid) + ":" + (classroomAvailLabel(rid) || "空き情報なし")
-      ),
+      // 選択中の各教室の「現在」の状態 + 空き時間帯(空き情報が無い教室は「空き情報なし」)
+      addSelAvail: s.addRs.map((rid) => {
+        const nowFree = classroomFreeAt(rid, Date.now());
+        const nowLabel = nowFree === null ? "" : nowFree ? "現在空き ・ " : "現在使用中 ・ ";
+        return roomFull(rid) + ":" + nowLabel + (classroomAvailLabel(rid) || "空き情報なし");
+      }),
       addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",
     };
   }
