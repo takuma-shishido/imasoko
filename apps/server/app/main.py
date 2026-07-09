@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
         app.include_router(spa.router)
     return app
 
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -42,6 +43,7 @@ logging.basicConfig(
 )
 
 app = FastAPI(title="いまそこ", lifespan=lifespan)
+
 
 @app.get("/api/config")
 def get_config() -> dict:
@@ -63,10 +65,7 @@ def get_health() -> dict:
             active_rooms += 1
             total_members += len(room.members)
 
-    return {"status": "ok",
-            "active_rooms": active_rooms,
-            "total_members": total_members
-    }
+    return {"status": "ok", "active_rooms": active_rooms, "total_members": total_members}
 
 
 # ── REST(dev-docs §5 / docs/05 §6)────────────────────
@@ -159,7 +158,9 @@ async def ws_endpoint(ws: WebSocket, room_id: str) -> None:
     room.members[member_id] = member
     manager.add(room_id, member_id, ws)
 
-    logging.info(f"ユーザーが接続しました: room_id={room_id}, member_id={member_id}, name={member.name}")
+    logging.info(
+        f"ユーザーが接続しました: room_id={room_id}, member_id={member_id}, name={member.name}"
+    )
     await ws.send_json(
         {
             "type": "room_state",
