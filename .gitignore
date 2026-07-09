@@ -29,3 +29,6 @@ apps/server/static/*
 .idea/
 
 .DS_Store
+
+# MUSCAT からエクスポートした元データ(アップロード禁止。変換後の classrooms.csv のみコミットする)
+scripts/classinfo.html
