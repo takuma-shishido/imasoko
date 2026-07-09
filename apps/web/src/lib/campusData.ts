@@ -1,5 +1,5 @@
 import type { AreaId, Building, Floor, Room } from "@/types/campus";
-import type { CampusRes } from "@/types/messages";
+import type { CampusClassroom, CampusRes } from "@/types/messages";
 import { CAMPUS_BUILDINGS } from "./campusGeo";
 import { MAP_AREAS } from "./mapAreas";
 import { project } from "./coords";
@@ -208,6 +208,50 @@ export const roomFull = (rid: string): string => {
   if (!hit) return rid;
   return hit.b.name + " " + hit.r.n + (hit.r.t ? "(" + hit.r.t + ")" : "");
 };
+
+// ── 教室の空き情報(GET /api/campus の classrooms[]・issue #142)──
+// BUILDINGS と同じく module 保持の配列を実サーバー由来で差し替える。
+export const CLASSROOMS: CampusClassroom[] = [];
+
+export function setClassrooms(next: CampusClassroom[]): void {
+  CLASSROOMS.length = 0;
+  CLASSROOMS.push(...next);
+}
+
+export const classroomById = (rid: string): CampusClassroom | undefined =>
+  CLASSROOMS.find((c) => c.room_id === rid);
+
+const hmToMin = (hm: string): number => {
+  const [h, m] = hm.split(":").map(Number);
+  return h * 60 + m;
+};
+
+/** 指定時刻(epoch ms)に教室が空いているか。空き情報の無い教室は null(不明)。 */
+export function classroomFreeAt(rid: string, atMs: number): boolean | null {
+  const c = classroomById(rid);
+  if (!c) return null;
+  const d = new Date(atMs);
+  const min = d.getHours() * 60 + d.getMinutes();
+  return c.available.some((r) => hmToMin(r.start) <= min && min < hmToMin(r.end));
+}
+
+/** 空き時間帯の表示用文字列("10:30-13:10 / 19:00-24:00")。データが無ければ ""。 */
+export const classroomAvailLabel = (rid: string): string => {
+  const c = classroomById(rid);
+  return c ? c.available.map((r) => r.start + "-" + r.end).join(" / ") : "";
+};
+
+/** 空き情報のエクスポート対象日(YYYY-MM-DD)。データが無ければ ""。 */
+export const classroomDataDate = (): string => CLASSROOMS[0]?.date ?? "";
+
+/** 空き情報が判定時刻(epoch ms)と別日のデータなら true(=情報が古い可能性)。 */
+export function classroomDataStale(atMs: number): boolean {
+  const date = classroomDataDate();
+  if (!date) return false;
+  const d = new Date(atMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return date !== d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
 
 // 地図上の注記テキスト(データ定義 → コンポーネント描画)。
 export interface MapText {

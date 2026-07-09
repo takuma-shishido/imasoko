@@ -6,7 +6,7 @@
 // シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
 // engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
-import { BUILDINGS, bById, roomFull } from "@/lib/campusData";
+import { BUILDINGS, bById, classroomFreeAt, roomFull } from "@/lib/campusData";
 import { selChip, selDot } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
@@ -96,11 +96,20 @@ export function sheetVals(engine: RoomEngine) {
   for (const f of placeB.floors)
     for (const r of f.rooms)
       placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-  const suggestions = s.suggestions.map((sg) => ({
-    label: roomFull(sg.ref),
-    meta: (sg.note ? "「" + sg.note + "」 ・ " : "") + sg.by + "さんが追加",
-    adopt: () => engine.adoptSuggestion(sg),
-  }));
+  // 候補の空き状態は集合時刻時点(未設定なら現在時刻)で判定する(issue #142)
+  const suggestAvailAt = s.meetAt || Date.now();
+  const suggestions = s.suggestions.map((sg) => {
+    const free = classroomFreeAt(sg.ref, suggestAvailAt);
+    return {
+      label: roomFull(sg.ref),
+      meta:
+        (free === null ? "" : (free ? "空き" : "使用中") + " ・ ") +
+        (sg.note ? "「" + sg.note + "」 ・ " : "") +
+        sg.by +
+        "さんが追加",
+      adopt: () => engine.adoptSuggestion(sg),
+    };
+  });
 
   return {
     // sheets

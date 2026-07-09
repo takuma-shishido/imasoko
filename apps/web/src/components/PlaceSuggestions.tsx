@@ -1,4 +1,6 @@
+import type { CSSProperties } from "react";
 import { useRoom } from "@/state/RoomContext";
+import type { RoomVals } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
 
 // 空き教室・候補セクション(design/06)。候補一覧 + 「+ 空き教室を追加」パネル(教室配置図 略図)。
@@ -88,6 +90,53 @@ export function PlaceSuggestions() {
 
       {v.addOpen && <AddPanel />}
     </>
+  );
+}
+
+// 教室グリッドの1セル。空き状態(●=空き / ○=使用中 / 無印=情報なし)と収容人数を添える(issue #142)。
+function RoomCell({ rc, style }: { rc: RoomVals["addPlanTop"][number]; style: CSSProperties }) {
+  const sub = [rc.t, rc.cap].filter(Boolean).join("・");
+  return (
+    <button onClick={rc.pick} style={style}>
+      <span
+        style={{
+          fontFamily: "'Geist Mono',monospace",
+          fontSize: 12,
+          fontWeight: 500,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 3,
+        }}
+      >
+        {rc.free !== null && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 9999,
+              flex: "none",
+              background: rc.free ? COLORS.BLUE : "transparent",
+              border: rc.free ? 0 : `1px solid ${COLORS.MUTED}`,
+            }}
+          />
+        )}
+        {rc.n}
+      </span>
+      {sub && (
+        <span
+          style={{
+            fontSize: 8.5,
+            opacity: 0.75,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+          }}
+        >
+          {sub}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -198,27 +247,7 @@ function AddPanel() {
         >
           <div style={{ display: "flex" }}>
             {v.addPlanTop.map((rc, i) => (
-              <button key={i} onClick={rc.pick} style={cellStyle(rc)}>
-                <span
-                  style={{ fontFamily: "'Geist Mono',monospace", fontSize: 12, fontWeight: 500 }}
-                >
-                  {rc.n}
-                </span>
-                {rc.t && (
-                  <span
-                    style={{
-                      fontSize: 8.5,
-                      opacity: 0.75,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: "100%",
-                    }}
-                  >
-                    {rc.t}
-                  </span>
-                )}
-              </button>
+              <RoomCell key={i} rc={rc} style={cellStyle(rc)} />
             ))}
           </div>
           <div
@@ -274,36 +303,35 @@ function AddPanel() {
           {v.addPlanHasBottom && (
             <div style={{ display: "flex" }}>
               {v.addPlanBottom.map((rc, i) => (
-                <button key={i} onClick={rc.pick} style={cellStyle(rc)}>
-                  <span
-                    style={{ fontFamily: "'Geist Mono',monospace", fontSize: 12, fontWeight: 500 }}
-                  >
-                    {rc.n}
-                  </span>
-                  {rc.t && (
-                    <span
-                      style={{
-                        fontSize: 8.5,
-                        opacity: 0.75,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: "100%",
-                      }}
-                    >
-                      {rc.t}
-                    </span>
-                  )}
-                </button>
+                <RoomCell key={i} rc={rc} style={cellStyle(rc)} />
               ))}
             </div>
           )}
         </div>
+        {v.addAvailLegend && (
+          <div
+            style={{
+              fontSize: 10.5,
+              color: v.addAvailStale ? COLORS.AMBER : COLORS.GRAY,
+              marginTop: 5,
+            }}
+          >
+            {v.addAvailLegend}
+            {v.addAvailStale && " ⚠ 当日のデータではありません"}
+          </div>
+        )}
       </div>
 
       {v.addRSel && (
-        <div style={{ fontSize: 11.5, color: COLORS.INK, fontWeight: 500, lineHeight: 1.5 }}>
-          選択中({v.addSelCount}):{v.addSelLabel}
+        <div>
+          <div style={{ fontSize: 11.5, color: COLORS.INK, fontWeight: 500, lineHeight: 1.5 }}>
+            選択中({v.addSelCount}):{v.addSelLabel}
+          </div>
+          {v.addSelAvail.map((line, i) => (
+            <div key={i} style={{ fontSize: 10.5, color: COLORS.GRAY, lineHeight: 1.6 }}>
+              {line}
+            </div>
+          ))}
         </div>
       )}
 
