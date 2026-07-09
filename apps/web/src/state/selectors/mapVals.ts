@@ -173,7 +173,7 @@ export function mapVals(engine: RoomEngine) {
     openMembers: engine.openMembers,
     openMeeting: engine.openMeeting,
     openBuilding: engine.openBuilding,
-    openPlaces: engine.openMeeting, // 「空き教室」ボタンも meeting シートを開く(旧 openPlaces 別名を撤去)
+    openPlaces: engine.openPlaces, // 空き教室は専用シート(issue #149)
     openShare: engine.openShare,
     openSettings: engine.openSettings,
     buildingBtnOpacity: s.area === "campus" ? "1" : "0.35",

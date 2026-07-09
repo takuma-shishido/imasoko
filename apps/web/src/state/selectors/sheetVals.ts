@@ -129,6 +129,7 @@ export function sheetVals(engine: RoomEngine) {
     shMembers: s.sheet === "members",
     shBuilding: s.sheet === "building",
     shMeeting: s.sheet === "meeting",
+    shPlaces: s.sheet === "places",
     shShare: s.sheet === "share",
     shSettings: s.sheet === "settings",
     visBadge: s.visibility === "public" ? "公開" : "非公開",

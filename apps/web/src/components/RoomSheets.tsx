@@ -3,6 +3,7 @@ import { BottomSheet } from "./BottomSheet";
 import { MemberList } from "./MemberList";
 import { CampusView } from "./CampusView";
 import { MeetingPointPicker } from "./MeetingPointPicker";
+import { PlaceSuggestions } from "./PlaceSuggestions";
 import { ShareButton } from "./ShareButton";
 import { RoomVisibility } from "./RoomVisibility";
 
@@ -23,6 +24,7 @@ export function RoomSheets() {
       {v.shMembers && <MemberList />}
       {v.shBuilding && <CampusView />}
       {v.shMeeting && <MeetingPointPicker />}
+      {v.shPlaces && <PlaceSuggestions />}
       {v.shShare && <ShareButton />}
       {v.shSettings && <RoomVisibility />}
     </BottomSheet>

@@ -57,7 +57,7 @@ import { SheetController } from "./SheetController";
 import { COLORS } from "@/lib/theme";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
-type SheetName = "members" | "building" | "meeting" | "share" | "settings";
+type SheetName = "members" | "building" | "meeting" | "places" | "share" | "settings";
 type Visibility = "private" | "public";
 
 interface View {
@@ -636,6 +636,7 @@ export class RoomEngine {
   // ── sheets(開閉・ドラッグは this.sheetCtl を直接参照。旧・公開名維持の委譲は撤去。docs/08 W2)──
   openMembers = () => this.sheetCtl.open("members");
   openMeeting = () => this.sheetCtl.open("meeting");
+  openPlaces = () => this.sheetCtl.open("places"); // 空き教室・候補(集合場所とは別シート。issue #149)
   openShare = () => this.sheetCtl.open("share");
   openSettings = () => this.sheetCtl.open("settings");
   openBuilding = () => {
