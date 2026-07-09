@@ -20,10 +20,16 @@ import {
   bAnchor,
   bById,
   bSpot,
+  classroomById,
+  classroomDataDate,
+  classroomDataStale,
+  classroomFreeAt,
+  classroomNowLabel,
   mergeCampus,
   roomFull,
   roomLookup,
   setBuildings,
+  setClassrooms,
 } from "@/lib/campusData";
 import {
   POSITION_MIN_MOVE_M,
@@ -264,6 +270,7 @@ export class RoomEngine {
     try {
       const res = await api.getCampus();
       setBuildings(mergeCampus(res));
+      setClassrooms(res.classrooms ?? []); // 教室の空き情報(issue #142)
       this.setState({}); // BUILDINGS 差し替えを描画へ反映
     } catch {
       /* 取得失敗時はローカル定義のまま */
@@ -1008,11 +1015,16 @@ export class RoomEngine {
     const b = bById(s.addB) || BUILDINGS[0];
     const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
     const sel = new Set(s.addRs);
+    // 空き判定は集合時刻時点(未設定なら現在時刻)で行う(issue #142)
+    const availAt = s.meetAt || Date.now();
     const cell = (r: Room) => {
       const c = selChip(sel.has(r.id));
+      const info = classroomById(r.id);
       return {
         n: r.n,
         t: r.t || "",
+        cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
+        free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
         bg: c.bg,
         fg: c.fg,
         pick: () =>
@@ -1024,6 +1036,7 @@ export class RoomEngine {
       };
     };
     const half = Math.ceil(f.rooms.length / 2);
+    const dataDate = classroomDataDate();
     return {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
@@ -1034,9 +1047,22 @@ export class RoomEngine {
       addPlanTop: f.rooms.slice(0, half).map(cell),
       addPlanBottom: f.rooms.slice(half).map(cell),
       addPlanHasBottom: f.rooms.length > half,
+      // 空き情報の凡例(データが無ければ非表示)。別日のデータなら古い旨を注意表示
+      addAvailLegend: dataDate
+        ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
+        : "",
+      addAvailStale: dataDate ? classroomDataStale(availAt) : false,
       addRSel: s.addRs.length > 0,
       addSelCount: s.addRs.length,
       addSelLabel: s.addRs.map((rid) => roomFull(rid)).join(" / "),
+      // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
+      addSelAvail: s.addRs.map((rid) => {
+        const now = classroomNowLabel(rid, Date.now());
+        return {
+          free: now ? now.free : null,
+          text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
+        };
+      }),
       addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",
     };
   }

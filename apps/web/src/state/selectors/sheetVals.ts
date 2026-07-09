@@ -6,7 +6,7 @@
 // シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
 // engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
-import { BUILDINGS, bById, roomFull } from "@/lib/campusData";
+import { BUILDINGS, bById, classroomFreeAt, roomFull } from "@/lib/campusData";
 import { selChip, selDot } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
@@ -96,11 +96,25 @@ export function sheetVals(engine: RoomEngine) {
   for (const f of placeB.floors)
     for (const r of f.rooms)
       placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-  const suggestions = s.suggestions.map((sg) => ({
-    label: roomFull(sg.ref),
-    meta: (sg.note ? "「" + sg.note + "」 ・ " : "") + sg.by + "さんが追加",
-    adopt: () => engine.adoptSuggestion(sg),
-  }));
+  // 候補の空き状態は「現在」を基本に表示し、集合時刻の判定が現在と異なる場合のみ併記する(issue #142)
+  const nowMs = Date.now();
+  const suggestions = s.suggestions.map((sg) => {
+    const freeNow = classroomFreeAt(sg.ref, nowMs);
+    const freeMeet = s.meetAt ? classroomFreeAt(sg.ref, s.meetAt) : freeNow;
+    const parts: string[] = [];
+    if (freeNow !== null) parts.push(freeNow ? "現在空き" : "現在使用中");
+    if (freeMeet !== null && freeMeet !== freeNow)
+      parts.push("集合時刻は" + (freeMeet ? "空き" : "使用中"));
+    return {
+      label: roomFull(sg.ref),
+      meta:
+        (parts.length ? parts.join(" ・ ") + " ・ " : "") +
+        (sg.note ? "「" + sg.note + "」 ・ " : "") +
+        sg.by +
+        "さんが追加",
+      adopt: () => engine.adoptSuggestion(sg),
+    };
+  });
 
   return {
     // sheets
