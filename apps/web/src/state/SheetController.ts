@@ -13,7 +13,7 @@ type StateSetter = (
   cb?: () => void
 ) => void;
 
-// state.sheet の非 null 値(members / building / meeting / share / settings)。
+// state.sheet の非 null 値(members / building / meeting / places / share / settings)。
 type SheetName = NonNullable<State["sheet"]>;
 
 // ボトムシート退場アニメーションの長さ(ms)。global.css の ims-sheet-out / ims-fade-out と一致させる(issue #71)。
