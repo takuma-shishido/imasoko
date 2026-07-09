@@ -170,19 +170,25 @@ interface PlaceSuggestion {
 
 ## 5. 空き教室データ(技術制約)
 
-- **空き教室(授業がない部屋)は本来データで取得可能だが、規約等の問題で当面は手入力CSV**とする
+- **空き教室(授業がない部屋)のデータは、規約等の問題で自動取得はせず、MUSCAT の空き状況ページを手動エクスポートして変換**する(issue #140)
 - マスタ配置:
-  - `apps/server/data/classrooms.csv` — 教室マスタ(+ 手入力の空き情報)
+  - `apps/server/data/classrooms.csv` — 教室マスタ + 空き時間帯(変換スクリプトで生成)
   - `apps/server/data/buildings.json` — 建物→階→教室 + SVG領域・ランドマーク(§2)
-- CSVスキーマ(最小案):
+- CSVスキーマ:
 
 ```csv
-building_id,floor,room_id,name,capacity,note
-b1,3F,b1-301,301,40,当面は手入力の空き情報をnoteに
+building_id,floor,room_id,name,capacity,date,available
+b1,2F,b1-201,201,40,2026-07-09,00:00-08:50/10:30-13:10/19:00-24:00
 ```
 
-- サーバ起動時にメモリへロードし、`GET /api/campus` で配信
-- **将来**:規約クリア後に公式の空き時間データへ差し替える。読込を `campus.py` の1関数に閉じ込め、**差し替え点を1箇所**にする
+- `date` = エクスポート対象日、`available` = 空き時間帯(`HH:MM-HH:MM` を `/` 区切り)
+- 更新手順(手動運用):
+  1. MUSCAT の施設予約状況ページ(対象日で検索・200件表示)をブラウザで HTML 保存
+  2. `python3 scripts/classinfo_to_csv.py <保存したHTML>` を実行 → `classrooms.csv` が更新される
+  3. **元 HTML はコミットしない**(`.gitignore` 済み)。変換後の CSV のみコミットする
+  - 施設名 `有明１－２０１` = 1号館 201教室 → `b1 / 2F / b1-201`。数字3桁でない教室名(`９Ａ` 等)は機械判定できないため除外される
+- サーバ起動時にメモリへロードし、`GET /api/campus` で配信(空き時間帯の構造化配信は issue #141)
+- 読込は `campus.py` の1関数に閉じ込め、**差し替え点を1箇所**にする方針は維持
 
 ---
 
