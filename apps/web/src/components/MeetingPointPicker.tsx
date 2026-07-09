@@ -1,10 +1,10 @@
 import { useRoom } from "@/state/RoomContext";
 import { Button } from "./ui/Button";
 import { Radio } from "./ui/Radio";
-import { PlaceSuggestions } from "./PlaceSuggestions";
 import { COLORS } from "@/lib/theme";
 
-// 集合場所シート(design/06)。3タイプ(coords / member / place)の指定 + 空き教室候補。
+// 集合場所シート(design/06)。3タイプ(coords / member / place)の指定。
+// 空き教室・候補は専用シート(PlaceSuggestions、issue #149)に分離。
 export function MeetingPointPicker() {
   const v = useRoom();
   return (
@@ -219,10 +219,6 @@ export function MeetingPointPicker() {
           この場所にする
         </Button>
       </div>
-
-      <div style={{ borderTop: `1px solid ${COLORS.BORDER}`, margin: "20px -20px 16px" }} />
-
-      <PlaceSuggestions />
     </div>
   );
 }

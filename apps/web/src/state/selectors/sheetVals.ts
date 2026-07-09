@@ -1,5 +1,5 @@
 // renderVals() の sheets(重畳シート)派生値を切り出した pure セレクタ(issue #101)。
-// 対象は共通シート枠 + members / building / meeting / settings シート。
+// 対象は共通シート枠 + members / building / meeting / places / share / settings シート。
 // 返すキー集合・各値・キー順は RoomEngine.renderVals の該当セクションと完全一致させる(挙動不変)。
 // engine の可変状態(state)を読み、公開 computed(resolveMeetingPos / distTo / locLabel /
 // addPlanVals)や bound ハンドラ・setState は engine 経由で参照する。
@@ -129,6 +129,7 @@ export function sheetVals(engine: RoomEngine) {
     shMembers: s.sheet === "members",
     shBuilding: s.sheet === "building",
     shMeeting: s.sheet === "meeting",
+    shPlaces: s.sheet === "places",
     shShare: s.sheet === "share",
     shSettings: s.sheet === "settings",
     visBadge: s.visibility === "public" ? "公開" : "非公開",
