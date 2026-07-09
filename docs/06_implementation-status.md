@@ -36,7 +36,8 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
   - server→client メッセージは `models.py` の型付きクラス群(`RoomStateMsg` / `MemberJoinedMsg` / … / `RoomFullMsg`)+ `MsgType` 定数 + `MeetingPoint`/`PlaceSuggestion` 型で構成(`ServerMsg` union は web 側 `messages.ts` のみ)。WS 受信ループから独立した `handlers.establish_join` / `cleanup_on_disconnect` を抽出。
 - REST:`POST /api/rooms`・`GET /api/rooms/{id}`・`GET /api/rooms/public`・`PATCH /api/rooms/{id}/visibility`・`GET /api/campus`(パス・挙動は不変)。
 - WS:`/ws/{room_id}`(join → room_state → position / floor / meeting_point / add_place_suggestion / leave)。
-- `data/buildings.json` + `data/classrooms.csv`、`tests/`(rooms / expiry / ws / config)。
+- `data/buildings.json` + `data/classrooms.csv`、`tests/`(rooms / expiry / ws / config / campus)。
+- 空き教室:`classrooms.csv` は MUSCAT 実データ(91教室・`scripts/classinfo_to_csv.py` で生成、issue #140)。`GET /api/campus` の `classrooms[]` は `capacity`(数値)・`date`・`available[{start,end}]` を構造化配信(issue #141)。表示UIは issue #142。
 
 ---
 
