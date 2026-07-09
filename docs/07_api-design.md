@@ -439,7 +439,7 @@ interface PlaceSuggestion {
 | `GET /api/rooms/public` | `app/routes/rooms.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
 | `PATCH …/visibility` | `app/routes/rooms.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
 | `GET /api/campus` | `app/routes/campus.py` / `app/campus.py` | `lib/api.ts` `getCampus` |
-| `GET /api/config` · `GET /api/health` | `app/routes/meta.py` | — |
+| `GET /api/config` · `GET /api/health` | `app/routes/meta.py`(health は `status` に加え稼働状況 `active_rooms` / `total_members` を返す。issue #10) | — |
 | `WS /ws/{id}` | `app/routes/ws.py` `ws_endpoint` / `app/handlers.py`(`establish_join`/`handle`/`cleanup_on_disconnect`)/ `app/ws.py` | `hooks/useRoomSocket.ts` |
 
 ---
