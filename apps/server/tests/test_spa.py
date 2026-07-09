@@ -53,5 +53,18 @@ def test_unknown_path_falls_back_to_index(client):
 )
 def test_path_traversal_does_not_leak_outside_static(client, path):
     res = client.get(path)
-    # static 外のファイルの中身は絶対に返さない(index.html へフォールバックするのは可)。
+    # static 外のファイルの中身は絶対に返さない(未知パスは SPA の index.html へフォールバック)。
+    assert "TOP-SECRET" not in res.text
+    assert res.status_code == 200
+    assert "<html>app</html>" in res.text
+
+
+def test_symlink_escape_is_blocked(client, tmp_path, monkeypatch):
+    # static 配下のシンボリックリンクが外部を指していても、resolve() 追跡で配下外と判定し遮断する。
+    outside = tmp_path / "outside-secret.txt"
+    outside.write_text("TOP-SECRET")
+    link = spa.STATIC_PATH / "link.txt"
+    link.symlink_to(outside)
+
+    res = client.get("/link.txt")
     assert "TOP-SECRET" not in res.text
