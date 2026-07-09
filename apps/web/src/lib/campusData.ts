@@ -241,7 +241,8 @@ export const classroomAvailLabel = (rid: string): string => {
   return c ? c.available.map((r) => r.start + "-" + r.end).join(" / ") : "";
 };
 
-/** 空き情報のエクスポート対象日(YYYY-MM-DD)。データが無ければ ""。 */
+/** 空き情報のエクスポート対象日(YYYY-MM-DD)。データが無ければ ""。
+ *  classrooms.csv は単一日の MUSCAT エクスポートから生成されるため全行同一日(docs/05 §5)。 */
 export const classroomDataDate = (): string => CLASSROOMS[0]?.date ?? "";
 
 /** 空き情報が判定時刻(epoch ms)と別日のデータなら true(=情報が古い可能性)。 */

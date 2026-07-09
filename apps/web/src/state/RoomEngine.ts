@@ -1023,7 +1023,7 @@ export class RoomEngine {
       return {
         n: r.n,
         t: r.t || "",
-        cap: info ? info.capacity + "人" : "",
+        cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
         free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
         bg: c.bg,
         fg: c.fg,
