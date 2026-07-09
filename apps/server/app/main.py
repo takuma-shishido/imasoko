@@ -1,24 +1,18 @@
-"""FastAPIエントリ・ルーティング・静的配信。担当:ホスト(docs/01)。
+"""FastAPI エントリ・アプリファクトリ。担当:ホスト(docs/01)。
 
-REST(rooms/campus)+ WebSocket(/ws/{room_id})+ SPA 配信(本番は apps/web の dist を static へ)。
+lifespan(有効期限の掃除タスク)と各 APIRouter(routes/ 配下)の組み立てを create_app() に集約する。
+REST(rooms/campus/meta)+ WebSocket(/ws/{room_id})+ SPA 配信(本番は apps/web の dist を static へ)。
 """
 
 import asyncio
 import uuid
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI
 
-from . import campus, expiry, handlers, rooms
-from .config import settings
-from .models import CreateRoomReq, CreateRoomRes, JoinMsg, VisibilityReq
-from .rooms import Member
-from .ws import manager
-
-STATIC_PATH = Path(__file__).resolve().parent.parent / settings.static_dir
+from . import expiry
+from .routes import campus, meta, rooms, spa, ws
 
 
 @asynccontextmanager
@@ -30,7 +24,16 @@ async def lifespan(_app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="いまそこ", lifespan=lifespan)
+def create_app() -> FastAPI:
+    app = FastAPI(title="いまそこ", lifespan=lifespan)
+    app.include_router(meta.router)
+    app.include_router(rooms.router)
+    app.include_router(campus.router)
+    app.include_router(ws.router)
+    # SPA fallback は catch-all(/{full_path:path})なので必ず最後に、かつ dist がある時だけ include。
+    if spa.STATIC_PATH.exists():
+        app.include_router(spa.router)
+    return app
 
 logging.basicConfig(
     level=logging.INFO,

@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { RemainingChip } from "./RemainingChip";
+import { COLORS } from "@/lib/theme";
 
 // 上部エリア切替(3セグメント)+ 残り時間(docs/05 §1 / design/04)。
 export function AreaSwitcher() {
@@ -11,8 +12,8 @@ export function AreaSwitcher() {
         alignItems: "center",
         gap: 8,
         padding: "10px 12px",
-        borderBottom: "1px solid #ebebeb",
-        background: "#fff",
+        borderBottom: `1px solid ${COLORS.BORDER}`,
+        background: COLORS.WHITE,
         position: "relative",
         zIndex: 5,
       }}
@@ -20,7 +21,7 @@ export function AreaSwitcher() {
       <div
         style={{
           display: "flex",
-          background: "#f5f5f5",
+          background: COLORS.BG,
           borderRadius: 9999,
           padding: 3,
           flex: 1,

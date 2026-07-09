@@ -17,9 +17,6 @@ export const END_OFFSET = 3 * 3600000;
 export const MAX_NAME_LENGTH = 20; // 表示名の最大文字数(server: max_name_length)
 export const MAX_MEMBERS_PER_ROOM = 50; // 1ルームの最大人数(server: max_members_per_room)
 
-// WSパス(docs/02 §3)
-export const WS_PATH = "/ws";
-
 // サーバー設定(GET /api/config)の保持先。取得前・取得失敗時は上のフォールバック値のまま(issue #15)。
 // setServerConfig で中身だけ差し替える(参照は不変。campusData.ts の setBuildings と同方式)。
 export const serverConfig = {

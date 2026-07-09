@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +15,8 @@ def setup_function() -> None:
 
 
 def test_expires_at_is_meet_at_plus_3h():
-    meet_at = datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
+    # 日付経過で「meet_at is too old」400 にならないよう、現在時刻基準の未来日時にする(issue #89)。
+    meet_at = (rooms_mod.now() + timedelta(days=1)).replace(second=0, microsecond=0)
     body = client.post("/api/rooms", json={"meet_at": meet_at.isoformat()}).json()
 
     assert datetime.fromisoformat(body["meet_at"]) == meet_at
@@ -30,6 +31,14 @@ def test_meet_at_defaults_to_creation_time():
     meet_at = datetime.fromisoformat(body["meet_at"])
     assert before <= meet_at <= after
     assert datetime.fromisoformat(body["expires_at"]) == meet_at + END_OFFSET
+
+
+def test_meet_at_too_old_returns_400():
+    # 集合時間 +3h を過ぎた過去日時を送ると 400(ドメイン例外を route が変換・issue #91)。
+    old = (rooms_mod.now() - END_OFFSET - timedelta(minutes=1)).isoformat()
+    res = client.post("/api/rooms", json={"meet_at": old})
+    assert res.status_code == 400
+    assert res.json()["detail"] == "meet_at is too old"
 
 
 def test_create_get_and_expire():
@@ -75,6 +84,26 @@ def test_public_list_and_visibility():
     assert ok.status_code == 200
     pub = client.get("/api/rooms/public").json()
     assert len(pub) == 1 and pub[0]["room_id"] == rid
+
+
+def test_public_list_sorted_by_meet_at():
+    # 公開ルーム一覧は集合時間(meet_at)の早い順(issue #76)。
+    # わざと「遅い → 早い」の順で作成し、作成順の素通しでは通らないようにする。
+    # 期限切れ(meet_at + 3h 経過)で一覧から消えないよう、現在時刻を基準にする。
+    base = rooms_mod.now()
+    for hours in (3, 1, 2):
+        body = client.post(
+            "/api/rooms",
+            json={"title": f"t+{hours}h", "meet_at": (base + timedelta(hours=hours)).isoformat()},
+        ).json()
+        client.patch(
+            f"/api/rooms/{body['room_id']}/visibility",
+            json={"visibility": "public"},
+            headers={"x-host-token": body["host_token"]},
+        )
+
+    pub = client.get("/api/rooms/public").json()
+    assert [r["title"] for r in pub] == ["t+1h", "t+2h", "t+3h"]
 
 
 def test_room_status_returns_visibility():

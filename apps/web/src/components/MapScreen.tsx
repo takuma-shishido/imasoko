@@ -3,6 +3,7 @@ import { useRoom } from "@/state/RoomContext";
 import { AreaSwitcher } from "./AreaSwitcher";
 import { MeetingInfoBar } from "./MeetingInfoBar";
 import { MapView } from "./MapView";
+import { COLORS } from "@/lib/theme";
 
 // ルームメイン(地図)= design/04。上部エリア切替 + 状態バー + 地図 + 下部操作バー。
 export function MapScreen() {
@@ -30,8 +31,8 @@ export function MapScreen() {
       {v.reconnecting && (
         <div
           style={{
-            background: "#ffefcf",
-            color: "#ab570a",
+            background: COLORS.AMBER_BG,
+            color: COLORS.AMBER,
             fontSize: 12,
             textAlign: "center",
             padding: 6,
@@ -45,8 +46,8 @@ export function MapScreen() {
       {v.viewerOnly && (
         <div
           style={{
-            background: "#f5f5f5",
-            borderBottom: "1px solid #ebebeb",
+            background: COLORS.BG,
+            borderBottom: `1px solid ${COLORS.BORDER}`,
             fontSize: 12,
             padding: "7px 14px",
             display: "flex",
@@ -56,8 +57,8 @@ export function MapScreen() {
         >
           <span
             style={{
-              background: "#171717",
-              color: "#fff",
+              background: COLORS.INK,
+              color: COLORS.WHITE,
               borderRadius: 9999,
               fontSize: 10,
               padding: "2px 8px",
@@ -65,13 +66,13 @@ export function MapScreen() {
           >
             閲覧のみ
           </span>
-          <span style={{ color: "#4d4d4d", flex: 1 }}>自分の位置は共有されていません</span>
+          <span style={{ color: COLORS.SUBTLE, flex: 1 }}>自分の位置は共有されていません</span>
           <button
             onClick={v.sharePosAgain}
             style={{
               background: "none",
               border: 0,
-              color: "#0070f3",
+              color: COLORS.BLUE,
               fontSize: 12,
               fontFamily: "inherit",
               cursor: "pointer",
@@ -86,8 +87,8 @@ export function MapScreen() {
 
       <div
         style={{
-          borderTop: "1px solid #ebebeb",
-          background: "#fff",
+          borderTop: `1px solid ${COLORS.BORDER}`,
+          background: COLORS.WHITE,
           position: "relative",
           zIndex: 5,
         }}
@@ -108,8 +109,8 @@ export function MapScreen() {
             style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: 6 }}
           >
             <span style={{ fontSize: 13, fontWeight: 600 }}>参加者 {v.memberCount}人</span>
-            <span style={{ fontSize: 11.5, color: "#888888", flex: 1 }}>{v.areaSummary}</span>
-            <span style={{ fontSize: 11, color: "#0070f3" }}>一覧 ↑</span>
+            <span style={{ fontSize: 11.5, color: COLORS.GRAY, flex: 1 }}>{v.areaSummary}</span>
+            <span style={{ fontSize: 11, color: COLORS.BLUE }}>一覧 ↑</span>
           </div>
         </div>
 
@@ -121,7 +122,7 @@ export function MapScreen() {
             gap: 2,
           }}
         >
-          <ActionButton onClick={v.openMeeting} label="集合場所">
+          <ActionButton onClick={v.openMeeting} label="集合場所" tutorialId="meeting-btn">
             <svg
               width="18"
               height="18"
@@ -160,7 +161,7 @@ export function MapScreen() {
               <path d="M2.5 15.5h13" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={v.openShare} label="共有">
+          <ActionButton onClick={v.openShare} label="共有" tutorialId="share-btn">
             <svg
               width="18"
               height="18"
@@ -185,11 +186,11 @@ export function MapScreen() {
               strokeWidth="1.5"
             >
               <path d="M2.5 5.5h13M2.5 12.5h13" />
-              <circle cx="7" cy="5.5" r="1.9" fill="#fff" />
-              <circle cx="11" cy="12.5" r="1.9" fill="#fff" />
+              <circle cx="7" cy="5.5" r="1.9" fill={COLORS.WHITE} />
+              <circle cx="11" cy="12.5" r="1.9" fill={COLORS.WHITE} />
             </svg>
           </ActionButton>
-          <ActionButton onClick={v.tapLeave} label="退出" color="#ee0000" hoverClass="hv-bg-err">
+          <ActionButton onClick={v.tapLeave} label="退出" color={COLORS.ERR} hoverClass="hv-bg-err">
             <svg
               width="18"
               height="18"
@@ -213,8 +214,9 @@ function ActionButton({
   label,
   children,
   opacity = "1",
-  color = "#171717",
+  color = COLORS.INK,
   hoverClass = "hv-bg",
+  tutorialId,
 }: {
   onClick: () => void;
   label: string;
@@ -222,11 +224,13 @@ function ActionButton({
   opacity?: string;
   color?: string;
   hoverClass?: string;
+  tutorialId?: string;
 }) {
   return (
     <button
       onClick={onClick}
       className={hoverClass}
+      data-tutorial={tutorialId}
       style={{
         display: "flex",
         flexDirection: "column",

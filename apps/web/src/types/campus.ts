@@ -3,7 +3,7 @@
 
 export type AreaId = "station_1" | "station_2" | "campus";
 
-/** プロトタイプ実行時のエリア定義(模式SVGのワールドサイズ + 距離換算 m/px)。 */
+/** エリア定義(実地理マップのワールドサイズ + 距離換算 m/px)。 */
 export interface AreaDef {
   name: string;
   short: string;

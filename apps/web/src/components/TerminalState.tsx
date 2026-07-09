@@ -1,5 +1,6 @@
 import { useRoom } from "@/state/RoomContext";
 import { Button } from "./ui/Button";
+import { COLORS } from "@/lib/theme";
 
 // 例外・終了状態(design/08):期限切れ / ルーム終了 / Not Found / 満員。
 export function TerminalState() {
@@ -47,13 +48,13 @@ export function TerminalState() {
           fontFamily: "'Geist Mono',monospace",
           fontSize: 11,
           letterSpacing: ".14em",
-          color: "#888888",
+          color: COLORS.GRAY,
         }}
       >
         {code}
       </div>
       <div style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.4 }}>{title}</div>
-      <div style={{ fontSize: 13, color: "#4d4d4d", lineHeight: 1.8 }}>{desc}</div>
+      <div style={{ fontSize: 13, color: COLORS.SUBTLE, lineHeight: 1.8 }}>{desc}</div>
       <div
         style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22, width: "100%" }}
       >

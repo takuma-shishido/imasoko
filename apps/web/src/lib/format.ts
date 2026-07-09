@@ -2,11 +2,6 @@
 
 export const fmt2 = (n: number): string => String(n).padStart(2, "0");
 
-export const fmtClock = (ts: number): string => {
-  const d = new Date(ts);
-  return d.getHours() + ":" + fmt2(d.getMinutes());
-};
-
 const d0off = (ts: number): number => new Date(ts).getTimezoneOffset() * 60000;
 
 /** datetime-local の value 形式 "YYYY-MM-DDTHH:mm"(ローカルタイム)。 */

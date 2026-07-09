@@ -8,6 +8,7 @@ import logging
 
 from . import rooms
 from .config import settings
+from .models import RoomExpiredMsg
 from .ws import manager
 
 
@@ -16,7 +17,7 @@ async def cleanup_once() -> int:
     removed = 0
     for room in rooms.all_rooms():
         if rooms.is_expired(room):
-            await manager.broadcast(room.room_id, {"type": "room_expired"})
+            await manager.broadcast(room.room_id, RoomExpiredMsg().model_dump())
             for _member_id, ws in manager.members_ws(room.room_id):
                 try:
                     await ws.close()

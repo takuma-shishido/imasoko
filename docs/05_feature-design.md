@@ -230,11 +230,11 @@ server → client(既存に追加):
 
 ## TODO
 
-> 実装状況の詳細は [06 実装ステータス §4.6](./06_implementation-status.md)。**フロントはシミュレーション自走・サーバーは雛形で、両者の実配線は未接続。**
+> 実装状況の詳細は [06 実装ステータス §4.6](./06_implementation-status.md)。**フロント↔サーバーは実配線済み(WS/REST/実GPS)。地図は OSM GeoJSON の実地理描画。**
 
 ### マップ(§1・§2)
 - [ ] 各エリアの**対象範囲**を確定(現状は模式・エリア名のみ確定)
-- [ ] 3エリアのSVGを実地理トレースで作画 → **現状はインライン模式SVG**(`src/components/map/*Svg.tsx`)で代替([06 §2](./06_implementation-status.md))
+- [x] 3エリアを実地理化 → **OSM GeoJSON を実行時投影**(`src/lib/*Geo.ts` + `src/components/map/AreaSvg.tsx`、issue #3。[06 §2](./06_implementation-status.md))
 - [ ] 各エリアのキャリブレーション2点を実測 → `mapAreas.ts` に反映(現状プレースホルダ値)
 - [x] `coords.ts` を**エリア別**に変更 + `resolveArea()` 実装 + ユニットテスト([02 §6](./02_technical-design.md))
 - [x] `AreaSwitcher.tsx` 実装(手動切替 + 現在地から自動選択)

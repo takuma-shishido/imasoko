@@ -1,4 +1,5 @@
 import { useRoom } from "@/state/RoomContext";
+import { COLORS } from "@/lib/theme";
 
 export function Toasts() {
   const v = useRoom();
@@ -21,8 +22,8 @@ export function Toasts() {
         <div
           key={t.id}
           style={{
-            background: "#171717",
-            color: "#fff",
+            background: COLORS.INK,
+            color: COLORS.WHITE,
             fontSize: 12.5,
             padding: "8px 16px",
             borderRadius: 9999,

@@ -26,13 +26,13 @@
 ### server 側 `apps/server/app/config.py`
 
 ```python
-from datetime import timedelta
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    # ルーム
-    room_ttl: timedelta = timedelta(hours=2)      # ⚠ 旧案。実装は end_offset_seconds=3h(集合時間+3h, issue #4)
+    # ルーム(有効期限は「集合時間 + 3h」= end_offset_seconds, issue #4)
+    end_offset_seconds: int = 3 * 3600             # front END_OFFSET と一致
     room_id_bytes: int = 8                         # secrets.token_urlsafe(bytes) → 11文字程度
+    host_token_bytes: int = 16
     # 掃除タスク
     cleanup_interval_seconds: int = 60             # 期限切れ掃除の実行間隔(§8/dev-docs)
     # 入力制限
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # 配信
     static_dir: str = "static"
 
-    model_config = {"env_prefix": "IMASOKO_"}      # 環境変数 IMASOKO_ROOM_TTL 等で上書き可
+    model_config = SettingsConfigDict(env_prefix="IMASOKO_")  # IMASOKO_END_OFFSET_SECONDS 等で上書き可
 
 settings = Settings()
 ```
@@ -63,7 +63,7 @@ export const WS_RECONNECT_MAX_MS = 15000;
 
 | 変数 | 対象 | 例 | 用途 |
 |---|---|---|---|
-| `IMASOKO_ROOM_TTL` | server | `PT3H` 相当/秒指定 | TTL上書き(任意) |
+| `IMASOKO_END_OFFSET_SECONDS` | server | `10800` | 有効期限オフセット(秒)上書き(任意) |
 | `IMASOKO_STATIC_DIR` | server | `static` | 静的配信先 |
 | `VITE_WS_PATH` | web | `/ws` | WSパス(基本固定) |
 
@@ -80,33 +80,44 @@ WS/RESTのメッセージ形は web(TS)と server(Pydantic)で**二重定義**�
 ### `apps/server/app/models.py`(骨子)
 
 ```python
-from typing import Literal, Optional, Union
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, Literal, Union
 from pydantic import BaseModel, Field
 
-# --- client → server ---
+# --- client → server(type で分岐する Discriminated Union)---
 class JoinMsg(BaseModel):
     type: Literal["join"]
     name: str = Field(min_length=1, max_length=20)
-    floor: Optional[str] = None
+    building_id: str | None = None      # 屋内で建物を選んだ場合(05 §2, design)
+    floor: str | None = None
 
 class PositionMsg(BaseModel):
     type: Literal["position"]
-    lat: float; lng: float
-    accuracy: Optional[float] = None
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    accuracy: float | None = None
 
-class FloorMsg(BaseModel):
-    type: Literal["floor"]
-    building_id: Optional[str] = None   # 屋内で建物を選んだ場合(05 §2, design)
-    floor: Optional[str] = None
+# FloorMsg / MeetingPointMsg(point: MeetingPoint|None)/ AddPlaceSuggestionMsg / LeaveMsg も同様
+ClientMsg = Annotated[
+    Union[JoinMsg, PositionMsg, FloorMsg, MeetingPointMsg, AddPlaceSuggestionMsg, LeaveMsg],
+    Field(discriminator="type"),
+]
 
-class MeetingPointMsg(BaseModel):
-    type: Literal["meeting_point"]
-    lat: float; lng: float
+# --- server → client(型付きメッセージ・type は MsgType(str, Enum) 定数)---
+class MsgType(str, Enum):
+    ROOM_STATE = "room_state"
+    # MEMBER_JOINED / MEMBER_LEFT / MEMBER_UPDATE / MEETING_POINT /
+    # PLACE_SUGGESTIONS / ROOM_EXPIRED / ROOM_FULL
 
-ClientMsg = Union[JoinMsg, PositionMsg, FloorMsg, MeetingPointMsg]
-
-# server → client のモデル(room_state, member_joined, member_update, member_left,
-# meeting_point, room_expired)も同様に定義する。
+class RoomStateMsg(BaseModel):
+    type: MsgType = MsgType.ROOM_STATE
+    self_id: str
+    members: list[dict]                 # Member.to_dict() を単一の真実に
+    meeting_point: MeetingPoint | None = None
+    expires_at: str
+# MemberJoinedMsg / MemberUpdateMsg / MemberLeftMsg / MeetingPointBroadcastMsg /
+# PlaceSuggestionsMsg / RoomExpiredMsg / RoomFullMsg も同様に型付き定義済み
 ```
 
 `type` フィールドで分岐(`Field(discriminator="type")` を使うと安全にパースできる)。
@@ -171,8 +182,8 @@ CIでこれらを回す設定は [03](./03_cicd.md)。**まずは coords と roo
 - [x] `apps/server/.env.example` を作成
 - [x] `apps/server/app/models.py` にClient/Serverメッセージの Pydantic モデルを定義
 - [x] `apps/web/src/types/messages.ts` に対応TS型を定義
-- [x] `useRoomSocket` に再接続バックオフ + join再送を実装(雛形, §5)
-- [x] `useGeolocation` に「拒否時=閲覧のみ」モードを実装(雛形, §5)
+- [x] `useRoomSocket` に再接続バックオフ + join再送を実装し実サーバーへ配線(§5・issue #1)
+- [x] `useGeolocation` に「拒否時=閲覧のみ」モードを実装し実GPSへ配線(§5・issue #2)
 - [x] `coords.ts` の変換ユニットテストを作成(§6)
 - [ ] キャリブレーション2点の実測 → `coords.ts`/`mapAreas.ts` 定数差し替え(現状プレースホルダ, §6)
 - [x] Pydanticで lat/lng・name・floor のバリデーションを実装(§7)

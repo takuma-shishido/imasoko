@@ -85,6 +85,17 @@ textarea {
     transform: rotate(360deg);
   }
 }
+/* チュートリアルの吹き出しが"ポッ"と弾んで出る(transform-origin は尻尾側に指定) */
+@keyframes ims-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* ── hover ユーティリティ(プロトタイプの style-hover 相当) ── */
 .hv-border:hover {

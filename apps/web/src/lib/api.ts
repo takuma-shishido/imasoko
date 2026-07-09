@@ -1,6 +1,5 @@
 // REST クライアント(同一オリジン・相対パス。docs/dev-docs §5 / docs/05 §6)。
-// ※ 本アプリのデモはシミュレーションで自走するため、これらはバックエンド雛形(apps/server)を
-//    実配線する際に使用する。エンドポイントは docs 準拠。
+// RoomEngine から実サーバー(apps/server)への作成 / 取得 / 公開一覧 / visibility / campus / config 呼び出しに使用。
 
 import type {
   CampusRes,
