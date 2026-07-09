@@ -58,7 +58,6 @@ def load_campus() -> dict:
         except Exception:
             pass
 
-
     classrooms: list = []
     csv_path = DATA_DIR / "classrooms.csv"
     if csv_path.exists():
