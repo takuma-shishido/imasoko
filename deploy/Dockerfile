@@ -5,7 +5,7 @@
 FROM node:20-slim AS front
 WORKDIR /front
 COPY apps/web/package*.json ./
-RUN npm ci
+RUN npm install
 COPY apps/web/ ./
 # web をビルド → /front/dist
 RUN npm run build
