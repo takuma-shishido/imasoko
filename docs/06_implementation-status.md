@@ -34,7 +34,7 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 - `app/`:`config` / `models` / `rooms` / `expiry` / `ws` / `handlers` / `campus` / `main`。
   - リファクタで `main.py`(188→37行)を `create_app()` ファクトリ + **`app/routes/{meta,rooms,campus,ws,spa}.py`** の APIRouter に分割。`from app.main import app` は維持。
   - server→client メッセージは `models.py` の型付きクラス群(`RoomStateMsg` / `MemberJoinedMsg` / … / `RoomFullMsg`)+ `MsgType` 定数 + `MeetingPoint`/`PlaceSuggestion` 型で構成(`ServerMsg` union は web 側 `messages.ts` のみ)。WS 受信ループから独立した `handlers.establish_join` / `cleanup_on_disconnect` を抽出。
-- REST:`POST /api/rooms`・`GET /api/rooms/{id}`・`GET /api/rooms/public`・`PATCH /api/rooms/{id}/visibility`・`GET /api/campus`(パス・挙動は不変)。
+- REST:`POST /api/rooms`・`GET /api/rooms/{id}`・`GET /api/rooms/public`・`PATCH /api/rooms/{id}`(部分更新。旧 /visibility を整理、issue #166)・`GET /api/campus`。
 - WS:`/ws/{room_id}`(join → room_state → position / floor / meeting_point / add_place_suggestion / leave)。
 - `data/buildings.json` + `data/classrooms.csv`、`tests/`(rooms / expiry / ws / config / campus)。
 - 空き教室:`classrooms.csv` は MUSCAT 実データ(91教室・`scripts/classinfo_to_csv.py` で生成、issue #140)。`GET /api/campus` の `classrooms[]` は `capacity`(数値)・`date`・`available[{start,end}]` を構造化配信(issue #141)。web は空き教室追加パネルで空き状態(集合時刻時点)・収容人数・空き時間帯を表示(issue #142)。

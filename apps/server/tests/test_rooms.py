@@ -140,3 +140,22 @@ def test_campus_endpoint():
     data = client.get("/api/campus").json()
     assert len(data["areas"]) == 3
     assert any(b["id"] == "b1" for b in data["buildings"])
+
+
+def test_patch_room_partial_update():
+    # PATCH /api/rooms/{id} は指定フィールドだけ更新する(部分更新。issue #166)。
+    body = client.post("/api/rooms", json={"title": "元の名前", "visibility": "public"}).json()
+    rid, token = body["room_id"], body["host_token"]
+    headers = {"x-host-token": token}
+
+    # title のみ → visibility は変わらない
+    res = client.patch(f"/api/rooms/{rid}", json={"title": "新しい名前"}, headers=headers).json()
+    assert res == {"visibility": "public", "title": "新しい名前"}
+
+    # visibility のみ → title は消えない
+    res = client.patch(f"/api/rooms/{rid}", json={"visibility": "private"}, headers=headers).json()
+    assert res == {"visibility": "private", "title": "新しい名前"}
+
+    # 空 body → 何も変わらず現状値を返す(no-op)
+    res = client.patch(f"/api/rooms/{rid}", json={}, headers=headers).json()
+    assert res == {"visibility": "private", "title": "新しい名前"}
