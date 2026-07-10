@@ -62,6 +62,7 @@ imasoko/
 │  │  │  │  ├─ RoomEngine.ts     # 中核の状態機械(renderVals はセレクタのスプレッド合成)
 │  │  │  │  ├─ RoomContext.tsx   # useSyncExternalStore で React にブリッジ
 │  │  │  │  ├─ MapGestureController.ts / SheetController.ts  # 地図ジェスチャ / シート操作
+│  │  │  │  ├─ RoomSocketHandler.ts # WS 受信処理(サーバー → 状態反映。issue #164)
 │  │  │  │  └─ selectors/        # renderVals の派生値(mapVals / sheetVals / topVals)
 │  │  │  ├─ App.tsx              # ルーティング
 │  │  │  └─ main.tsx             # エントリ
