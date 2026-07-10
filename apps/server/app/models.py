@@ -145,8 +145,10 @@ class CreateRoomRes(BaseModel):
     visibility: Visibility
 
 
-class VisibilityReq(BaseModel):
-    visibility: Visibility
+class UpdateRoomReq(BaseModel):
+    """PATCH /api/rooms/{room_id} の部分更新(指定したフィールドだけ変更する。issue #166)。"""
+
+    visibility: Visibility | None = None
     title: str | None = None
 
 

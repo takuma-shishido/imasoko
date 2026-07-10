@@ -138,9 +138,11 @@ curl http://localhost:8000/api/rooms/public
 
 ---
 
-### 1.4 `PATCH /api/rooms/{room_id}/visibility` — 公開範囲の切替(host のみ)
+### 1.4 `PATCH /api/rooms/{room_id}` — ルームの部分更新(host のみ。issue #166)
 
-「全員の現在地を不特定多数に晒す」変更のため、**`host_token` 必須**([05 §3](./05_feature-design.md))。
+公開範囲(visibility)・ルーム名(title)の部分更新。**指定したフィールドだけ**変更される。
+「全員の現在地を不特定多数に晒す」変更を含むため、**`host_token` 必須**([05 §3](./05_feature-design.md))。
+(旧 `PATCH …/visibility` は公開範囲変更とリネームを兼務していたため、部分更新 API に整理)
 
 **リクエスト**
 
@@ -149,15 +151,15 @@ Header: x-host-token: KqSOHpWqoU21WVYx_ycstQ
 ```
 ```jsonc
 {
-  "visibility": "public",         // "private" | "public"
-  "title": "サッカー部 集合"       // 任意。公開一覧の表示名を同時更新
+  "visibility": "public",         // 任意。"private" | "public"
+  "title": "サッカー部 集合"       // 任意。ルーム名(公開一覧・参加画面の表示名)
 }
 ```
 
 **レスポンス `200`**
 
 ```json
-{ "visibility": "public" }
+{ "visibility": "public", "title": "サッカー部 集合" }
 ```
 
 **エラー**
@@ -170,7 +172,7 @@ Header: x-host-token: KqSOHpWqoU21WVYx_ycstQ
 **curl 例**
 
 ```bash
-curl -X PATCH http://localhost:8000/api/rooms/XV1G7Y-_rDI/visibility \
+curl -X PATCH http://localhost:8000/api/rooms/XV1G7Y-_rDI \
   -H 'Content-Type: application/json' \
   -H 'x-host-token: KqSOHpWqoU21WVYx_ycstQ' \
   -d '{"visibility":"public","title":"サッカー部 集合"}'
@@ -441,7 +443,7 @@ interface PlaceSuggestion {
 | `POST /api/rooms` | `app/routes/rooms.py` `create_room` / `app/rooms.py` | `lib/api.ts` `createRoom` |
 | `GET /api/rooms/{id}` | `app/routes/rooms.py` `room_status` | `lib/api.ts` `getRoom` |
 | `GET /api/rooms/public` | `app/routes/rooms.py` `public_rooms` / `rooms.list_public` | `lib/api.ts` `getPublicRooms` |
-| `PATCH …/visibility` | `app/routes/rooms.py` `patch_visibility` / `rooms.set_visibility` | `lib/api.ts` `patchVisibility` |
+| `PATCH /api/rooms/{id}` | `app/routes/rooms.py` `patch_room` / `rooms.update_room` | `lib/api.ts` `patchRoom` |
 | `GET /api/campus` | `app/routes/campus.py` / `app/campus.py` | `lib/api.ts` `getCampus` |
 | `GET /api/config` · `GET /api/health` | `app/routes/meta.py`(health は `status` に加え稼働状況 `active_rooms` / `total_members` を返す。issue #10) | — |
 | `WS /ws/{id}` | `app/routes/ws.py` `ws_endpoint` / `app/handlers.py`(`establish_join`/`handle`/`cleanup_on_disconnect`)/ `app/ws.py` | `hooks/useRoomSocket.ts` |

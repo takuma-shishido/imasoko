@@ -32,6 +32,15 @@ export interface CreateRoomRes {
   expires_at: string;
   visibility: Visibility;
 }
+/** PATCH /api/rooms/{id} の部分更新(server models.UpdateRoomReq と対応。issue #166)。 */
+export interface UpdateRoomReq {
+  visibility?: Visibility;
+  title?: string;
+}
+export interface UpdateRoomRes {
+  visibility: Visibility;
+  title: string;
+}
 export interface RoomStatusRes {
   status: "active";
   expires_at: string;

@@ -200,7 +200,7 @@ b1,2F,b1-201,201,40,2026-07-09,00:00-08:50/10:30-13:10/19:00-24:00
 |---|---|
 | `POST /api/rooms` | body に `title?` `visibility?`。レスポンスに **`host_token`** `visibility` を追加 |
 | `GET /api/rooms/public` | **追加**。public かつ有効なルーム一覧 `[{room_id, title, members, expires_at}]` |
-| `PATCH /api/rooms/{id}/visibility` | **追加**。`host_token` 必須。private⇔public 切替 |
+|  `PATCH /api/rooms/{id}`(旧 /visibility、issue #166) | **追加**。`host_token` 必須。private⇔public 切替 |
 | `GET /api/campus` | **追加**。`{ areas, buildings }`(マップエリア定義 + 建物/階/教室) |
 
 ### WebSocket(`type` で分岐, [dev-docs §6](./imasoko-dev-docs.md)を拡張)
@@ -252,7 +252,7 @@ server → client(既存に追加):
 - [x] `Room` に `visibility`(既定 private)・`title`・`host_token` を追加
 - [x] `POST /api/rooms` を `visibility`/`title` 受付・`host_token` 返却に拡張
 - [x] `GET /api/rooms/public` 実装
-- [x] `PATCH /api/rooms/{id}/visibility`(`host_token` 検証)実装
+- [x] `PATCH /api/rooms/{id}`(`host_token` 検証。旧 /visibility、issue #166)実装
 - [x] フロント:public化の**警告UI** + 公開一覧画面
 
 ### 集合場所・空き教室(§4・§5)

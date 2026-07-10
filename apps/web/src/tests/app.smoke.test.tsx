@@ -22,7 +22,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       getPublicRooms: vi.fn(async () => [
         { room_id: "p1", title: "サッカー部 集合", members: 5, expires_at: in3h() },
       ]),
-      patchVisibility: vi.fn(async () => ({ visibility: "public" as const })),
+      patchRoom: vi.fn(async () => ({ visibility: "public" as const, title: "" })),
       // campus はスモークで検証しないため取得失敗にし、フォールバック定義を使わせる。
       getCampus: vi.fn(async () => {
         throw new Error("campus not exercised in smoke");

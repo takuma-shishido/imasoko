@@ -19,7 +19,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       })),
       getRoom: vi.fn(async () => ({ status: "active" as const, expires_at: in3h() })),
       getPublicRooms: vi.fn(async () => []),
-      patchVisibility: vi.fn(async () => ({ visibility: "public" as const })),
+      patchRoom: vi.fn(async () => ({ visibility: "public" as const, title: "" })),
       getCampus: vi.fn(async () => {
         throw new Error("campus not exercised");
       }),

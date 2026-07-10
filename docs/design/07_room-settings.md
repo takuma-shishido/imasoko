@@ -34,7 +34,7 @@
 | 要素 | 挙動 |
 |---|---|
 | 共有URL | 現在の `/r/:id`。[リンクをコピー]=クリップボード、[共有…]=Web Share API(LINE等に1タップ, [企画書 4.1](../imasoko-kikakusho.md)) |
-| **公開範囲**(host のみ) | 非公開⇔公開を切替。`PATCH /api/rooms/:id/visibility`(`host_token` 必須)。公開選択時は**警告**「全員の現在地がURLなしで誰でも見られます」を確認 |
+| **公開範囲**(host のみ) | 非公開⇔公開を切替。`PATCH /api/rooms/:id`(`host_token` 必須)。公開選択時は**警告**「全員の現在地がURLなしで誰でも見られます」を確認 |
 | ルーム名 | public一覧([02](./02_public-rooms.md))の表示名。任意。設定は公開時のみ意味を持つ |
 | **[ルームを退出]** | `leave` 送信 → WS切断 → トップへ。サーバは `member_left` を全員へ([05 §0](../05_feature-design.md)) |
 
@@ -44,7 +44,7 @@
 ## API / WS
 
 ```
-PATCH /api/rooms/:id/visibility   req(host_token): { visibility, title? }  → { visibility }
+PATCH /api/rooms/:id             req(host_token): { visibility?, title? } → { visibility, title }(部分更新。issue #166)
 WS 送信 leave                     { type:"leave" }
 ```
 

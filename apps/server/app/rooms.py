@@ -158,8 +158,13 @@ def all_rooms() -> list[Room]:
     return list(_rooms.values())
 
 
-def set_visibility(room: Room, visibility: str, title: str | None) -> None:
-    room.visibility = visibility
+def update_room(room: Room, visibility: str | None, title: str | None) -> None:
+    """ルームの部分更新(None のフィールドは変更しない。issue #166)。
+
+    旧 set_visibility は名前に反して title も更新していたため、責務を関数名に合わせて改名。
+    """
+    if visibility is not None:
+        room.visibility = visibility
     if title is not None:
         room.title = title
 
