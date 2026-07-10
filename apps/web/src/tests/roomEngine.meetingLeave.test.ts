@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { RoomEngine } from "@/state/RoomEngine";
+import { meetingLabelOf } from "@/lib/labels";
 import type { ClientMsg, MeetingPointMsg, MemberState } from "@/types/messages";
 
 // 集合先(member 追従)の相手が退出しても集合場所が消えないこと(issue #37 案B)を engine 単体で検証する。
@@ -50,7 +51,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
     });
     // 退出後もピン位置(resolveMeetingPos)とラベルが破綻しない
     expect(e.resolveMeetingPos()).toEqual({ area: last.area, x: last.x, y: last.y });
-    expect(e.meetingLabelOf(e.state.meeting)).toBe("ゆうたさんが最後にいた場所");
+    expect(meetingLabelOf(e.state.meeting, e.state.members)).toBe("ゆうたさんが最後にいた場所");
   });
 
   it("固定後も自分からの距離が計算できる(coords は unproject で実距離を出す)", () => {

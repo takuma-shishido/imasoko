@@ -48,6 +48,7 @@ imasoko/
 │  │  │  │  ├─ wire.ts           # WS 受信 dict → 内部型への変換
 │  │  │  │  ├─ api.ts            # REST呼び出し
 │  │  │  │  ├─ format.ts / campusData.ts   # 表示整形 / キャンパスマスタ整形
+│  │  │  │  ├─ labels.ts         # メンバー・集合場所の表示ラベル生成(issue #165)
 │  │  │  │  ├─ theme.ts / chipColors.ts    # 色トークン / 選択チップ色(#88)
 │  │  │  │  └─ constants.ts      # throttle間隔などフロント定数(02)
 │  │  │  ├─ data/               # OSM 由来 GeoJSON(campus/station1/station2, #3)
