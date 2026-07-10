@@ -4,12 +4,11 @@
 // deps 注入(docs/08 W8)。REST 呼び出し・状態遷移・トースト文言は engine 時代から不変。
 
 import type { DemoRoom } from "@/types/campus";
+import type { Visibility } from "@/types/messages";
 import { api, HttpError, getHostToken, saveHostToken } from "@/lib/api";
 import { serverConfig } from "@/lib/constants";
 import { fromLocalInput } from "@/lib/format";
 import type { State } from "./RoomEngine";
-
-type Visibility = "private" | "public";
 // engine.setState と同じシグネチャ(パッチ or 更新関数)。
 type StateSetter = (patch: Partial<State> | ((s: State) => Partial<State>)) => void;
 
@@ -99,9 +98,9 @@ export class RoomSession {
     }
   }
 
-  openPublicRoom(r: DemoRoom) {
+  openPublicRoom = (r: DemoRoom) => {
     void this.openRoomById(r.id, r.title);
-  }
+  };
 
   // 参加前の存在チェック(共有リンク/公開一覧クリック)。404→NotFound / 410→期限切れ(issue #13)。
   openRoomById = async (roomId: string, title = "") => {
