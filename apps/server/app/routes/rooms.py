@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Header, HTTPException
 
 from .. import rooms
-from ..models import CreateRoomReq, CreateRoomRes, VisibilityReq
+from ..models import CreateRoomReq, CreateRoomRes, UpdateRoomReq
 
 router = APIRouter()
 
@@ -39,14 +39,19 @@ def room_status(room_id: str) -> dict:
     return rooms.room_status_wire(room)
 
 
-@router.patch("/api/rooms/{room_id}/visibility")
-def patch_visibility(
-    room_id: str, body: VisibilityReq, x_host_token: str | None = Header(default=None)
+@router.patch("/api/rooms/{room_id}")
+def patch_room(
+    room_id: str, body: UpdateRoomReq, x_host_token: str | None = Header(default=None)
 ) -> dict:
+    """ルームの部分更新(visibility / title。host のみ。issue #166)。
+
+    旧 `PATCH /api/rooms/{room_id}/visibility` は公開範囲変更とリネームを1エンドポイントで
+    兼務していたため、部分更新 API として整理した(指定フィールドだけ変更)。
+    """
     room = rooms.get_room(room_id)
     if room is None or rooms.is_expired(room):
         raise HTTPException(status_code=404, detail="not found")
     if not x_host_token or x_host_token != room.host_token:
         raise HTTPException(status_code=403, detail="forbidden")
-    rooms.set_visibility(room, body.visibility, body.title)
-    return {"visibility": room.visibility}
+    rooms.update_room(room, body.visibility, body.title)
+    return {"visibility": room.visibility, "title": room.title}

@@ -17,7 +17,9 @@ describe("ルーム名の変更(設定シート)", () => {
     const e = new RoomEngine();
     e.setState({ roomId: "room1", visibility: "public", isHost: true });
     saveHostToken("room1", "tok", Date.now() + 3600000);
-    const spy = vi.spyOn(api, "patchVisibility").mockResolvedValue({ visibility: "public" });
+    const spy = vi
+      .spyOn(api, "patchRoom")
+      .mockResolvedValue({ visibility: "public", title: "サッカー部 集合" });
 
     e.onTitleInput("サッカー");
     e.onTitleInput("サッカー部 集合");
@@ -25,7 +27,7 @@ describe("ルーム名の変更(設定シート)", () => {
 
     await vi.advanceTimersByTimeAsync(900);
     expect(spy).toHaveBeenCalledTimes(1); // デバウンスされ最後の値だけ送る
-    expect(spy).toHaveBeenCalledWith("room1", "tok", "public", "サッカー部 集合");
+    expect(spy).toHaveBeenCalledWith("room1", "tok", { title: "サッカー部 集合" });
     expect(e.state.roomTitle).toBe("サッカー部 集合");
   });
 
@@ -33,7 +35,7 @@ describe("ルーム名の変更(設定シート)", () => {
     vi.useFakeTimers();
     const e = new RoomEngine();
     e.setState({ roomId: "room1", visibility: "public" });
-    const spy = vi.spyOn(api, "patchVisibility").mockResolvedValue({ visibility: "public" });
+    const spy = vi.spyOn(api, "patchRoom").mockResolvedValue({ visibility: "public", title: "" });
 
     e.onTitleInput("勝手に変更");
     await vi.advanceTimersByTimeAsync(900);
@@ -57,7 +59,7 @@ describe("ルーム名の変更(設定シート)", () => {
     const e = new RoomEngine();
     e.setState({ roomId: "room1", visibility: "public", isHost: true });
     saveHostToken("room1", "tok", Date.now() + 3600000);
-    vi.spyOn(api, "patchVisibility").mockRejectedValue(new Error("network"));
+    vi.spyOn(api, "patchRoom").mockRejectedValue(new Error("network"));
 
     e.onTitleInput("新しい名前");
     await vi.advanceTimersByTimeAsync(900);

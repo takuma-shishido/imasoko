@@ -70,14 +70,11 @@ def test_public_list_and_visibility():
     assert client.get("/api/rooms/public").json() == []
 
     # host_token 無しの公開切替は拒否(403)
-    assert (
-        client.patch(f"/api/rooms/{rid}/visibility", json={"visibility": "public"}).status_code
-        == 403
-    )
+    assert client.patch(f"/api/rooms/{rid}", json={"visibility": "public"}).status_code == 403
 
     # host_token 付きで公開 → 一覧に載る
     ok = client.patch(
-        f"/api/rooms/{rid}/visibility",
+        f"/api/rooms/{rid}",
         json={"visibility": "public"},
         headers={"x-host-token": token},
     )
@@ -97,7 +94,7 @@ def test_public_list_sorted_by_meet_at():
             json={"title": f"t+{hours}h", "meet_at": (base + timedelta(hours=hours)).isoformat()},
         ).json()
         client.patch(
-            f"/api/rooms/{body['room_id']}/visibility",
+            f"/api/rooms/{body['room_id']}",
             json={"visibility": "public"},
             headers={"x-host-token": body["host_token"]},
         )
@@ -116,7 +113,7 @@ def test_room_status_returns_visibility():
 
     # host_token 付きで public に変更 → GET も public を返す(サーバー保持値と一致)
     client.patch(
-        f"/api/rooms/{rid}/visibility",
+        f"/api/rooms/{rid}",
         json={"visibility": "public"},
         headers={"x-host-token": token},
     )
@@ -130,9 +127,9 @@ def test_room_status_returns_title():
     rid, token = body["room_id"], body["host_token"]
     assert client.get(f"/api/rooms/{rid}").json()["title"] == "変更前"
 
-    # 名前を変更(PATCH /visibility は title 更新も受ける)→ GET に反映される
+    # 名前を変更(PATCH /api/rooms/{id} の部分更新)→ GET に反映される
     client.patch(
-        f"/api/rooms/{rid}/visibility",
+        f"/api/rooms/{rid}",
         json={"visibility": "public", "title": "変更後"},
         headers={"x-host-token": token},
     )

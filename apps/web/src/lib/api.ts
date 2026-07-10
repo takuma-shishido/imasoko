@@ -8,7 +8,8 @@ import type {
   CreateRoomRes,
   PublicRoomRes,
   RoomStatusRes,
-  Visibility,
+  UpdateRoomReq,
+  UpdateRoomRes,
 } from "@/types/messages";
 import { serverConfig } from "@/lib/constants";
 
@@ -41,17 +42,13 @@ export const api = {
   getPublicRooms: (): Promise<PublicRoomRes[]> =>
     fetch("/api/rooms/public").then(json<PublicRoomRes[]>),
 
-  patchVisibility: (
-    roomId: string,
-    hostToken: string,
-    visibility: Visibility,
-    title?: string
-  ): Promise<{ visibility: Visibility }> =>
-    fetch(`/api/rooms/${encodeURIComponent(roomId)}/visibility`, {
+  // ルームの部分更新(visibility / title。host のみ。issue #166)。指定フィールドだけ変更される。
+  patchRoom: (roomId: string, hostToken: string, body: UpdateRoomReq): Promise<UpdateRoomRes> =>
+    fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", "x-host-token": hostToken },
-      body: JSON.stringify({ visibility, title }),
-    }).then(json<{ visibility: Visibility }>),
+      body: JSON.stringify(body),
+    }).then(json<UpdateRoomRes>),
 
   getCampus: (): Promise<CampusRes> => fetch("/api/campus").then(json<CampusRes>),
 

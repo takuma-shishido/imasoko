@@ -796,7 +796,7 @@ export class RoomEngine {
     this.setState({ visibility }); // 楽観更新
     const titleSent = this.state.roomTitle.trim() || undefined;
     try {
-      await api.patchVisibility(this.state.roomId, token, visibility, titleSent);
+      await api.patchRoom(this.state.roomId, token, { visibility, title: titleSent });
       if (titleSent !== undefined) this.syncedTitle = titleSent;
       this.toast(successMsg);
     } catch (e) {
@@ -815,14 +815,14 @@ export class RoomEngine {
     if (this.titleTimer) clearTimeout(this.titleTimer);
     this.titleTimer = setTimeout(() => void this.commitTitle(), 800);
   };
-  // ルーム名をサーバーへ反映(PATCH /visibility は title 更新も受ける)。host のみ。
+  // ルーム名をサーバーへ反映(PATCH /api/rooms/{id} の部分更新で title のみ送る)。host のみ。
   private async commitTitle() {
     const title = this.state.roomTitle.trim();
     if (title === this.syncedTitle) return;
     const token = getHostToken(this.state.roomId);
     if (!token) return;
     try {
-      await api.patchVisibility(this.state.roomId, token, this.state.visibility, title);
+      await api.patchRoom(this.state.roomId, token, { title });
       this.syncedTitle = title;
       this.toast("ルーム名を変更しました");
     } catch {
