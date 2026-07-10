@@ -23,7 +23,7 @@ export function fmtDist(d: number): string {
 }
 
 // 目的地(集合場所)までの距離を GPS 実座標(緯度経度)から計算する(issue #28)。
-// 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は resolveMeetingPos の x/y を unproject で復元。
+// 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は meeting.resolvePos() の x/y を unproject で復元。
 export function distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
   // 閲覧のみ/位置未共有は「—」。範囲外(lost)でも GPS があれば実距離を出す(issue #28)。
   if (!mp || m.viewer || m.lat == null || m.lng == null) return "—";

@@ -1,7 +1,7 @@
 // renderVals() の sheets(重畳シート)派生値を切り出した pure セレクタ(issue #101)。
 // 対象は共通シート枠 + members / building / meeting / places / share / settings シート。
 // 返すキー集合・各値・キー順は RoomEngine.renderVals の該当セクションと完全一致させる(挙動不変)。
-// engine の可変状態(state)を読み、公開 computed(resolveMeetingPos)や bound ハンドラ・
+// engine の可変状態(state)を読み、公開 computed(meeting.resolvePos)や bound ハンドラ・
 // setState / patchSub は engine 経由で参照する。表示整形(locLabel / distTo)は lib/labels、
 // 空き教室追加パネルの派生値(addPlanVals)は本ファイルのローカル関数(issue #165)。
 // シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
