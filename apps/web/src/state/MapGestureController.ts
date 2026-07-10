@@ -25,6 +25,13 @@ export interface MapGestureDeps {
   toast: (msg: string) => void;
 }
 
+// ズーム倍率の上限・下限(下限はエリア全体が収まる fit 倍率に対する比率。issue #167)
+const ZOOM_MAX = 3.5;
+const ZOOM_MIN_FIT_RATIO = 0.7;
+// ズーム倍率を許容範囲にクランプする(ピンチ / ホイール / FAB ズームで共通)。
+const clampZoom = (fit: number, k: number): number =>
+  Math.min(ZOOM_MAX, Math.max(fit * ZOOM_MIN_FIT_RATIO, k));
+
 export class MapGestureController {
   private deps: MapGestureDeps;
 
@@ -105,8 +112,7 @@ export class MapGestureController {
       const { tx, ty, k } = this.deps.getState().view;
       const A = AREAS[this.deps.getState().area];
       const fit = Math.min(r.width / A.w, r.height / A.h);
-      // onMapWheel / zoomBy と同じ nk クランプ(fit*0.7〜3.5)。
-      const nk = Math.min(3.5, Math.max(fit * 0.7, k * (curDist / prevDist)));
+      const nk = clampZoom(fit, k * (curDist / prevDist));
       const pmx = prevMidX - r.left;
       const pmy = prevMidY - r.top;
       const cmx = curMidX - r.left;
@@ -191,7 +197,7 @@ export class MapGestureController {
     const { tx, ty, k } = this.deps.getState().view;
     const A = AREAS[this.deps.getState().area];
     const fit = Math.min(r.width / A.w, r.height / A.h);
-    const nk = Math.min(3.5, Math.max(fit * 0.7, k * Math.exp(-e.deltaY * 0.0016)));
+    const nk = clampZoom(fit, k * Math.exp(-e.deltaY * 0.0016));
     const cx = e.clientX - r.left;
     const cy = e.clientY - r.top;
     this.deps.setState({
@@ -205,7 +211,7 @@ export class MapGestureController {
     const { tx, ty, k } = this.deps.getState().view;
     const A = AREAS[this.deps.getState().area];
     const fit = Math.min(r.width / A.w, r.height / A.h);
-    const nk = Math.min(3.5, Math.max(fit * 0.7, k * f));
+    const nk = clampZoom(fit, k * f);
     const cx = r.width / 2;
     const cy = r.height / 2;
     this.deps.setState({
