@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        # 配信オリジン(OGP 用)。本番は未指定で既定、dev は deploy.yml が PUBLIC_ORIGIN で差し替え
+        PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+    restart: unless-stopped
+    # host port は環境ごとに差し替え(本番8000 / dev8001)。リバースプロキシ経由で 443 → この port(TLS終端・WS中継)
+    # 2環境共存時は compose プロジェクト名で分離: 本番 `-p imasoko` / dev `APP_PORT=8001 -p imasoko-dev`(issue #40)
+    ports: ["${APP_PORT:-8000}:8000"]
+    environment:
+      # TTL 等の上書きが必要ならここで(docs/02 §3)
+      - IMASOKO_STATIC_DIR=static

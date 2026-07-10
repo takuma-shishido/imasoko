@@ -1,0 +1,388 @@
+import type { ReactNode } from "react";
+import type { AreaId, AreaProjection } from "@/types/campus";
+import { useRoom } from "@/state/RoomContext";
+import { AREA_GEO } from "@/lib/areaRegistry";
+import { AreaSvg } from "./map/AreaSvg";
+import { COLORS } from "@/lib/theme";
+
+// 実地図は街区に合わせて回転しているため、北がどちらかを示すコンパスの回転角(度)をエリア別に用意。
+// 北方向の画面ベクトルは (bx, by)。上向き矢印をこの角度だけ時計回りに回すと北を指す。
+// 投影はエリアレジストリ(areaRegistry)から引き、エリア別の手書き列挙をやめる(issue #105)。
+const northDegOf = (p: AreaProjection): number => (Math.atan2(p.bx, -p.by) * 180) / Math.PI;
+const NORTH_DEG: Record<AreaId, number> = Object.fromEntries(
+  (Object.keys(AREA_GEO) as AreaId[]).map((id) => [id, northDegOf(AREA_GEO[id].projection)])
+) as Record<AreaId, number>;
+
+// 地図ビュー(Leaflet 相当の pan/zoom を CSS transform で実装。基図は実地理 GeoJSON)。
+// SVG・注記テキスト・建物・ピン・集合ピン・バナー・FAB を描画する(design/04)。
+export function MapView() {
+  const v = useRoom();
+  return (
+    <div
+      ref={v.vpRef}
+      onPointerDown={v.onMapDown}
+      onPointerMove={v.onMapMove}
+      onPointerUp={v.onMapUp}
+      onPointerCancel={v.onMapCancel}
+      onWheel={v.onMapWheel}
+      style={{
+        flex: 1,
+        position: "relative",
+        overflow: "hidden",
+        background: COLORS.BG,
+        touchAction: "none",
+        userSelect: "none", // ドラッグ/長押しで地図上テキストが選択されるのを防ぐ(issue #36)
+        WebkitUserSelect: "none", // Safari / iOS
+        cursor: "grab",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: v.worldW,
+          height: v.worldH,
+          transform: v.mapTransform,
+          transformOrigin: "0 0",
+        }}
+      >
+        <AreaSvg areaId={v.area} />
+
+        {/* 注記テキストレイヤー */}
+        {v.mapTexts.map((tx, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${tx.x}px`,
+              top: `${tx.y}px`,
+              transform: tx.tf,
+              fontSize: tx.size,
+              fontWeight: tx.w,
+              color: tx.c,
+              fontFamily: tx.ff,
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              zIndex: 1,
+              letterSpacing: tx.ls,
+            }}
+          >
+            {tx.t}
+          </div>
+        ))}
+
+        {/* 建物レイヤー(クリックで建物パネル) */}
+        {v.isCampusArea &&
+          v.campusBuildings.map((cb) => (
+            <div
+              key={cb.id}
+              onClick={cb.pick}
+              data-b={cb.id}
+              style={{
+                position: "absolute",
+                left: cb.x,
+                top: cb.y,
+                width: cb.w,
+                height: cb.h,
+                background: COLORS.WHITE,
+                border: `${cb.bw}px solid ${cb.bd}`,
+                borderRadius: 7,
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                zIndex: 1,
+                boxSizing: "border-box",
+                overflow: "hidden",
+                padding: "0 3px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: Math.min(cb.fs, 13),
+                  fontWeight: 600,
+                  letterSpacing: -0.5,
+                  color: COLORS.INK,
+                  lineHeight: 1.1,
+                  maxWidth: "100%",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {cb.name}
+              </span>
+              {cb.cap && cb.h > 34 && (
+                <span
+                  style={{
+                    fontSize: 9,
+                    color: COLORS.GRAY,
+                    lineHeight: 1.2,
+                    maxWidth: "100%",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {cb.cap}
+                </span>
+              )}
+            </div>
+          ))}
+
+        {/* 集合ピン(member 追従型は対象ピンを青くするため描画しない) */}
+        {v.meetingPinOn && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${v.meetingPinX}px`,
+              top: `${v.meetingPinY}px`,
+              transform: `translate(-50%,-100%) scale(${v.invScale})`,
+              transformOrigin: "50% 100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              zIndex: 2,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                background: COLORS.BLUE,
+                color: COLORS.WHITE,
+                borderRadius: 9999,
+                padding: "2px 9px",
+                fontSize: 10.5,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+              }}
+            >
+              集合 ・ {v.meetingLabel}
+            </div>
+            <div
+              style={{
+                width: 13,
+                height: 13,
+                background: COLORS.BLUE,
+                border: `2px solid ${COLORS.WHITE}`,
+                transform: "rotate(45deg)",
+                boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+              }}
+            />
+          </div>
+        )}
+
+        {/* 参加者ピン */}
+        {v.pinList.map((p, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${p.x}px`,
+              top: `${p.y}px`,
+              transform: `translate(-50%,-100%) scale(${v.invScale})`,
+              transformOrigin: "50% 100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+              zIndex: 3,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                background: p.chipBg,
+                color: p.chipFg,
+                border: `1px solid ${p.chipBd}`,
+                borderRadius: 9999,
+                padding: "2px 8px",
+                fontSize: 10.5,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                boxShadow: "0 1px 2px rgba(0,0,0,.10)",
+              }}
+            >
+              {p.label}
+            </div>
+            <div
+              style={{
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                background: p.dotBg,
+                border: `2.5px solid ${p.dotBd}`,
+                animation: p.anim,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* 集合地点タップモードのバナー */}
+      {v.pickMode && (
+        <div
+          data-nopan="1"
+          style={{
+            position: "absolute",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: COLORS.INK,
+            color: COLORS.WHITE,
+            borderRadius: 9999,
+            padding: "7px 8px 7px 16px",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            zIndex: 8,
+            boxShadow: "0 4px 14px rgba(0,0,0,.25)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          地図をタップして集合地点を指定
+          <button
+            onClick={v.cancelPick}
+            style={{
+              height: 24,
+              padding: "0 10px",
+              borderRadius: 9999,
+              border: 0,
+              background: "rgba(255,255,255,.18)",
+              color: COLORS.WHITE,
+              fontSize: 11,
+              fontFamily: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            キャンセル
+          </button>
+        </div>
+      )}
+
+      {/* 集合時間・集合場所・距離は上部の集合バー(MapScreen)へ集約(issue #38)。
+          地図上には集合ピン(◆ callout)のみ残す。 */}
+
+      {/* 方位コンパス(実地図は街区に合わせ回転しているため北を示す。3エリア共通) */}
+      {v.screen === "map" && (
+        <div
+          data-nopan="1"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 36,
+            height: 36,
+            borderRadius: 9999,
+            background: COLORS.WHITE,
+            boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+            zIndex: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="北の向き"
+        >
+          <svg
+            width="36"
+            height="36"
+            viewBox="-18 -18 36 36"
+            style={{ transform: `rotate(${NORTH_DEG[v.area]}deg)` }}
+          >
+            <path d="M0 -12 L4 1 L0 -2 L-4 1 Z" fill={COLORS.ERR} />
+            <path d="M0 -2 L4 1 L0 12 L-4 1 Z" fill="#c8c8c8" />
+            <text x="0" y="-13" textAnchor="middle" fontSize="7" fontWeight="700" fill={COLORS.ERR}>
+              N
+            </text>
+          </svg>
+        </div>
+      )}
+
+      {/* 地図FAB */}
+      <div
+        data-nopan="1"
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          zIndex: 6,
+        }}
+      >
+        <FabButton onClick={v.fabZoomIn} title="拡大">
+          ＋
+        </FabButton>
+        <FabButton onClick={v.fabZoomOut} title="縮小">
+          −
+        </FabButton>
+        <FabButton onClick={v.fabSelf} title="現在地へ">
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="9" cy="9" r="4" />
+            <path d="M9 1v3M9 14v3M1 9h3M14 9h3" />
+          </svg>
+        </FabButton>
+        <FabButton onClick={v.fabFit} title="全員表示">
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M3 6V3h3M12 3h3v3M15 12v3h-3M6 15H3v-3" />
+          </svg>
+        </FabButton>
+      </div>
+    </div>
+  );
+}
+
+function FabButton({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="hv-border"
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 9999,
+        border: `1px solid ${COLORS.BORDER}`,
+        background: COLORS.WHITE,
+        cursor: "pointer",
+        color: COLORS.INK,
+        fontSize: 17,
+        boxShadow: "0 2px 8px rgba(0,0,0,.10)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </button>
+  );
+}

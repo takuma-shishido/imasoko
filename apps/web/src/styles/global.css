@@ -1,0 +1,217 @@
+@import "./tokens.css";
+
+/* reset */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fafafa;
+  /* ページのピンチズーム・ダブルタップズームを禁止(スクロールは可)。
+     ズームはマップの独自ジェスチャ(MapGestureController、touch-action: none)のみ許可する。 */
+  touch-action: pan-x pan-y;
+}
+body {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+#root {
+  min-height: 100dvh;
+}
+button {
+  font-family: inherit;
+}
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* プロトタイプの @keyframes をそのまま移植 */
+@keyframes ims-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(23, 23, 23, 0.3);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(23, 23, 23, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(23, 23, 23, 0);
+  }
+}
+/* トーストは上側表示なので、上からスライドインし、上へ戻りながら消える */
+@keyframes ims-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ims-toast-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes ims-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes ims-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 背景オーバーレイの退場(フェードアウト。issue #71) */
+@keyframes ims-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ims-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes ims-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* チュートリアルの吹き出しが"ポッ"と弾んで出る(transform-origin は尻尾側に指定) */
+@keyframes ims-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── hover ユーティリティ(プロトタイプの style-hover 相当) ── */
+.hv-border:hover {
+  border-color: #a1a1a1 !important;
+}
+.hv-border-ink:hover {
+  border-color: #171717 !important;
+}
+.hv-bg:hover {
+  background: #f5f5f5 !important;
+}
+.hv-bg-soft:hover {
+  background: #fafafa !important;
+}
+.hv-bg-err:hover {
+  background: #f7d4d6 !important;
+}
+.hv-bg-err-deep:hover {
+  background: #c50000 !important;
+}
+.hv-underline:hover {
+  text-decoration: underline;
+}
+.hv-panel:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+.hv-border-ink:hover.hv-fg-ink {
+  color: #171717 !important;
+}
+
+/* ── DS Button ── */
+.ims-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+  white-space: nowrap;
+}
+.ims-btn--primary {
+  background: #171717;
+  color: #ffffff;
+}
+.ims-btn--primary:hover:not(:disabled) {
+  background: #000000;
+}
+.ims-btn--secondary {
+  background: #ffffff;
+  color: #171717;
+  border-color: #ebebeb;
+}
+.ims-btn--secondary:hover:not(:disabled) {
+  border-color: #a1a1a1;
+}
+.ims-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ims-btn--lg {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 20px;
+}
+.ims-btn--md {
+  height: 40px;
+  font-size: 14px;
+  padding: 0 16px;
+}
+
+/* ── DS Input ── */
+.ims-input {
+  width: 100%;
+  border: 1px solid #ebebeb;
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  color: #171717;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.ims-input:focus {
+  border-color: #171717;
+}
+.ims-input--error {
+  border-color: #ee0000;
+}
+.ims-input--lg {
+  height: 44px;
+  font-size: 15px;
+  padding: 0 12px;
+}
+.ims-input--md {
+  height: 40px;
+  font-size: 14px;
+  padding: 0 12px;
+}

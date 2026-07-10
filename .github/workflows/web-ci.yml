@@ -1,0 +1,59 @@
+name: web-ci
+
+on:
+  pull_request:
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml"]
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# 同一リポジトリからの PR では prettier の整形差分を bot が自動コミットする(issue #83)
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      # 自動整形するか:同一リポジトリからの PR のみ true。
+      # fork からの PR は GITHUB_TOKEN に push 権限が無いため従来どおりチェックのみ。
+      AUTOFIX: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 自動整形をコミットできるよう、PR のマージ参照ではなく head ブランチを checkout する
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      # ── 自動整形(issue #83):差分があれば bot がコミットして push する。
+      #    GITHUB_TOKEN の push は workflow を再トリガーしないため無限ループはしない。
+      #    以降の lint / typecheck / test / build は整形後のツリーで検証される。
+      - name: prettier 自動整形
+        if: env.AUTOFIX == 'true'
+        run: npm run format
+      - name: 整形差分を自動コミット
+        if: env.AUTOFIX == 'true'
+        working-directory: .
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style(web): prettier 自動整形"
+          git push origin "HEAD:${{ github.head_ref }}"
+      # fork からの PR / main への push は従来どおりチェックのみ
+      - name: prettier チェック
+        if: env.AUTOFIX != 'true'
+        run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test --if-present
+      - run: npm run build
