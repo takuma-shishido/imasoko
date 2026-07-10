@@ -25,7 +25,7 @@ export interface RoomSocketDeps {
 export class RoomSocketHandler {
   private deps: RoomSocketDeps;
   // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
-  // engine の setMeeting / clearMeeting が送信時に expectMeetingEcho() で予約する。
+  // MeetingModel の set / clear が送信時に(engine の配線経由で)expectMeetingEcho() で予約する。
   private ignoreMeetingEcho = false;
 
   constructor(deps: RoomSocketDeps) {

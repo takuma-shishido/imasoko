@@ -1,7 +1,7 @@
 // renderVals() の map(地図画面)派生値を切り出した pure セレクタ(issue #100)。
 // 返すキー集合・各値は RoomEngine.renderVals の「// map」セクションと完全一致させる(挙動不変)。
 // engine の可変状態(state)を読み、公開 computed(viewportRect / clampedPos /
-// resolveMeetingPos)や bound ハンドラは engine 経由で参照する。
+// meeting.resolvePos)や bound ハンドラは engine 経由で参照する。
 // 表示整形(distTo / meetingLabelOf)は lib/labels の純粋関数を使う(issue #165)。
 // 地図ジェスチャは engine.gesture(MapGestureController)を直接参照する(純転送層を挟まない。docs/08 W1)。
 import type { MouseEvent } from "react";
@@ -16,7 +16,7 @@ import { COLORS } from "@/lib/theme";
 
 export function mapVals(engine: RoomEngine) {
   const s = engine.state;
-  const mp = engine.resolveMeetingPos();
+  const mp = engine.meeting.resolvePos();
   const A = AREAS[s.area];
   const invScale = Math.min(2.6, Math.max(0.85, 1 / s.view.k)).toFixed(3);
 
@@ -162,7 +162,7 @@ export function mapVals(engine: RoomEngine) {
     meetingSet: !!s.meeting,
     meetingLabel,
     meetingDistSelf: "あなたから " + selfDist,
-    clearMeeting: engine.clearMeeting,
+    clearMeeting: engine.meeting.clear,
     meetingByLabel:
       s.meetingBy + "が設定" + (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
     fabZoomIn: engine.gesture.fabZoomIn,

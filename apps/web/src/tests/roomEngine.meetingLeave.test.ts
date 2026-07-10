@@ -38,7 +38,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
     ]);
     const last = e.state.members.find((m) => m.id === "u2")!;
-    expect(e.resolveMeetingPos()).toEqual({ area: last.area, x: last.x, y: last.y });
+    expect(e.meeting.resolvePos()).toEqual({ area: last.area, x: last.x, y: last.y });
 
     e.socket.onServerMsg({ type: "member_left", id: "u2" });
 
@@ -50,7 +50,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       note: "ゆうたさんが最後にいた場所",
     });
     // 退出後もピン位置(resolveMeetingPos)とラベルが破綻しない
-    expect(e.resolveMeetingPos()).toEqual({ area: last.area, x: last.x, y: last.y });
+    expect(e.meeting.resolvePos()).toEqual({ area: last.area, x: last.x, y: last.y });
     expect(meetingLabelOf(e.state.meeting, e.state.members)).toBe("ゆうたさんが最後にいた場所");
   });
 
@@ -153,7 +153,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       x: expect.any(Number),
       y: expect.any(Number),
     });
-    const mp = e.resolveMeetingPos()!;
+    const mp = e.meeting.resolvePos()!;
     expect(mp.x).toBeCloseTo(last.x, 5);
     expect(mp.y).toBeCloseTo(last.y, 5);
   });
