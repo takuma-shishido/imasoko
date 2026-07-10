@@ -121,8 +121,8 @@ server campus.py → GET /api/campus → lib/api.ts
 
 ### W8. Controller への deps 注入 — 2ファイル双方向参照
 
-- `MapGestureController` / `SheetController` / `RoomSocketHandler`(#164)/ `MeetingModel`(#173)は `getState` / `setState` / `toast` 等をコールバックで注入され、実質 RoomEngine の内部状態を双方向に読む。Controller 単体では完結して読めず、**常に RoomEngine とペアで読む**必要がある。
-- god class 分割(#103/#104/#164/#173)の対価であり、注入 interface(`MapGestureDeps` / `SheetDeps` / `RoomSocketDeps` / `MeetingDeps`)が境界を型で明示しているため許容。**維持**。
+- `MapGestureController` / `SheetController` / `RoomSocketHandler`(#164)/ `MeetingModel` / `RoomSession`(#173)は `getState` / `setState` / `toast` 等をコールバックで注入され、実質 RoomEngine の内部状態を双方向に読む。Controller 単体では完結して読めず、**常に RoomEngine とペアで読む**必要がある。
+- god class 分割(#103/#104/#164/#173)の対価であり、注入 interface(`MapGestureDeps` / `SheetDeps` / `RoomSocketDeps` / `MeetingDeps` / `RoomSessionDeps`)が境界を型で明示しているため許容。**維持**。
 
 ### W9. `floorsOf` の二重保持 — 2ファイルに同一実装
 

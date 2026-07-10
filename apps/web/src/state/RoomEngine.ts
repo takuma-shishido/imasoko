@@ -31,20 +31,13 @@ import { fmtMeetLabel, fromLocalInput, toLocalInput } from "@/lib/format";
 import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
-import {
-  api,
-  HttpError,
-  getHostToken,
-  getName,
-  pruneHostTokens,
-  saveHostToken,
-  saveName,
-} from "@/lib/api";
+import { api, getName, pruneHostTokens, saveName } from "@/lib/api";
 import { clampToEdge, metersBetween, project } from "@/lib/coords";
 import type { ClientMsg } from "@/types/messages";
 import { locate } from "@/lib/wire";
 import { MapGestureController } from "./MapGestureController";
 import { MeetingModel } from "./MeetingModel";
+import { RoomSession } from "./RoomSession";
 import { RoomSocketHandler } from "./RoomSocketHandler";
 import { SheetController } from "./SheetController";
 
@@ -141,11 +134,11 @@ export class RoomEngine {
   readonly socket: RoomSocketHandler;
   // 集合場所ドメインの実体(issue #173)。selector からも直接参照する(純転送層を挟まない。docs/08)。
   readonly meeting: MeetingModel;
+  // ルームのライフサイクル REST(作成/開く/公開一覧/公開範囲/ルーム名同期)の実体(issue #173)。
+  // selector・App からも直接参照する(純転送層を挟まない。docs/08)。
+  readonly session: RoomSession;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
   private socketSend: ((msg: ClientMsg) => void) | null = null;
-  // ルーム名変更のデバウンス送信(設定シート)。syncedTitle はサーバー反映済みの値。
-  private titleTimer: ReturnType<typeof setTimeout> | null = null;
-  private syncedTitle = "";
   // 位置送信スロットリング(2秒 / 5m。issue #2)。
   private lastPosSentAt = 0;
   private lastSentPos: { lat: number; lng: number } | null = null;
@@ -180,6 +173,12 @@ export class RoomEngine {
       expectMeetingEcho: () => {
         if (this.socketSend) this.socket.expectMeetingEcho();
       },
+    });
+    this.session = new RoomSession({
+      getState: () => this.state,
+      setState: (patch) => this.setState(patch),
+      toast: (msg) => this.toast(msg),
+      initialState: () => this.initialState(),
     });
   }
 
@@ -272,7 +271,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
-    if (this.titleTimer) clearTimeout(this.titleTimer);
+    this.session.stop(); // ルーム名デバウンスのタイマー破棄
     this.sheetCtl.stop();
   }
 
@@ -349,41 +348,6 @@ export class RoomEngine {
       create: { title: "", vis: "private", meetAt: toLocalInput(Date.now()) },
     });
   cancelCreate = () => this.setState({ createOpen: false });
-  submitCreate = async () => {
-    if (this.state.creating) return;
-    this.setState({ creating: true });
-    const { create } = this.state;
-    const title = create.title.trim();
-    const meetAtMs = fromLocalInput(create.meetAt);
-    try {
-      const res = await api.createRoom({
-        title: title || undefined,
-        visibility: create.vis,
-        meet_at: new Date(meetAtMs).toISOString(),
-      });
-      // 再訪時に host を復元するため端末に保存(ルームの有効期限を付けて掃除対象にする)
-      saveHostToken(res.room_id, res.host_token, Date.parse(res.expires_at));
-      this.syncedTitle = title;
-      this.setState({
-        ...this.initialState(),
-        now: Date.now(),
-        publicList: this.state.publicList,
-        creating: false,
-        createOpen: false,
-        screen: "join",
-        roomId: res.room_id,
-        isHost: true,
-        roomTitle: title,
-        visibility: res.visibility,
-        meetAt: Date.parse(res.meet_at),
-        expiresAt: Date.parse(res.expires_at),
-      });
-      if (res.visibility === "public") this.toast("公開ルームとして作成しました");
-    } catch {
-      this.setState({ creating: false });
-      this.toast("ルームを作成できませんでした。通信環境を確認してください");
-    }
-  };
   setMeetAt = (v: string) => {
     const meetAt = fromLocalInput(v);
     this.setState({ meetAt, expiresAt: meetAt + serverConfig.endOffsetMs });
@@ -391,67 +355,7 @@ export class RoomEngine {
   };
   goPublic = () => {
     this.setState({ screen: "public" });
-    void this.loadPublicRooms();
-  };
-  refreshPublic = () => void this.loadPublicRooms({ toast: true });
-  // 公開ルーム一覧を実サーバーから取得(issue #13)。
-  private async loadPublicRooms(opts?: { toast?: boolean }) {
-    this.setState({ refreshing: true });
-    try {
-      const rooms = await api.getPublicRooms();
-      this.setState({
-        refreshing: false,
-        publicList: rooms.map((r) => ({
-          id: r.room_id,
-          title: r.title,
-          members: r.members,
-          exp: Date.parse(r.expires_at),
-        })),
-      });
-      if (opts?.toast) this.toast("一覧を更新しました");
-    } catch {
-      this.setState({ refreshing: false });
-      this.toast("公開ルームを取得できませんでした");
-    }
-  }
-  openPublicRoom(r: DemoRoom) {
-    void this.openRoomById(r.id, r.title);
-  }
-  // 参加前の存在チェック(共有リンク/公開一覧クリック)。404→NotFound / 410→期限切れ(issue #13)。
-  openRoomById = async (roomId: string, title = "") => {
-    try {
-      const res = await api.getRoom(roomId);
-      const expiresAt = Date.parse(res.expires_at);
-      // ルーム名はサーバー実値を優先して復元(共有URL/リロード経由では引数 title が空のため)。
-      const restoredTitle = res.title || title;
-      this.syncedTitle = restoredTitle;
-      this.setState({
-        ...this.initialState(),
-        now: Date.now(),
-        publicList: this.state.publicList,
-        screen: "join",
-        roomId,
-        roomTitle: restoredTitle,
-        isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
-        visibility: res.visibility, // 公開範囲をサーバー実値から復元(public→退出→再参加で private に戻る不具合。issue #35)
-        meetAt: expiresAt - serverConfig.endOffsetMs,
-        expiresAt,
-      });
-    } catch (e) {
-      // 404→NotFound / 410→期限切れ。それ以外(通信エラー・5xx 等)は"存在しない"と
-      // 誤認させないよう、再試行できるトップへ戻してトーストで知らせる(issue #13 レビュー対応)。
-      const status = e instanceof HttpError ? e.status : 0;
-      const screen: Screen = status === 410 ? "expired" : status === 404 ? "notfound" : "top";
-      this.setState({
-        ...this.initialState(),
-        now: Date.now(),
-        publicList: this.state.publicList,
-        screen,
-        roomId,
-      });
-      if (screen === "top")
-        this.toast("接続できませんでした。通信環境を確認して、もう一度お試しください");
-    }
+    void this.session.loadPublicRooms();
   };
 
   // ── join ──
@@ -699,63 +603,6 @@ export class RoomEngine {
       this.toast("この環境では共有シートが使えないためコピーしました");
     }
   };
-  pickPrivate = () => {
-    if (this.state.visibility === "private") return;
-    void this.applyVisibility("private", "ルームを非公開にしました");
-  };
-  pickPublic = () => {
-    if (this.state.visibility === "public") return;
-    this.setState({ warnPublic: true });
-  };
-  confirmPublic = () => {
-    this.setState({ warnPublic: false });
-    void this.applyVisibility("public", "ルームを公開しました。一覧に表示されます");
-  };
-  cancelPublic = () => this.setState({ warnPublic: false });
-  // 公開範囲を実サーバーへ反映(x-host-token)。403=権限なし、失敗時は楽観更新を戻す(issue #13)。
-  private async applyVisibility(visibility: Visibility, successMsg: string) {
-    const token = getHostToken(this.state.roomId);
-    if (!token) {
-      this.toast("公開範囲を変更できるのはホストのみです");
-      return;
-    }
-    const prev = this.state.visibility;
-    this.setState({ visibility }); // 楽観更新
-    const titleSent = this.state.roomTitle.trim() || undefined;
-    try {
-      await api.patchRoom(this.state.roomId, token, { visibility, title: titleSent });
-      if (titleSent !== undefined) this.syncedTitle = titleSent;
-      this.toast(successMsg);
-    } catch (e) {
-      this.setState({ visibility: prev }); // 失敗したら元に戻す
-      this.toast(
-        e instanceof HttpError && e.status === 403
-          ? "権限がありません(ホストのみ変更できます)"
-          : "公開範囲を変更できませんでした"
-      );
-    }
-  }
-  // ルーム名の入力(設定シート)。ローカル反映しつつ、入力が止まったらサーバーへ送る。
-  // 従来はローカル state を更新するだけでサーバーへ送っておらず、公開一覧や再参加に反映されなかった。
-  onTitleInput = (title: string) => {
-    this.setState({ roomTitle: title });
-    if (this.titleTimer) clearTimeout(this.titleTimer);
-    this.titleTimer = setTimeout(() => void this.commitTitle(), 800);
-  };
-  // ルーム名をサーバーへ反映(PATCH /api/rooms/{id} の部分更新で title のみ送る)。host のみ。
-  private async commitTitle() {
-    const title = this.state.roomTitle.trim();
-    if (title === this.syncedTitle) return;
-    const token = getHostToken(this.state.roomId);
-    if (!token) return;
-    try {
-      await api.patchRoom(this.state.roomId, token, { title });
-      this.syncedTitle = title;
-      this.toast("ルーム名を変更しました");
-    } catch {
-      this.toast("ルーム名を変更できませんでした");
-    }
-  }
   tapLeave = () => this.setState({ leaveOpen: true });
   cancelLeave = () => this.setState({ leaveOpen: false });
   doLeave = () => {

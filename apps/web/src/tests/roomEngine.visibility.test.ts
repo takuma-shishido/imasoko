@@ -21,7 +21,7 @@ describe("公開範囲の復元(退出→再参加。issue #35)", () => {
     expect(e.state.visibility).toBe("private"); // 初期値
 
     vi.spyOn(api, "getRoom").mockResolvedValue(statusRes("public"));
-    await e.openRoomById("room1", "サッカー部 集合");
+    await e.session.openRoomById("room1", "サッカー部 集合");
 
     expect(e.state.screen).toBe("join");
     expect(e.state.visibility).toBe("public");
@@ -34,7 +34,7 @@ describe("公開範囲の復元(退出→再参加。issue #35)", () => {
   it("private のルームに再参加すると private のまま復元される", async () => {
     const e = new RoomEngine();
     vi.spyOn(api, "getRoom").mockResolvedValue(statusRes("private"));
-    await e.openRoomById("room2");
+    await e.session.openRoomById("room2");
 
     expect(e.state.visibility).toBe("private");
     expect(e.renderVals().visBadge).toBe("非公開");

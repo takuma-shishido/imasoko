@@ -21,8 +21,8 @@ describe("ルーム名の変更(設定シート)", () => {
       .spyOn(api, "patchRoom")
       .mockResolvedValue({ visibility: "public", title: "サッカー部 集合" });
 
-    e.onTitleInput("サッカー");
-    e.onTitleInput("サッカー部 集合");
+    e.session.onTitleInput("サッカー");
+    e.session.onTitleInput("サッカー部 集合");
     expect(spy).not.toHaveBeenCalled(); // 入力中は送らない
 
     await vi.advanceTimersByTimeAsync(900);
@@ -37,7 +37,7 @@ describe("ルーム名の変更(設定シート)", () => {
     e.setState({ roomId: "room1", visibility: "public" });
     const spy = vi.spyOn(api, "patchRoom").mockResolvedValue({ visibility: "public", title: "" });
 
-    e.onTitleInput("勝手に変更");
+    e.session.onTitleInput("勝手に変更");
     await vi.advanceTimersByTimeAsync(900);
     expect(spy).not.toHaveBeenCalled();
   });
@@ -50,7 +50,7 @@ describe("ルーム名の変更(設定シート)", () => {
       visibility: "public",
       title: "変更後の名前",
     });
-    await e.openRoomById("room1"); // 共有URL経由は title 引数なし
+    await e.session.openRoomById("room1"); // 共有URL経由は title 引数なし
     expect(e.state.roomTitle).toBe("変更後の名前");
   });
 
@@ -61,7 +61,7 @@ describe("ルーム名の変更(設定シート)", () => {
     saveHostToken("room1", "tok", Date.now() + 3600000);
     vi.spyOn(api, "patchRoom").mockRejectedValue(new Error("network"));
 
-    e.onTitleInput("新しい名前");
+    e.session.onTitleInput("新しい名前");
     await vi.advanceTimersByTimeAsync(900);
     expect(e.state.toasts.some((t) => t.msg === "ルーム名を変更できませんでした")).toBe(true);
   });

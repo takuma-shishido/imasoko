@@ -35,7 +35,7 @@ export function topVals(engine: RoomEngine) {
         title: (r.title || "無名のルーム") + (own ? "(あなたのルーム)" : ""),
         members: r.members,
         remaining: fmtShort(r.exp - s.now),
-        open: () => engine.openPublicRoom(r),
+        open: () => engine.session.openPublicRoom(r),
       };
     });
 
@@ -57,10 +57,10 @@ export function topVals(engine: RoomEngine) {
     createRoom: engine.createRoom,
     goPublic: engine.goPublic,
     goTop: engine.goTop,
-    openRoomById: engine.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
+    openRoomById: engine.session.openRoomById, // 共有リンク起動時の存在チェック(issue #13 / App.tsx)
     createOpen: s.createOpen,
     cancelCreate: engine.cancelCreate,
-    submitCreate: engine.submitCreate,
+    submitCreate: engine.session.submitCreate,
     newTitle: s.create.title,
     onNewTitle: (e: ChangeEvent<HTMLInputElement>) =>
       engine.patchSub("create", { title: e.target.value }),
@@ -77,7 +77,7 @@ export function topVals(engine: RoomEngine) {
     curEndAt: s.expiresAt ? fmtMeetLabel(s.expiresAt) : "—",
 
     // public
-    refreshPublic: engine.refreshPublic,
+    refreshPublic: engine.session.refreshPublic,
     refreshAnim: s.refreshing ? "ims-spin .8s linear infinite" : "none",
     publicRooms,
     noPublicRooms: publicRooms.length === 0,
