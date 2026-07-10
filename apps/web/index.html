@@ -9,6 +9,31 @@
     />
     <meta name="theme-color" content="#ffffff" />
     <title>いまそこ — 集合、リンク一本で。</title>
+    <meta
+      name="description"
+      content="URLを共有するだけで、全員の現在地がキャンパスマップに表示される集合用アプリ。ログイン・インストール不要。"
+    />
+
+    <!-- favicon(マスコット「おあい」。public/ から配信) -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- OGP:リンク共有(LINE 等)でプレビューカードを出す(issue #160)。
+         og:url / og:image はスクレイパーが絶対URLしか解釈しないため、配信オリジンを
+         ビルド時に注入する(VITE_PUBLIC_ORIGIN。既定は本番、dev デプロイは deploy.yml が差し替え)。 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="いまそこ" />
+    <meta property="og:title" content="いまそこ — 集合、リンク一本で。" />
+    <meta
+      property="og:description"
+      content="URLを共有するだけで、全員の現在地がキャンパスマップに表示される集合用アプリ。ログイン・インストール不要。"
+    />
+    <meta property="og:url" content="%VITE_PUBLIC_ORIGIN%/" />
+    <meta property="og:image" content="%VITE_PUBLIC_ORIGIN%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
