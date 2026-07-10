@@ -8,7 +8,6 @@ import type { ChangeEvent } from "react";
 import { BUILDINGS, bById } from "@/lib/campusData";
 import { serverConfig } from "@/lib/constants";
 import { fmtLong, fmtMeetLabel, fmtShort, fromLocalInput, toLocalInput } from "@/lib/format";
-import { selDot } from "@/lib/chipColors";
 import { getHostToken } from "@/lib/api";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
@@ -65,8 +64,6 @@ export function topVals(engine: RoomEngine) {
     newTitle: s.newTitle,
     onNewTitle: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ newTitle: e.target.value }),
     newVisPub: s.newVis === "public",
-    newVisDotPriv: selDot(s.newVis === "private"),
-    newVisDotPub: selDot(s.newVis === "public"),
     pickNewPriv: () => engine.setState({ newVis: "private" }),
     pickNewPub: () => engine.setState({ newVis: "public" }),
     newMeetAt: s.newMeetAt,

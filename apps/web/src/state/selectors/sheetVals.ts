@@ -7,7 +7,7 @@
 // engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
 import { BUILDINGS, bById, classroomFreeAt, roomFull } from "@/lib/campusData";
-import { selChip, selDot } from "@/lib/chipColors";
+import { selChip } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
 
@@ -155,15 +155,8 @@ export function sheetVals(engine: RoomEngine) {
     roomSuggest: engine.roomSuggest,
 
     // meeting sheet
-    mtIsCoords: s.mtKind === "coords",
-    mtIsMember: s.mtKind === "member",
-    mtIsPlace: s.mtKind === "place",
-    mtDotCoords: selDot(s.mtKind === "coords"),
-    mtDotMember: selDot(s.mtKind === "member"),
-    mtDotPlace: selDot(s.mtKind === "place"),
-    mtPickCoords: engine.mtPickCoords,
-    mtPickMember: engine.mtPickMember,
-    mtPickPlace: engine.mtPickPlace,
+    mtKind: s.mtKind,
+    mtPick: engine.mtPick,
     memberChips,
     placeB: s.placeB,
     onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
@@ -194,8 +187,6 @@ export function sheetVals(engine: RoomEngine) {
     webShare: engine.webShare,
     isHost: s.isHost,
     visPublic: s.visibility === "public",
-    visDotPriv: s.visibility === "private" ? COLORS.INK : "transparent",
-    visDotPub: s.visibility === "public" ? COLORS.INK : "transparent",
     pickPrivate: engine.pickPrivate,
     pickPublic: engine.pickPublic,
     titleVal: s.roomTitle,

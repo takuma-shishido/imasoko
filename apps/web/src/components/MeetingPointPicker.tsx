@@ -68,7 +68,7 @@ export function MeetingPointPicker() {
 
       {/* coords */}
       <div
-        onClick={v.mtPickCoords}
+        onClick={() => v.mtPick("coords")}
         style={{
           padding: "12px 4px",
           borderBottom: `1px solid ${COLORS.BORDER}`,
@@ -76,7 +76,7 @@ export function MeetingPointPicker() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Radio dot={v.mtDotCoords} />
+          <Radio selected={v.mtKind === "coords"} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>地図にピンを立てる</div>
             <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
@@ -84,7 +84,7 @@ export function MeetingPointPicker() {
             </div>
           </div>
         </div>
-        {v.mtIsCoords && (
+        {v.mtKind === "coords" && (
           <div style={{ margin: "10px 0 2px 26px" }}>
             <button
               onClick={v.startPick}
@@ -110,7 +110,7 @@ export function MeetingPointPicker() {
 
       {/* member */}
       <div
-        onClick={v.mtPickMember}
+        onClick={() => v.mtPick("member")}
         style={{
           padding: "12px 4px",
           borderBottom: `1px solid ${COLORS.BORDER}`,
@@ -118,7 +118,7 @@ export function MeetingPointPicker() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Radio dot={v.mtDotMember} />
+          <Radio selected={v.mtKind === "member"} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>誰かのところ</div>
             <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
@@ -126,7 +126,7 @@ export function MeetingPointPicker() {
             </div>
           </div>
         </div>
-        {v.mtIsMember && (
+        {v.mtKind === "member" && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0 2px 26px" }}>
             {v.memberChips.map((mc, i) => (
               <button
@@ -153,9 +153,9 @@ export function MeetingPointPicker() {
       </div>
 
       {/* place */}
-      <div onClick={v.mtPickPlace} style={{ padding: "12px 4px", cursor: "pointer" }}>
+      <div onClick={() => v.mtPick("place")} style={{ padding: "12px 4px", cursor: "pointer" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Radio dot={v.mtDotPlace} />
+          <Radio selected={v.mtKind === "place"} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500 }}>場所から選ぶ</div>
             <div style={{ fontSize: 11.5, color: COLORS.GRAY }}>
@@ -163,7 +163,7 @@ export function MeetingPointPicker() {
             </div>
           </div>
         </div>
-        {v.mtIsPlace && (
+        {v.mtKind === "place" && (
           <div style={{ display: "flex", gap: 8, margin: "10px 0 2px 26px" }}>
             <select
               value={v.placeB}

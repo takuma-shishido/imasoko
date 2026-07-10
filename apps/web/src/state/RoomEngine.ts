@@ -221,7 +221,7 @@ export class RoomEngine {
       pinModal: false,
       pendingPin: null,
       pinNote: "",
-      mtKind: "member",
+      mtKind: "place",
       mtMember: null,
       placeB: "b1",
       placeR: "",
@@ -777,9 +777,7 @@ export class RoomEngine {
     const p = bAnchor(hit.b);
     return { area: "campus", x: p.x, y: p.y };
   }
-  mtPickCoords = () => this.setState({ mtKind: "coords" });
-  mtPickMember = () => this.setState({ mtKind: "member" });
-  mtPickPlace = () => this.setState({ mtKind: "place" });
+  mtPick = (kind: State["mtKind"]) => this.setState({ mtKind: kind });
   // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
   // coords はピン配置(地図で指定)で確定するため常に押せない。
   mtCanApply = () => {

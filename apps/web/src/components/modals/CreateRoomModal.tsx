@@ -42,7 +42,7 @@ export function CreateRoomModal() {
           cursor: "pointer",
         }}
       >
-        <Radio dot={v.newVisDotPriv} />
+        <Radio selected={!v.newVisPub} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>
             非公開<span style={{ color: COLORS.GRAY, fontWeight: 400 }}>(既定)</span>
@@ -62,7 +62,7 @@ export function CreateRoomModal() {
           cursor: "pointer",
         }}
       >
-        <Radio dot={v.newVisDotPub} />
+        <Radio selected={v.newVisPub} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>公開</div>
           <div style={{ fontSize: 11, color: COLORS.GRAY }}>
