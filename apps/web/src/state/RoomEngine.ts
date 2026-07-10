@@ -289,10 +289,19 @@ export class RoomEngine {
   }
 
   // ── toast ──
+  // 表示 3.2s → closing を立てて退場アニメ(.2s)→ 削除の2段階(sheetClosing と同じ方式)。
   toast(msg: string) {
     const id = ++this.toastN;
     this.setState((s) => ({ toasts: [...s.toasts, { id, msg }] }));
-    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+    setTimeout(() => {
+      this.setState((s) => ({
+        toasts: s.toasts.map((t) => (t.id === id ? { ...t, closing: true } : t)),
+      }));
+      setTimeout(
+        () => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+        200
+      );
+    }, 3200);
   }
 
   // ── WebSocket 実配線(issue #1)──

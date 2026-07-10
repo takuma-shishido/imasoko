@@ -22,13 +22,17 @@ export function Toasts() {
         <div
           key={t.id}
           style={{
-            background: COLORS.INK,
+            // 半透明 + 背景ぼかしで背後(地図など)がうっすら見えるようにする
+            background: "rgba(23, 23, 23, 0.78)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)", // iOS Safari はベンダープレフィックスが必要
             color: COLORS.WHITE,
             fontSize: 12.5,
             padding: "8px 16px",
             borderRadius: 9999,
             boxShadow: "0 4px 14px rgba(0,0,0,.28)",
-            animation: "ims-toast-in .2s ease",
+            // forwards で退場アニメ終了時の透明状態を削除まで維持する
+            animation: t.closing ? "ims-toast-out .2s ease forwards" : "ims-toast-in .2s ease",
             maxWidth: "85%",
             textAlign: "center",
           }}
