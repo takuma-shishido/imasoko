@@ -13,7 +13,7 @@ export function TerminalState() {
   if (v.isExpired) {
     code = "410 GONE";
     title = "このルームは終了しました。";
-    desc = "有効期限(2時間)を過ぎたため、位置の共有と閲覧はできません。";
+    desc = "有効期限(集合時間の3時間後)を過ぎたため、位置の共有と閲覧はできません。";
     showCreate = true;
   } else if (v.isEnded) {
     code = "ROOM EXPIRED";
@@ -23,7 +23,7 @@ export function TerminalState() {
   } else if (v.isNotFound) {
     code = "404 NOT FOUND";
     title = "ルームが見つかりません。";
-    desc = "URLが正しいかご確認ください。ルームは作成から2時間で自動的に消滅します。";
+    desc = "URLが正しいかご確認ください。ルームは集合時間の3時間後に自動的に消滅します。";
   } else if (v.isFull) {
     code = "ROOM FULL";
     title = "満員で参加できません。";
