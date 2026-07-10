@@ -9,6 +9,9 @@ body {
   margin: 0;
   padding: 0;
   background: #fafafa;
+  /* ページのピンチズーム・ダブルタップズームを禁止(スクロールは可)。
+     ズームはマップの独自ジェスチャ(MapGestureController、touch-action: none)のみ許可する。 */
+  touch-action: pan-x pan-y;
 }
 body {
   font-family: var(--font-sans);
