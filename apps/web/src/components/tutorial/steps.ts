@@ -1,8 +1,10 @@
 import type { RoomVals } from "@/state/RoomEngine";
+import { TUTORIAL_TEXTS } from "./texts";
 
 // チュートリアルの1ステップ。実UIのボタンを実際に押してもらいながら進む。
 // anchor: ハイライトする実UI(data-tutorial 属性の値)。無ければ吹き出しのみ。
 // done:   実操作の完了判定(RoomContext の状態で検知)。無ければ吹き出し内の「次へ」で進む。
+// 文言は texts.ts(TUTORIAL_TEXTS)で一元管理し、ここは進行ロジックだけを持つ。
 export interface TutorialStep {
   speech: string;
   anchor?: string;
@@ -12,31 +14,29 @@ export interface TutorialStep {
 // ルーム作成 → 参加 → 地図 → 共有 → 集合場所 → まとめ の流れ。
 export const TUTORIAL_STEPS: TutorialStep[] = [
   {
-    speech: "こんにちは!実際に使いながら「いまそこ」を案内するね。まずは「ルームを作る」をタップ!",
+    speech: TUTORIAL_TEXTS.steps.createRoom,
     anchor: "create-room",
     done: (v) => v.isJoin || v.isMap,
   },
   {
-    speech:
-      "ルームができたよ。名前を入れて「参加する」をタップ!位置情報を許可すると、自分のピンが地図に出るよ。",
+    speech: TUTORIAL_TEXTS.steps.join,
     anchor: "join-submit",
     done: (v) => v.isMap,
   },
   {
-    speech: "ここがルームの地図。参加したみんなの現在地が、リアルタイムでこの地図に表示されるよ。",
+    speech: TUTORIAL_TEXTS.steps.map,
   },
   {
-    speech:
-      "「共有」をタップしてみて!ルームのリンクを友だちに送れば、URLを開くだけで参加できるよ。",
+    speech: TUTORIAL_TEXTS.steps.share,
     anchor: "share-btn",
     done: (v) => v.shShare,
   },
   {
-    speech: "次は「集合場所」をタップ!待ち合わせ地点を決めると、全員の地図にピンが立つよ。",
+    speech: TUTORIAL_TEXTS.steps.meeting,
     anchor: "meeting-btn",
     done: (v) => v.shMeeting,
   },
   {
-    speech: "これで基本はばっちり!ルームは時間が来たら自動で消えるから、後片付けも要らないよ。",
+    speech: TUTORIAL_TEXTS.steps.finish,
   },
 ];
