@@ -3,6 +3,8 @@
 dev-docs §5 / docs/05 §6。ドメイン層(app.rooms)の RoomError をここで HTTP 400 に変換する。
 """
 
+import logging
+
 from fastapi import APIRouter, Header, HTTPException
 
 from .. import rooms
@@ -17,6 +19,7 @@ def create_room(req: CreateRoomReq) -> CreateRoomRes:
         room = rooms.create_room(req.title or "", req.visibility, req.meet_at)
     except rooms.RoomError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    logging.info(f"部屋が作成されました: room_id={room.room_id}, title={room.title}")
     return CreateRoomRes(**rooms.create_room_wire(room))
 
 
