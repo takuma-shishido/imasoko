@@ -35,10 +35,12 @@ jobs:
             echo "dir=imasoko"      >> "$GITHUB_OUTPUT"
             echo "project=imasoko"  >> "$GITHUB_OUTPUT"
             echo "port=8000"        >> "$GITHUB_OUTPUT"
+            echo "origin=https://imasoko.reimpl.com" >> "$GITHUB_OUTPUT"
           else
             echo "dir=imasoko-dev"     >> "$GITHUB_OUTPUT"
             echo "project=imasoko-dev" >> "$GITHUB_OUTPUT"
             echo "port=8001"           >> "$GITHUB_OUTPUT"
+            echo "origin=https://imasoko-dev.reimpl.com" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout
@@ -61,6 +63,7 @@ jobs:
           DEPLOY_DIR: ${{ steps.t.outputs.dir }}
           PROJECT: ${{ steps.t.outputs.project }}
           APP_PORT: ${{ steps.t.outputs.port }}
+          PUBLIC_ORIGIN: ${{ steps.t.outputs.origin }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
@@ -71,8 +74,9 @@ jobs:
           tar -cz --exclude='.git' --exclude='node_modules' --exclude='apps/web/dist' -C . . \
             | $SSH "$DEPLOY_USER@$DEPLOY_HOST" "tar -xz -C ~/$DEPLOY_DIR"
           # ホストで build & 起動(位置状態はインメモリ・1ワーカー固定・project 名で2環境分離)
+          # PUBLIC_ORIGIN は OGP の og:url / og:image に焼き込まれる配信オリジン(dev/本番で切替)
           $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd ~/$DEPLOY_DIR && APP_PORT=$APP_PORT docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
+            "cd ~/$DEPLOY_DIR && APP_PORT=$APP_PORT PUBLIC_ORIGIN=$PUBLIC_ORIGIN docker compose -p $PROJECT -f deploy/docker-compose.yml up -d --build"
 
       - name: Notice — Secrets 未登録でスキップ
         if: ${{ env.DEPLOY_HOST == '' }}
