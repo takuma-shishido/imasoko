@@ -9,7 +9,7 @@ export function Toasts() {
         position: "absolute",
         left: 0,
         right: 0,
-        bottom: v.toastBottom,
+        top: v.toastTop,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

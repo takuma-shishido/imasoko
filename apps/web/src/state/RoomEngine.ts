@@ -1001,9 +1001,9 @@ export class RoomEngine {
       // 出力キー・値・キー順は不変。issue #101)
       ...sheetVals(this),
 
-      // toasts(map 画面は下シートを避けて高めに出す)
+      // toasts(上側に表示。map 画面はエリア切替+集合バーの下に出す)
       toasts: s.toasts,
-      toastBottom: onMap ? "140px" : "80px",
+      toastTop: onMap ? "100px" : "16px",
     };
   }
 

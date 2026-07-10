@@ -43,10 +43,11 @@ textarea {
     box-shadow: 0 0 0 0 rgba(23, 23, 23, 0);
   }
 }
+/* トーストは上側表示なので、上からスライドインする */
 @keyframes ims-toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
