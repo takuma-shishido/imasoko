@@ -221,7 +221,7 @@ export class RoomEngine {
       pinModal: false,
       pendingPin: null,
       pinNote: "",
-      mtKind: "member",
+      mtKind: "place",
       mtMember: null,
       placeB: "b1",
       placeR: "",
