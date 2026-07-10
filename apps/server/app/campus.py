@@ -53,12 +53,18 @@ def load_campus() -> dict:
     buildings: list = []
     buildings_path = DATA_DIR / "buildings.json"
     if buildings_path.exists():
-        buildings = json.loads(buildings_path.read_text(encoding="utf-8")).get("buildings", [])
+        try:
+            buildings = json.loads(buildings_path.read_text(encoding="utf-8")).get("buildings", [])
+        except Exception:
+            pass
 
     classrooms: list = []
     csv_path = DATA_DIR / "classrooms.csv"
     if csv_path.exists():
-        with csv_path.open(encoding="utf-8") as f:
-            classrooms = [_classroom_from_row(row) for row in csv.DictReader(f)]
+        try:
+            with csv_path.open(encoding="utf-8") as f:
+                classrooms = [_classroom_from_row(row) for row in csv.DictReader(f)]
+        except Exception:
+            pass
 
     return {"areas": AREAS, "buildings": buildings, "classrooms": classrooms}
