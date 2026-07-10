@@ -10,7 +10,6 @@ import type {
   MeetingPoint,
   Member,
   PlaceSuggestion,
-  Room,
   Toast,
 } from "@/types/campus";
 import { AREAS, MAP_AREAS } from "@/lib/mapAreas";
@@ -20,13 +19,7 @@ import {
   bAnchor,
   bById,
   bSpot,
-  classroomById,
-  classroomDataDate,
-  classroomDataStale,
-  classroomFreeAt,
-  classroomNowLabel,
   mergeCampus,
-  roomFull,
   roomLookup,
   setBuildings,
   setClassrooms,
@@ -38,7 +31,7 @@ import {
   setServerConfig,
 } from "@/lib/constants";
 import { fmtMeetLabel, fromLocalInput, toLocalInput } from "@/lib/format";
-import { selChip } from "@/lib/chipColors";
+import { meetingLabelOf } from "@/lib/labels";
 import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
@@ -51,13 +44,12 @@ import {
   saveHostToken,
   saveName,
 } from "@/lib/api";
-import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
+import { clampToEdge, metersBetween, project } from "@/lib/coords";
 import type { ClientMsg } from "@/types/messages";
 import { locate, meetingToWire } from "@/lib/wire";
 import { MapGestureController } from "./MapGestureController";
 import { RoomSocketHandler } from "./RoomSocketHandler";
 import { SheetController } from "./SheetController";
-import { COLORS } from "@/lib/theme";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
 type SheetName = "members" | "building" | "meeting" | "places" | "share" | "settings";
@@ -638,7 +630,7 @@ export class RoomEngine {
     this.setState({ meeting: point, meetingBy: by });
     if (this.socketSend) this.socket.expectMeetingEcho(); // 接続時のみ echo が返る
     this.send({ type: "meeting_point", point: meetingToWire(point) });
-    this.toast("集合場所を設定しました:" + this.meetingLabelOf(point));
+    this.toast("集合場所を設定しました:" + meetingLabelOf(point, this.state.members));
   }
   clearMeeting = () => {
     this.setState({ meeting: null });
@@ -675,16 +667,6 @@ export class RoomEngine {
     if (!leaderId || leaderId !== this.state.selfId) return;
     if (this.socketSend) this.socket.expectMeetingEcho();
     this.send({ type: "meeting_point", point: meetingToWire(fixed) });
-  }
-  meetingLabelOf(pt: MeetingPoint | null): string {
-    if (!pt) return "";
-    if (pt.kind === "coords") return pt.note ? pt.note : AREAS[pt.area].short + "の地点";
-    if (pt.kind === "member") {
-      const m = this.state.members.find((x) => x.id === pt.memberId);
-      return (m ? m.name : "?") + "さんのところ";
-    }
-    if (pt.type === "spot") return bById(pt.ref)!.name + "前";
-    return roomFull(pt.ref);
   }
   resolveMeetingPos(): { area: AreaId; x: number; y: number } | null {
     const pt = this.state.meeting;
@@ -909,27 +891,6 @@ export class RoomEngine {
       out: false,
     };
   }
-  // selectors/sheetVals の memberRows から参照するため public 化(issue #101)。
-  locLabel(m: Member): string {
-    if (m.viewer) return "閲覧のみ・位置非共有";
-    if (m.lost) return "範囲外(全エリア外)";
-    const areaN = AREAS[m.area].name;
-    if (m.building) return bById(m.building)!.name + " " + m.floor + " ・ " + areaN;
-    return areaN;
-  }
-  // 目的地(集合場所)までの距離を GPS 実座標(緯度経度)から計算する(issue #28)。
-  // 位置未共有(lat/lng なし)は「—」。目的地の緯度経度は resolveMeetingPos の x/y を unproject で復元。
-  distTo(m: Member, mp: { area: AreaId; x: number; y: number } | null): string {
-    // 閲覧のみ/位置未共有は「—」。範囲外(lost)でも GPS があれば実距離を出す(issue #28)。
-    if (!mp || m.viewer || m.lat == null || m.lng == null) return "—";
-    const dest = unproject(MAP_AREAS[mp.area], mp.x, mp.y);
-    return this.fmtDist(metersBetween({ lat: m.lat, lng: m.lng }, dest));
-  }
-  private fmtDist(d: number): string {
-    if (d >= 1000) return "約" + (d / 1000).toFixed(d >= 10000 ? 0 : 1) + "km";
-    return "約" + Math.max(10, Math.round(d / 10) * 10) + "m";
-  }
-
   renderVals() {
     const s = this.state;
     const onMap = s.screen === "map";
@@ -949,68 +910,6 @@ export class RoomEngine {
       // toasts(上側に表示。map 画面はエリア切替+集合バーの下に出す)
       toasts: s.toasts,
       toastTop: onMap ? "100px" : "16px",
-    };
-  }
-
-  // 空き教室追加パネルの派生値(プロトタイプの IIFE を切り出し)。
-  // selectors/sheetVals の meeting シートから spread するため public 化(issue #101)。
-  addPlanVals() {
-    const s = this.state;
-    const b = bById(s.add.b) || BUILDINGS[0];
-    const f = b.floors.find((x) => x.level === s.add.f) || b.floors[0];
-    const sel = new Set(s.add.rs);
-    // 空き判定は集合時刻時点(未設定なら現在時刻)で行う(issue #142)
-    const availAt = s.meetAt || Date.now();
-    const cell = (r: Room) => {
-      const c = selChip(sel.has(r.id));
-      const info = classroomById(r.id);
-      return {
-        n: r.n,
-        t: r.t || "",
-        cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
-        free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
-        bg: c.bg,
-        fg: c.fg,
-        pick: () =>
-          this.setState((st) => ({
-            add: {
-              ...st.add,
-              rs: st.add.rs.includes(r.id)
-                ? st.add.rs.filter((x) => x !== r.id)
-                : [...st.add.rs, r.id],
-            },
-          })),
-      };
-    };
-    const half = Math.ceil(f.rooms.length / 2);
-    const dataDate = classroomDataDate();
-    return {
-      addFloorTabs: b.floors.map((fl) => ({
-        name: fl.level,
-        ...selChip(f.level === fl.level, COLORS.SUBTLE),
-        pick: () => this.patchSub("add", { f: fl.level }),
-      })),
-      addPlanTitle: b.name + " " + f.level,
-      addPlanTop: f.rooms.slice(0, half).map(cell),
-      addPlanBottom: f.rooms.slice(half).map(cell),
-      addPlanHasBottom: f.rooms.length > half,
-      // 空き情報の凡例(データが無ければ非表示)。別日のデータなら古い旨を注意表示
-      addAvailLegend: dataDate
-        ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
-        : "",
-      addAvailStale: dataDate ? classroomDataStale(availAt) : false,
-      addRSel: s.add.rs.length > 0,
-      addSelCount: s.add.rs.length,
-      addSelLabel: s.add.rs.map((rid) => roomFull(rid)).join(" / "),
-      // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
-      addSelAvail: s.add.rs.map((rid) => {
-        const now = classroomNowLabel(rid, Date.now());
-        return {
-          free: now ? now.free : null,
-          text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
-        };
-      }),
-      addSubmitLabel: s.add.rs.length ? "追加する(" + s.add.rs.length + ")" : "追加する",
     };
   }
 }

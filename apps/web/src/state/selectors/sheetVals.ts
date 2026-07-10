@@ -6,10 +6,84 @@
 // シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
 // engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
-import { BUILDINGS, bById, classroomFreeAt, roomFull } from "@/lib/campusData";
+import type { Room } from "@/types/campus";
+import {
+  BUILDINGS,
+  bById,
+  classroomById,
+  classroomDataDate,
+  classroomDataStale,
+  classroomFreeAt,
+  classroomNowLabel,
+  roomFull,
+} from "@/lib/campusData";
+import { fmtMeetLabel } from "@/lib/format";
+import { distTo, locLabel } from "@/lib/labels";
 import { selChip } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
+
+// 空き教室追加パネルの派生値(プロトタイプの IIFE を切り出し)。
+// RoomEngine.addPlanVals から本ファイルへ移動(表示整形は selector 層に置く。issue #165)。
+function addPlanVals(engine: RoomEngine) {
+  const s = engine.state;
+  const b = bById(s.add.b) || BUILDINGS[0];
+  const f = b.floors.find((x) => x.level === s.add.f) || b.floors[0];
+  const sel = new Set(s.add.rs);
+  // 空き判定は集合時刻時点(未設定なら現在時刻)で行う(issue #142)
+  const availAt = s.meetAt || Date.now();
+  const cell = (r: Room) => {
+    const c = selChip(sel.has(r.id));
+    const info = classroomById(r.id);
+    return {
+      n: r.n,
+      t: r.t || "",
+      cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
+      free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
+      bg: c.bg,
+      fg: c.fg,
+      pick: () =>
+        engine.setState((st) => ({
+          add: {
+            ...st.add,
+            rs: st.add.rs.includes(r.id)
+              ? st.add.rs.filter((x) => x !== r.id)
+              : [...st.add.rs, r.id],
+          },
+        })),
+    };
+  };
+  const half = Math.ceil(f.rooms.length / 2);
+  const dataDate = classroomDataDate();
+  return {
+    addFloorTabs: b.floors.map((fl) => ({
+      name: fl.level,
+      ...selChip(f.level === fl.level, COLORS.SUBTLE),
+      pick: () => engine.patchSub("add", { f: fl.level }),
+    })),
+    addPlanTitle: b.name + " " + f.level,
+    addPlanTop: f.rooms.slice(0, half).map(cell),
+    addPlanBottom: f.rooms.slice(half).map(cell),
+    addPlanHasBottom: f.rooms.length > half,
+    // 空き情報の凡例(データが無ければ非表示)。別日のデータなら古い旨を注意表示
+    addAvailLegend: dataDate
+      ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
+      : "",
+    addAvailStale: dataDate ? classroomDataStale(availAt) : false,
+    addRSel: s.add.rs.length > 0,
+    addSelCount: s.add.rs.length,
+    addSelLabel: s.add.rs.map((rid) => roomFull(rid)).join(" / "),
+    // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
+    addSelAvail: s.add.rs.map((rid) => {
+      const now = classroomNowLabel(rid, Date.now());
+      return {
+        free: now ? now.free : null,
+        text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
+      };
+    }),
+    addSubmitLabel: s.add.rs.length ? "追加する(" + s.add.rs.length + ")" : "追加する",
+  };
+}
 
 export function sheetVals(engine: RoomEngine) {
   const s = engine.state;
@@ -24,8 +98,8 @@ export function sheetVals(engine: RoomEngine) {
     avBd: m.id === s.selfId ? COLORS.INK : COLORS.MUTED,
     name: m.name,
     tag: m.id === s.selfId ? (s.isHost ? "あなた ・ host" : "あなた") : "",
-    loc: engine.locLabel(m),
-    dist: engine.distTo(m, mp),
+    loc: locLabel(m),
+    dist: distTo(m, mp),
     focus: () => {
       if (m.viewer) {
         engine.toast("位置を共有していないメンバーです");
@@ -177,7 +251,7 @@ export function sheetVals(engine: RoomEngine) {
       const b = bById(e.target.value);
       engine.patchSub("add", { b: e.target.value, f: b ? b.floors[0].level : "" });
     },
-    ...engine.addPlanVals(),
+    ...addPlanVals(engine),
     addNote: s.add.note,
     onAddNote: (e: ChangeEvent<HTMLInputElement>) =>
       engine.patchSub("add", { note: e.target.value }),

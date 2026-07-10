@@ -9,6 +9,7 @@ import { AREAS, AREA_ORDER } from "@/lib/mapAreas";
 import { BUILDINGS, MAP_TEXTS, bById } from "@/lib/campusData";
 import { serverConfig } from "@/lib/constants";
 import { selChip } from "@/lib/chipColors";
+import { distTo, meetingLabelOf } from "@/lib/labels";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
 
@@ -114,8 +115,8 @@ export function mapVals(engine: RoomEngine) {
   }));
 
   const selfM = s.members.find((m) => m.id === s.selfId);
-  const selfDist = selfM ? engine.distTo(selfM, mp) : "—";
-  const meetingLabel = engine.meetingLabelOf(s.meeting);
+  const selfDist = selfM ? distTo(selfM, mp) : "—";
+  const meetingLabel = meetingLabelOf(s.meeting, s.members);
 
   return {
     // map
