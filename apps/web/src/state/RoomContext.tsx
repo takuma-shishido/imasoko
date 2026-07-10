@@ -28,7 +28,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const roomId = inRoom ? engine.state.roomId : null;
   const { status, send } = useRoomSocket(
     roomId,
-    engine.onServerMsg,
+    engine.socket.onServerMsg,
     inRoom ? engine.joinMessage() : undefined
   );
   useEffect(() => {

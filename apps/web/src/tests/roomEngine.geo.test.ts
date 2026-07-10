@@ -31,7 +31,7 @@ function joinedEngine() {
   const sent: ClientMsg[] = [];
   e.attachSocket((m) => sent.push(m));
   // room_state で自分を用意(selfId=me、位置なし=閲覧のみ)。
-  e.onServerMsg({
+  e.socket.onServerMsg({
     type: "room_state",
     self_id: "me",
     members: [
@@ -95,7 +95,7 @@ describe("RoomEngine geolocation (issue #2)", () => {
 describe("目的地までの距離をGPS実座標で計算 (issue #28)", () => {
   it("自分から約50m北の集合場所は「約50m」と表示する", () => {
     const e = new RoomEngine();
-    e.onServerMsg(meState(35.6303, 139.7858));
+    e.socket.onServerMsg(meState(35.6303, 139.7858));
     const latB = 35.6303 + 50 / 111320; // 約50m 北
     const p = project(MAP_AREAS.campus, latB, 139.7858);
     e.setMeeting({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");
@@ -104,14 +104,14 @@ describe("目的地までの距離をGPS実座標で計算 (issue #28)", () => {
 
   it("位置未共有(lat/lng なし)は「—」", () => {
     const e = new RoomEngine();
-    e.onServerMsg(meState(null, null));
+    e.socket.onServerMsg(meState(null, null));
     e.setMeeting({ kind: "coords", area: "campus", x: 400, y: 320 }, "あなた");
     expect(e.renderVals().meetingDistSelf).toBe("あなたから —");
   });
 
   it("範囲外(lost)でもGPSがあれば実距離(km)を出す", () => {
     const e = new RoomEngine();
-    e.onServerMsg(meState(35.59786, 139.73339)); // 全エリア外(lost)だが GPS あり
+    e.socket.onServerMsg(meState(35.59786, 139.73339)); // 全エリア外(lost)だが GPS あり
     expect(e.state.members[0].lost).toBe(true);
     const p = project(MAP_AREAS.campus, 35.6303, 139.7858); // campus 内の集合場所
     e.setMeeting({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");

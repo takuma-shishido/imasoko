@@ -21,7 +21,7 @@ const joinRoom = (
   members: MemberState[],
   meeting: MeetingPointMsg | null = { kind: "member", memberId: "u2" }
 ) =>
-  e.onServerMsg({
+  e.socket.onServerMsg({
     type: "room_state",
     self_id: selfId,
     members,
@@ -39,7 +39,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
     const last = e.state.members.find((m) => m.id === "u2")!;
     expect(e.resolveMeetingPos()).toEqual({ area: last.area, x: last.x, y: last.y });
 
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
 
     expect(e.state.meeting).toEqual({
       kind: "coords",
@@ -59,14 +59,14 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "me", name: "自分", lat: 35.6301, lng: 139.785 }),
       wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
     ]);
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
     expect(e.renderVals().meetingDistSelf).toMatch(/^あなたから 約\d/);
   });
 
   it("集合先の人が位置未共有(閲覧のみ)なら固定できないため集合場所を解除する", () => {
     const e = new RoomEngine();
     joinRoom(e, "me", [wire({ id: "me", name: "自分" }), wire({ id: "u2", name: "ゆうた" })]);
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
     expect(e.state.meeting).toBeNull();
   });
 
@@ -76,7 +76,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "me", name: "自分" }),
       wire({ id: "u2", name: "ゆうた", lat: 0, lng: 0 }),
     ]);
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
     expect(e.state.meeting).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
       wire({ id: "u3", name: "はな", lat: 35.6303, lng: 139.7858 }),
     ]);
-    e.onServerMsg({ type: "member_left", id: "u3" });
+    e.socket.onServerMsg({ type: "member_left", id: "u3" });
     expect(e.state.meeting).toEqual({ kind: "member", memberId: "u2" });
   });
 
@@ -100,14 +100,14 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
       wire({ id: "zz", name: "はな" }),
     ]);
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
 
     // 残り ["me", "zz"] の最小 = 自分 → 代表送信(coords へ変換済み)
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ type: "meeting_point", point: { kind: "coords" } });
 
     // サーバーが echo する note なし coords は自己送信分として無視し、note を保持する
-    e.onServerMsg({
+    e.socket.onServerMsg({
       type: "meeting_point",
       point: { kind: "coords", area: "campus", lat: 35.6303, lng: 139.7858 },
     });
@@ -123,7 +123,7 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "u2", name: "ゆうた", lat: 35.6303, lng: 139.7858 }),
       wire({ id: "aa", name: "はな" }),
     ]);
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
     expect(sent).toHaveLength(0);
     // ローカルでは固定済み(全クライアントが同じ変換をする)
     expect(e.state.meeting).toMatchObject({ kind: "coords" });
@@ -138,11 +138,11 @@ describe("集合先メンバー退出時の集合場所保持 (issue #37)", () =
       wire({ id: "aa", name: "はな" }),
     ]);
     const last = e.state.members.find((m) => m.id === "u2")!;
-    e.onServerMsg({ type: "member_left", id: "u2" });
+    e.socket.onServerMsg({ type: "member_left", id: "u2" });
     expect(e.state.meeting).toMatchObject({ kind: "coords", note: "ゆうたさんが最後にいた場所" });
 
     // リーダー(aa)の固定送信がサーバー経由で届く。ワイヤの coords は note を運ばない(既存制約)
-    e.onServerMsg({
+    e.socket.onServerMsg({
       type: "meeting_point",
       point: { kind: "coords", area: "campus", lat: 35.6303, lng: 139.7858 },
     });
