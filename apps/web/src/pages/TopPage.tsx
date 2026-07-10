@@ -154,6 +154,18 @@ export function TopPage({ onOpenTutorial }: { onOpenTutorial: () => void }) {
         <div style={{ marginTop: 16, fontSize: 11.5, color: COLORS.GRAY, textAlign: "center" }}>
           参加すると、現在地がルーム内で共有されます。
         </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontFamily: "'Geist Mono',monospace",
+            fontSize: 10,
+            letterSpacing: ".12em",
+            color: COLORS.GRAY,
+            textAlign: "center",
+          }}
+        >
+          v{__APP_VERSION__}
+        </div>
       </div>
     </div>
   );
