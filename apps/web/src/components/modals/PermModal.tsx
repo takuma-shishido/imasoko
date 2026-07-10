@@ -8,10 +8,7 @@ export function PermModal() {
   const v = useRoom();
   if (!v.permModal) return null;
   return (
-    <Modal
-      overlayStyle={{ alignItems: "flex-start", padding: 0, paddingTop: 70 }}
-      cardStyle={{ padding: 18 }}
-    >
+    <Modal cardStyle={{ padding: 18 }}>
       <div
         style={{
           fontFamily: "'Geist Mono',monospace",
