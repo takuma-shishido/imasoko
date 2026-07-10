@@ -42,7 +42,15 @@ import { selChip } from "@/lib/chipColors";
 import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
-import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
+import {
+  api,
+  HttpError,
+  getHostToken,
+  getName,
+  pruneHostTokens,
+  saveHostToken,
+  saveName,
+} from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
@@ -246,6 +254,7 @@ export class RoomEngine {
 
   // ── lifecycle (componentDidMount / WillUnmount 相当) ──
   start() {
+    pruneHostTokens(); // 期限切れルームの host_token を掃除(imasoko.host.* が溜まり続けないように)
     this.clock = setInterval(() => {
       const { expiresAt, screen } = this.state;
       const now = Date.now();
@@ -449,7 +458,8 @@ export class RoomEngine {
         visibility: newVis,
         meet_at: new Date(meetAtMs).toISOString(),
       });
-      saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
+      // 再訪時に host を復元するため端末に保存(ルームの有効期限を付けて掃除対象にする)
+      saveHostToken(res.room_id, res.host_token, Date.parse(res.expires_at));
       this.syncedTitle = title;
       this.setState({
         ...this.initialState(),

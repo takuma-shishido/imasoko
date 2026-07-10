@@ -16,7 +16,7 @@ describe("ルーム名の変更(設定シート)", () => {
     vi.useFakeTimers();
     const e = new RoomEngine();
     e.setState({ roomId: "room1", visibility: "public", isHost: true });
-    saveHostToken("room1", "tok");
+    saveHostToken("room1", "tok", Date.now() + 3600000);
     const spy = vi.spyOn(api, "patchVisibility").mockResolvedValue({ visibility: "public" });
 
     e.onTitleInput("サッカー");
@@ -56,7 +56,7 @@ describe("ルーム名の変更(設定シート)", () => {
     vi.useFakeTimers();
     const e = new RoomEngine();
     e.setState({ roomId: "room1", visibility: "public", isHost: true });
-    saveHostToken("room1", "tok");
+    saveHostToken("room1", "tok", Date.now() + 3600000);
     vi.spyOn(api, "patchVisibility").mockRejectedValue(new Error("network"));
 
     e.onTitleInput("新しい名前");
