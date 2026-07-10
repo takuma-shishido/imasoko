@@ -135,6 +135,8 @@ export interface State {
 }
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
+/** patchSub で部分更新できるサブフォームのキー(State のネスト定義と同期させる。issue #163) */
+type SubFormKey = "create" | "join" | "mt" | "add";
 
 export class RoomEngine {
   state: State;
@@ -197,7 +199,7 @@ export class RoomEngine {
   }
   // サブフォーム(create / join / mt / add)の部分更新。ネスト先だけを差し替え、
   // 無関係フィールドの巻き込み更新を型で防ぐ(issue #163)。
-  patchSub<K extends "create" | "join" | "mt" | "add">(key: K, p: Partial<State[K]>) {
+  patchSub<K extends SubFormKey>(key: K, p: Partial<State[K]>) {
     this.setState((s) => ({ [key]: { ...s[key], ...p } }) as Partial<State>);
   }
 
