@@ -132,12 +132,14 @@ export function RoomVisibility() {
           <div style={{ fontSize: 12.5, fontWeight: 500, margin: "2px 0 6px" }}>
             集合時間を変更(年月日・時刻)
           </div>
+          {/* width は指定せずコンテンツ幅にする(iOS Safari ではボタン状に描画されるため。
+              作成モーダル側 CreateRoomModal と揃える)。 */}
           <input
             type="datetime-local"
             value={v.setMeetAtVal}
             onChange={v.onSetMeetAt}
             style={{
-              width: "100%",
+              display: "block",
               height: 40,
               border: `1px solid ${COLORS.BORDER}`,
               borderRadius: 6,
