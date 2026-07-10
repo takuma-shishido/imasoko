@@ -1,6 +1,7 @@
 import { COLORS } from "@/lib/theme";
-// ラジオ選択の丸(プロトタイプ共通:16px リング + 8px 内丸)。
-export function Radio({ dot }: { dot: string }) {
+import { selDot } from "@/lib/chipColors";
+// ラジオ選択の丸(プロトタイプ共通:16px リング + 8px 内丸)。選択状態から内丸の色を導出する。
+export function Radio({ selected }: { selected: boolean }) {
   return (
     <span
       style={{
@@ -14,7 +15,7 @@ export function Radio({ dot }: { dot: string }) {
         flex: "none",
       }}
     >
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot }} />
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: selDot(selected) }} />
     </span>
   );
 }

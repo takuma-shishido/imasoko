@@ -47,7 +47,7 @@ export function RoomVisibility() {
               cursor: "pointer",
             }}
           >
-            <Radio dot={v.visDotPriv} />
+            <Radio selected={!v.visPublic} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>
                 非公開<span style={{ color: COLORS.GRAY, fontWeight: 400 }}>(既定)</span>
@@ -68,7 +68,7 @@ export function RoomVisibility() {
               cursor: "pointer",
             }}
           >
-            <Radio dot={v.visDotPub} />
+            <Radio selected={v.visPublic} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>公開</div>
               <div style={{ fontSize: 11.5, color: COLORS.AMBER }}>

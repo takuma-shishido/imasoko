@@ -28,7 +28,6 @@ describe("公開範囲の復元(退出→再参加。issue #35)", () => {
     const v = e.renderVals();
     expect(v.visPublic).toBe(true);
     expect(v.visBadge).toBe("公開");
-    expect(v.visDotPub).toBe("#171717");
   });
 
   it("private のルームに再参加すると private のまま復元される", async () => {
