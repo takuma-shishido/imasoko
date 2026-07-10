@@ -148,6 +148,9 @@ export class RoomEngine {
   private socketSend: ((msg: ClientMsg) => void) | null = null;
   // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
   private ignoreMeetingEcho = false;
+  // ルーム名変更のデバウンス送信(設定シート)。syncedTitle はサーバー反映済みの値。
+  private titleTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncedTitle = "";
   // 位置送信スロットリング(2秒 / 5m。issue #2)。
   private lastPosSentAt = 0;
   private lastSentPos: { lat: number; lng: number } | null = null;
@@ -261,6 +264,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
+    if (this.titleTimer) clearTimeout(this.titleTimer);
     this.sheetCtl.stop();
   }
 
@@ -446,6 +450,7 @@ export class RoomEngine {
         meet_at: new Date(meetAtMs).toISOString(),
       });
       saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
+      this.syncedTitle = title;
       this.setState({
         ...this.initialState(),
         now: Date.now(),
@@ -504,6 +509,7 @@ export class RoomEngine {
     try {
       const res = await api.getRoom(roomId);
       const expiresAt = Date.parse(res.expires_at);
+      this.syncedTitle = title;
       this.setState({
         ...this.initialState(),
         now: Date.now(),
@@ -894,13 +900,10 @@ export class RoomEngine {
     }
     const prev = this.state.visibility;
     this.setState({ visibility }); // 楽観更新
+    const titleSent = this.state.roomTitle.trim() || undefined;
     try {
-      await api.patchVisibility(
-        this.state.roomId,
-        token,
-        visibility,
-        this.state.roomTitle.trim() || undefined
-      );
+      await api.patchVisibility(this.state.roomId, token, visibility, titleSent);
+      if (titleSent !== undefined) this.syncedTitle = titleSent;
       this.toast(successMsg);
     } catch (e) {
       this.setState({ visibility: prev }); // 失敗したら元に戻す
@@ -909,6 +912,27 @@ export class RoomEngine {
           ? "権限がありません(ホストのみ変更できます)"
           : "公開範囲を変更できませんでした"
       );
+    }
+  }
+  // ルーム名の入力(設定シート)。ローカル反映しつつ、入力が止まったらサーバーへ送る。
+  // 従来はローカル state を更新するだけでサーバーへ送っておらず、公開一覧や再参加に反映されなかった。
+  onTitleInput = (title: string) => {
+    this.setState({ roomTitle: title });
+    if (this.titleTimer) clearTimeout(this.titleTimer);
+    this.titleTimer = setTimeout(() => void this.commitTitle(), 800);
+  };
+  // ルーム名をサーバーへ反映(PATCH /visibility は title 更新も受ける)。host のみ。
+  private async commitTitle() {
+    const title = this.state.roomTitle.trim();
+    if (title === this.syncedTitle) return;
+    const token = getHostToken(this.state.roomId);
+    if (!token) return;
+    try {
+      await api.patchVisibility(this.state.roomId, token, this.state.visibility, title);
+      this.syncedTitle = title;
+      this.toast("ルーム名を変更しました");
+    } catch {
+      this.toast("ルーム名を変更できませんでした");
     }
   }
   tapLeave = () => this.setState({ leaveOpen: true });

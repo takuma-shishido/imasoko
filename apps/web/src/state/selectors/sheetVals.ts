@@ -190,7 +190,7 @@ export function sheetVals(engine: RoomEngine) {
     pickPrivate: engine.pickPrivate,
     pickPublic: engine.pickPublic,
     titleVal: s.roomTitle,
-    onTitle: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ roomTitle: e.target.value }),
+    onTitle: (e: ChangeEvent<HTMLInputElement>) => engine.onTitleInput(e.target.value),
     warnPublic: s.warnPublic,
     confirmPublic: engine.confirmPublic,
     cancelPublic: engine.cancelPublic,
