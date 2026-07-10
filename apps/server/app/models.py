@@ -113,6 +113,23 @@ ClientMsg = Annotated[
 
 
 # ── REST ────────────────────────────────────────────────
+# 教室の空き時間帯("10:30-13:10" を start/end に分解したもの。docs/05 §5)
+class ClassroomTimeRange(BaseModel):
+    start: str  # "HH:MM"
+    end: str  # "HH:MM"
+
+
+# GET /api/campus の classrooms[] 1件(classrooms.csv 由来・web の CampusClassroom と一致)
+class Classroom(BaseModel):
+    building_id: str
+    floor: str
+    room_id: str
+    name: str
+    capacity: int
+    date: str  # 空き情報のエクスポート対象日(YYYY-MM-DD)。無ければ ""
+    available: list[ClassroomTimeRange]
+
+
 class CreateRoomReq(BaseModel):
     title: str | None = None
     visibility: Visibility = "private"

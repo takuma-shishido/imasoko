@@ -37,6 +37,8 @@ export interface RoomStatusRes {
   expires_at: string;
   /** ルームの公開範囲。退出→再参加で UI が復元する(issue #35)。 */
   visibility: Visibility;
+  /** ルーム名。URL で開いた/リロードしたセッションが復元する(未設定は空文字)。 */
+  title: string;
 }
 export interface PublicRoomRes {
   room_id: string;
@@ -74,13 +76,19 @@ export interface CampusBuilding {
   spots: CampusSpot[];
   floors: CampusFloor[];
 }
+/** 教室の空き時間帯(server models.py ClassroomTimeRange と一致)。 */
+export interface ClassroomTimeRange {
+  start: string; // "HH:MM"
+  end: string; // "HH:MM"
+}
 export interface CampusClassroom {
   building_id: string;
   floor: string;
   room_id: string;
   name: string;
-  capacity: string;
-  note: string;
+  capacity: number;
+  date: string; // 空き情報のエクスポート対象日(YYYY-MM-DD)。無ければ ""
+  available: ClassroomTimeRange[];
 }
 export interface CampusRes {
   areas: CampusArea[];

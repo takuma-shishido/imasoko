@@ -111,4 +111,6 @@ export interface DemoRoom {
 export interface Toast {
   id: number;
   msg: string;
+  /** 退場アニメーション中フラグ。true の間はマウントしたままフェードアウトさせる。 */
+  closing?: boolean;
 }

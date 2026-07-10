@@ -47,7 +47,7 @@ export function RoomVisibility() {
               cursor: "pointer",
             }}
           >
-            <Radio dot={v.visDotPriv} />
+            <Radio selected={!v.visPublic} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>
                 非公開<span style={{ color: COLORS.GRAY, fontWeight: 400 }}>(既定)</span>
@@ -68,7 +68,7 @@ export function RoomVisibility() {
               cursor: "pointer",
             }}
           >
-            <Radio dot={v.visDotPub} />
+            <Radio selected={v.visPublic} />
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>公開</div>
               <div style={{ fontSize: 11.5, color: COLORS.AMBER }}>
@@ -132,12 +132,14 @@ export function RoomVisibility() {
           <div style={{ fontSize: 12.5, fontWeight: 500, margin: "2px 0 6px" }}>
             集合時間を変更(年月日・時刻)
           </div>
+          {/* width は指定せずコンテンツ幅にする(iOS Safari ではボタン状に描画されるため。
+              作成モーダル側 CreateRoomModal と揃える)。 */}
           <input
             type="datetime-local"
             value={v.setMeetAtVal}
             onChange={v.onSetMeetAt}
             style={{
-              width: "100%",
+              width: "90%",
               height: 40,
               border: `1px solid ${COLORS.BORDER}`,
               borderRadius: 6,

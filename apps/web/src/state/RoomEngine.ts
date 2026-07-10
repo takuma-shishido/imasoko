@@ -20,10 +20,16 @@ import {
   bAnchor,
   bById,
   bSpot,
+  classroomById,
+  classroomDataDate,
+  classroomDataStale,
+  classroomFreeAt,
+  classroomNowLabel,
   mergeCampus,
   roomFull,
   roomLookup,
   setBuildings,
+  setClassrooms,
 } from "@/lib/campusData";
 import {
   POSITION_MIN_MOVE_M,
@@ -36,7 +42,15 @@ import { selChip } from "@/lib/chipColors";
 import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
-import { api, HttpError, getHostToken, getName, saveHostToken, saveName } from "@/lib/api";
+import {
+  api,
+  HttpError,
+  getHostToken,
+  getName,
+  pruneHostTokens,
+  saveHostToken,
+  saveName,
+} from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
 import type { ClientMsg, ServerMsg } from "@/types/messages";
 import {
@@ -51,7 +65,7 @@ import { SheetController } from "./SheetController";
 import { COLORS } from "@/lib/theme";
 
 type Screen = "top" | "public" | "join" | "map" | "expired" | "ended" | "notfound" | "full";
-type SheetName = "members" | "building" | "meeting" | "share" | "settings";
+type SheetName = "members" | "building" | "meeting" | "places" | "share" | "settings";
 type Visibility = "private" | "public";
 
 interface View {
@@ -142,6 +156,9 @@ export class RoomEngine {
   private socketSend: ((msg: ClientMsg) => void) | null = null;
   // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
   private ignoreMeetingEcho = false;
+  // ルーム名変更のデバウンス送信(設定シート)。syncedTitle はサーバー反映済みの値。
+  private titleTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncedTitle = "";
   // 位置送信スロットリング(2秒 / 5m。issue #2)。
   private lastPosSentAt = 0;
   private lastSentPos: { lat: number; lng: number } | null = null;
@@ -215,7 +232,7 @@ export class RoomEngine {
       pinModal: false,
       pendingPin: null,
       pinNote: "",
-      mtKind: "member",
+      mtKind: "place",
       mtMember: null,
       placeB: "b1",
       placeR: "",
@@ -237,6 +254,7 @@ export class RoomEngine {
 
   // ── lifecycle (componentDidMount / WillUnmount 相当) ──
   start() {
+    pruneHostTokens(); // 期限切れルームの host_token を掃除(imasoko.host.* が溜まり続けないように)
     this.clock = setInterval(() => {
       const { expiresAt, screen } = this.state;
       const now = Date.now();
@@ -255,6 +273,7 @@ export class RoomEngine {
   }
   stop() {
     if (this.clock) clearInterval(this.clock);
+    if (this.titleTimer) clearTimeout(this.titleTimer);
     this.sheetCtl.stop();
   }
 
@@ -264,6 +283,7 @@ export class RoomEngine {
     try {
       const res = await api.getCampus();
       setBuildings(mergeCampus(res));
+      setClassrooms(res.classrooms ?? []); // 教室の空き情報(issue #142)
       this.setState({}); // BUILDINGS 差し替えを描画へ反映
     } catch {
       /* 取得失敗時はローカル定義のまま */
@@ -282,10 +302,19 @@ export class RoomEngine {
   }
 
   // ── toast ──
+  // 表示 3.2s → closing を立てて退場アニメ(.2s)→ 削除の2段階(sheetClosing と同じ方式)。
   toast(msg: string) {
     const id = ++this.toastN;
     this.setState((s) => ({ toasts: [...s.toasts, { id, msg }] }));
-    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+    setTimeout(() => {
+      this.setState((s) => ({
+        toasts: s.toasts.map((t) => (t.id === id ? { ...t, closing: true } : t)),
+      }));
+      setTimeout(
+        () => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+        200
+      );
+    }, 3200);
   }
 
   // ── WebSocket 実配線(issue #1)──
@@ -429,7 +458,9 @@ export class RoomEngine {
         visibility: newVis,
         meet_at: new Date(meetAtMs).toISOString(),
       });
-      saveHostToken(res.room_id, res.host_token); // 再訪時に host を復元するため端末に保存
+      // 再訪時に host を復元するため端末に保存(ルームの有効期限を付けて掃除対象にする)
+      saveHostToken(res.room_id, res.host_token, Date.parse(res.expires_at));
+      this.syncedTitle = title;
       this.setState({
         ...this.initialState(),
         now: Date.now(),
@@ -488,13 +519,16 @@ export class RoomEngine {
     try {
       const res = await api.getRoom(roomId);
       const expiresAt = Date.parse(res.expires_at);
+      // ルーム名はサーバー実値を優先して復元(共有URL/リロード経由では引数 title が空のため)。
+      const restoredTitle = res.title || title;
+      this.syncedTitle = restoredTitle;
       this.setState({
         ...this.initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
         screen: "join",
         roomId,
-        roomTitle: title,
+        roomTitle: restoredTitle,
         isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
         visibility: res.visibility, // 公開範囲をサーバー実値から復元(public→退出→再参加で private に戻る不具合。issue #35)
         meetAt: expiresAt - serverConfig.endOffsetMs,
@@ -629,6 +663,7 @@ export class RoomEngine {
   // ── sheets(開閉・ドラッグは this.sheetCtl を直接参照。旧・公開名維持の委譲は撤去。docs/08 W2)──
   openMembers = () => this.sheetCtl.open("members");
   openMeeting = () => this.sheetCtl.open("meeting");
+  openPlaces = () => this.sheetCtl.open("places"); // 空き教室・候補(集合場所とは別シート。issue #149)
   openShare = () => this.sheetCtl.open("share");
   openSettings = () => this.sheetCtl.open("settings");
   openBuilding = () => {
@@ -769,9 +804,7 @@ export class RoomEngine {
     const p = bAnchor(hit.b);
     return { area: "campus", x: p.x, y: p.y };
   }
-  mtPickCoords = () => this.setState({ mtKind: "coords" });
-  mtPickMember = () => this.setState({ mtKind: "member" });
-  mtPickPlace = () => this.setState({ mtKind: "place" });
+  mtPick = (kind: State["mtKind"]) => this.setState({ mtKind: kind });
   // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
   // coords はピン配置(地図で指定)で確定するため常に押せない。
   mtCanApply = () => {
@@ -879,13 +912,10 @@ export class RoomEngine {
     }
     const prev = this.state.visibility;
     this.setState({ visibility }); // 楽観更新
+    const titleSent = this.state.roomTitle.trim() || undefined;
     try {
-      await api.patchVisibility(
-        this.state.roomId,
-        token,
-        visibility,
-        this.state.roomTitle.trim() || undefined
-      );
+      await api.patchVisibility(this.state.roomId, token, visibility, titleSent);
+      if (titleSent !== undefined) this.syncedTitle = titleSent;
       this.toast(successMsg);
     } catch (e) {
       this.setState({ visibility: prev }); // 失敗したら元に戻す
@@ -894,6 +924,27 @@ export class RoomEngine {
           ? "権限がありません(ホストのみ変更できます)"
           : "公開範囲を変更できませんでした"
       );
+    }
+  }
+  // ルーム名の入力(設定シート)。ローカル反映しつつ、入力が止まったらサーバーへ送る。
+  // 従来はローカル state を更新するだけでサーバーへ送っておらず、公開一覧や再参加に反映されなかった。
+  onTitleInput = (title: string) => {
+    this.setState({ roomTitle: title });
+    if (this.titleTimer) clearTimeout(this.titleTimer);
+    this.titleTimer = setTimeout(() => void this.commitTitle(), 800);
+  };
+  // ルーム名をサーバーへ反映(PATCH /visibility は title 更新も受ける)。host のみ。
+  private async commitTitle() {
+    const title = this.state.roomTitle.trim();
+    if (title === this.syncedTitle) return;
+    const token = getHostToken(this.state.roomId);
+    if (!token) return;
+    try {
+      await api.patchVisibility(this.state.roomId, token, this.state.visibility, title);
+      this.syncedTitle = title;
+      this.toast("ルーム名を変更しました");
+    } catch {
+      this.toast("ルーム名を変更できませんでした");
     }
   }
   tapLeave = () => this.setState({ leaveOpen: true });
@@ -995,9 +1046,9 @@ export class RoomEngine {
       // 出力キー・値・キー順は不変。issue #101)
       ...sheetVals(this),
 
-      // toasts(map 画面は下シートを避けて高めに出す)
+      // toasts(上側に表示。map 画面はエリア切替+集合バーの下に出す)
       toasts: s.toasts,
-      toastBottom: onMap ? "140px" : "80px",
+      toastTop: onMap ? "100px" : "16px",
     };
   }
 
@@ -1008,11 +1059,16 @@ export class RoomEngine {
     const b = bById(s.addB) || BUILDINGS[0];
     const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
     const sel = new Set(s.addRs);
+    // 空き判定は集合時刻時点(未設定なら現在時刻)で行う(issue #142)
+    const availAt = s.meetAt || Date.now();
     const cell = (r: Room) => {
       const c = selChip(sel.has(r.id));
+      const info = classroomById(r.id);
       return {
         n: r.n,
         t: r.t || "",
+        cap: info && info.capacity > 0 ? info.capacity + "人" : "", // 欠損(=0)は非表示
+        free: classroomFreeAt(r.id, availAt), // true=空き / false=使用中 / null=情報なし
         bg: c.bg,
         fg: c.fg,
         pick: () =>
@@ -1024,6 +1080,7 @@ export class RoomEngine {
       };
     };
     const half = Math.ceil(f.rooms.length / 2);
+    const dataDate = classroomDataDate();
     return {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
@@ -1034,9 +1091,22 @@ export class RoomEngine {
       addPlanTop: f.rooms.slice(0, half).map(cell),
       addPlanBottom: f.rooms.slice(half).map(cell),
       addPlanHasBottom: f.rooms.length > half,
+      // 空き情報の凡例(データが無ければ非表示)。別日のデータなら古い旨を注意表示
+      addAvailLegend: dataDate
+        ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
+        : "",
+      addAvailStale: dataDate ? classroomDataStale(availAt) : false,
       addRSel: s.addRs.length > 0,
       addSelCount: s.addRs.length,
       addSelLabel: s.addRs.map((rid) => roomFull(rid)).join(" / "),
+      // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
+      addSelAvail: s.addRs.map((rid) => {
+        const now = classroomNowLabel(rid, Date.now());
+        return {
+          free: now ? now.free : null,
+          text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
+        };
+      }),
       addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",
     };
   }

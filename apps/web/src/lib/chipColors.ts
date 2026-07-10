@@ -17,7 +17,7 @@ export function selChip(
   };
 }
 
-// 選択ドットの色(選択時のみ塗り、非選択は透明)。ラジオ的なドット表示で反復していたパターンを集約する(issue #99)。
+// 選択ドットの色(選択時のみ塗り、非選択は透明)。ui/Radio が選択状態から内丸の色を導出するのに使う(issue #99)。
 export function selDot(selected: boolean): string {
   return selected ? COLORS.INK : "transparent";
 }

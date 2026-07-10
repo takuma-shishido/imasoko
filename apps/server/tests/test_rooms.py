@@ -123,6 +123,22 @@ def test_room_status_returns_visibility():
     assert client.get(f"/api/rooms/{rid}").json()["visibility"] == "public"
 
 
+def test_room_status_returns_title():
+    # GET /api/rooms/{id} が title を返し、URL で開き直したセッションがルーム名を復元できること。
+    # (これが無いと、名前を変更しても開き直したセッションには反映されない)
+    body = client.post("/api/rooms", json={"title": "変更前"}).json()
+    rid, token = body["room_id"], body["host_token"]
+    assert client.get(f"/api/rooms/{rid}").json()["title"] == "変更前"
+
+    # 名前を変更(PATCH /visibility は title 更新も受ける)→ GET に反映される
+    client.patch(
+        f"/api/rooms/{rid}/visibility",
+        json={"visibility": "public", "title": "変更後"},
+        headers={"x-host-token": token},
+    )
+    assert client.get(f"/api/rooms/{rid}").json()["title"] == "変更後"
+
+
 def test_campus_endpoint():
     data = client.get("/api/campus").json()
     assert len(data["areas"]) == 3

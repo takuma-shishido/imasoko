@@ -4,6 +4,7 @@ import { COLORS } from "@/lib/theme";
 import { Button } from "@/components/ui/Button";
 import { Mascot } from "./Mascot";
 import { TUTORIAL_STEPS } from "./steps";
+import { TUTORIAL_TEXTS } from "./texts";
 
 // 実UI追従の座標(フレーム相対)。
 interface Rect {
@@ -161,7 +162,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
               flex: 1,
             }}
           >
-            TUTORIAL {step + 1}/{TUTORIAL_STEPS.length}
+            {TUTORIAL_TEXTS.heading} {step + 1}/{TUTORIAL_STEPS.length}
           </span>
           <button
             onClick={onClose}
@@ -176,12 +177,19 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
               padding: 2,
             }}
           >
-            スキップ
+            {TUTORIAL_TEXTS.skip}
           </button>
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 6 }}>
-          <Mascot size={64} />
+          <div
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "none" }}
+          >
+            <Mascot size={64} />
+            <div style={{ fontSize: 10, fontWeight: 500, color: COLORS.GRAY, marginTop: 2 }}>
+              {TUTORIAL_TEXTS.mascotName}
+            </div>
+          </div>
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.7, color: COLORS.INK }}>
             {s.speech}
           </div>
@@ -191,7 +199,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
         {!s.done && (
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
             <Button size="md" onClick={isLast ? onClose : () => setStep((n) => n + 1)}>
-              {isLast ? "おわる" : "次へ →"}
+              {isLast ? TUTORIAL_TEXTS.end : TUTORIAL_TEXTS.next}
             </Button>
           </div>
         )}

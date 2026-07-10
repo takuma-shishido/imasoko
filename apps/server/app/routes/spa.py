@@ -19,10 +19,13 @@ router = APIRouter()
 
 @router.get("/{full_path:path}")
 async def spa_fallback(full_path: str) -> FileResponse:
-    candidate = STATIC_PATH / full_path
-    if full_path and candidate.is_file():
+    base = STATIC_PATH.resolve()
+    # エンコードした ../(%2e%2e / ..%2f)はルーティングで正規化されずに届くため、
+    # 解決後のパスが static ディレクトリ配下にあることを検証してパストラバーサルを塞ぐ(issue #138)。
+    candidate = (base / full_path).resolve()
+    if full_path and candidate.is_file() and candidate.is_relative_to(base):
         return FileResponse(candidate)
-    index = STATIC_PATH / "index.html"
+    index = base / "index.html"
     if index.exists():
         return FileResponse(index)
     raise HTTPException(status_code=404, detail="not found")

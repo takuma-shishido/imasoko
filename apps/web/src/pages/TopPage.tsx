@@ -7,7 +7,7 @@ import { COLORS } from "@/lib/theme";
 const FEATURES = [
   ["01", "ログイン・アカウント登録は不要"],
   ["02", "アプリのインストールも不要"],
-  ["03", "ルームは2時間で自動的に消滅"],
+  ["03", "ルームは集合の3時間後に自動的に消滅"],
 ];
 
 // トップ画面(design/01)。ルーム作成 + 公開ルーム探索の2導線 + 使い方(チュートリアル)。
@@ -153,6 +153,18 @@ export function TopPage({ onOpenTutorial }: { onOpenTutorial: () => void }) {
         </div>
         <div style={{ marginTop: 16, fontSize: 11.5, color: COLORS.GRAY, textAlign: "center" }}>
           参加すると、現在地がルーム内で共有されます。
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontFamily: "'Geist Mono',monospace",
+            fontSize: 10,
+            letterSpacing: ".12em",
+            color: COLORS.GRAY,
+            textAlign: "center",
+          }}
+        >
+          v{__APP_VERSION__}
         </div>
       </div>
     </div>

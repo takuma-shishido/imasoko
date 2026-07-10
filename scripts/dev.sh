@@ -9,9 +9,22 @@
 # Ctrl+C で両方まとめて停止する。
 #
 # 使い方:
-#   ./scripts/dev.sh
+#   ./scripts/dev.sh          # localhost のみで bind(既定)
+#   ./scripts/dev.sh --lan    # 0.0.0.0 で bind(スマホなど LAN 内の実機から確認する用)
 #
 set -euo pipefail
+
+# bind 先の切り替え(既定は localhost。--lan で LAN 内に公開)
+BIND_HOST="127.0.0.1"
+for arg in "$@"; do
+  case "$arg" in
+    --lan) BIND_HOST="0.0.0.0" ;;
+    *)
+      echo "usage: $0 [--lan]" >&2
+      exit 1
+      ;;
+  esac
+done
 
 # リポジトリのルート(このスクリプトの1つ上)へ移動
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -62,7 +75,7 @@ start_server() {
   fi
 
   echo "==> server 起動: http://localhost:8000"
-  ./.venv/bin/uvicorn app.main:app --reload &
+  ./.venv/bin/uvicorn app.main:app --host "$BIND_HOST" --reload &
   pids+=("$!")
 }
 
@@ -76,7 +89,7 @@ start_web() {
   fi
 
   echo "==> web 起動: http://localhost:5173"
-  npm run dev &
+  npm run dev -- --host "$BIND_HOST" &
   pids+=("$!")
 }
 
@@ -85,6 +98,10 @@ start_web
 
 echo ""
 echo "両方起動しました。ブラウザで http://localhost:5173 を開いてください。"
+if [ "$BIND_HOST" = "0.0.0.0" ]; then
+  LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1 || true)"
+  [ -n "$LAN_IP" ] && echo "LAN 内の実機からは http://${LAN_IP}:5173 で開けます(/api・/ws は Vite が転送)。"
+fi
 echo "停止するには Ctrl+C。"
 echo ""
 

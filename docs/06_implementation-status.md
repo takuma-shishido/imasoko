@@ -25,7 +25,7 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 - プロトタイプの状態機械(`DCLogic` クラス)を **`src/state/RoomEngine.ts`** に移植し、`RoomContext.tsx`(`useSyncExternalStore`)で React にブリッジ。
   - リファクタで、描画派生値は **`src/state/selectors/{mapVals,sheetVals,topVals}.ts`** に分離(`renderVals()` はこれらのスプレッド合成のみ)。地図ジェスチャは **`MapGestureController`**、シート開閉/ドラッグは **`SheetController`** に分離。WS 受信は per-message ハンドラ、色は **`lib/theme.ts`** のトークン、選択チップ色は `lib/chipColors.ts` に集約。
 - 画面:トップ / 公開一覧 / 参加フォーム / 地図 / 終了系(期限切れ・終了・NotFound・満員)= **8画面**。
-- 重畳UI:メンバー / 建物 / 集合場所+空き教室 / 共有 / 設定 の **5シート**、作成 / 位置許可 / ピン / 公開警告 / 退出 の **5モーダル**、トースト。
+- 重畳UI:メンバー / 建物 / 集合場所 / 空き教室 / 共有 / 設定 の **6シート**(空き教室は集合場所から分離。issue #149)、作成 / 位置許可 / ピン / 公開警告 / 退出 の **5モーダル**、トースト。
 - 他メンバーは**実 WS**(`onServerMsg`)の受信で反映、自分の位置は**実 GPS**(`useGeolocation`)で反映(プロトタイプのシミュレーション歩行は撤去済み)。
 - ディレクトリは docs/01 準拠(`components / hooks / lib / types / state / pages`)。
 
@@ -36,7 +36,8 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
   - server→client メッセージは `models.py` の型付きクラス群(`RoomStateMsg` / `MemberJoinedMsg` / … / `RoomFullMsg`)+ `MsgType` 定数 + `MeetingPoint`/`PlaceSuggestion` 型で構成(`ServerMsg` union は web 側 `messages.ts` のみ)。WS 受信ループから独立した `handlers.establish_join` / `cleanup_on_disconnect` を抽出。
 - REST:`POST /api/rooms`・`GET /api/rooms/{id}`・`GET /api/rooms/public`・`PATCH /api/rooms/{id}/visibility`・`GET /api/campus`(パス・挙動は不変)。
 - WS:`/ws/{room_id}`(join → room_state → position / floor / meeting_point / add_place_suggestion / leave)。
-- `data/buildings.json` + `data/classrooms.csv`、`tests/`(rooms / expiry / ws / config)。
+- `data/buildings.json` + `data/classrooms.csv`、`tests/`(rooms / expiry / ws / config / campus)。
+- 空き教室:`classrooms.csv` は MUSCAT 実データ(91教室・`scripts/classinfo_to_csv.py` で生成、issue #140)。`GET /api/campus` の `classrooms[]` は `capacity`(数値)・`date`・`available[{start,end}]` を構造化配信(issue #141)。web は空き教室追加パネルで空き状態(集合時刻時点)・収容人数・空き時間帯を表示(issue #142)。
 
 ---
 
@@ -73,7 +74,7 @@ Claude Design のプロトタイプ `いまそこ Prototype.dc.html` を、本�
 - [x] `RoomEngine`(状態機械)+ `RoomContext`(`useSyncExternalStore`)
 - [x] DS コンポーネント(`Button` / `Input` / `Radio` / `MeshGradient` / `Modal` / `BottomSheet`)
 - [x] 8画面(トップ/公開一覧/参加/地図/期限切れ/終了/NotFound/満員)
-- [x] 5シート(メンバー/建物/集合場所+空き教室/共有/設定)
+- [x] 6シート(メンバー/建物/集合場所/空き教室/共有/設定)
 - [x] 5モーダル(作成/位置許可/ピン/公開警告/退出)+ トースト
 - [x] 地図の pan/zoom・ピン・圏外クランプ・建物クリック・FAB
 - [x] `coords.ts`(lat/lng→map・`resolveArea`・クランプ)+ ユニットテスト

@@ -205,8 +205,12 @@ curl -X PATCH http://localhost:8000/api/rooms/XV1G7Y-_rDI/visibility \
     }
   ],
   "classrooms": [
-    { "building_id": "b1", "floor": "3F", "room_id": "b1-301",
-      "name": "301", "capacity": "40", "note": "当面は手入力の空き情報をnoteに" }
+    { "building_id": "b1", "floor": "2F", "room_id": "b1-201",
+      "name": "201", "capacity": 40, "date": "2026-07-09",
+      "available": [
+        { "start": "00:00", "end": "08:50" },
+        { "start": "10:30", "end": "13:10" }
+      ] }
   ]
 }
 ```
@@ -217,7 +221,7 @@ curl -X PATCH http://localhost:8000/api/rooms/XV1G7Y-_rDI/visibility \
 curl http://localhost:8000/api/campus
 ```
 
-> **将来の差し替え点は `apps/server/app/campus.py` の `load_campus()` 1関数**に閉じている(規約クリア後、公式の空き時間データへ差し替え, [05 §5](./05_feature-design.md))。
+> `classrooms[]` は `classrooms.csv`(MUSCAT 手動エクスポートから生成, [05 §5](./05_feature-design.md))由来。`capacity` は数値、`available` は空き時間帯の配列(`date` = エクスポート対象日)。**データの差し替え点は `apps/server/app/campus.py` の `load_campus()` 1関数**に閉じている。
 
 ---
 

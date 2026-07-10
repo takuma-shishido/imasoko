@@ -1,13 +1,13 @@
 // renderVals() の sheets(重畳シート)派生値を切り出した pure セレクタ(issue #101)。
-// 対象は共通シート枠 + members / building / meeting / settings シート。
+// 対象は共通シート枠 + members / building / meeting / places / share / settings シート。
 // 返すキー集合・各値・キー順は RoomEngine.renderVals の該当セクションと完全一致させる(挙動不変)。
 // engine の可変状態(state)を読み、公開 computed(resolveMeetingPos / distTo / locLabel /
 // addPlanVals)や bound ハンドラ・setState は engine 経由で参照する。
 // シート開閉・ドラッグは engine.sheetCtl(SheetController)、地図の centerOn は
 // engine.gesture を直接参照する(純転送層を挟まない。docs/08 W1/W2)。
 import type { ChangeEvent, MouseEvent } from "react";
-import { BUILDINGS, bById, roomFull } from "@/lib/campusData";
-import { selChip, selDot } from "@/lib/chipColors";
+import { BUILDINGS, bById, classroomFreeAt, roomFull } from "@/lib/campusData";
+import { selChip } from "@/lib/chipColors";
 import type { RoomEngine } from "@/state/RoomEngine";
 import { COLORS } from "@/lib/theme";
 
@@ -96,11 +96,25 @@ export function sheetVals(engine: RoomEngine) {
   for (const f of placeB.floors)
     for (const r of f.rooms)
       placeOpts.push({ id: "room:" + r.id, name: f.level + " " + r.n + (r.t ? " " + r.t : "") });
-  const suggestions = s.suggestions.map((sg) => ({
-    label: roomFull(sg.ref),
-    meta: (sg.note ? "「" + sg.note + "」 ・ " : "") + sg.by + "さんが追加",
-    adopt: () => engine.adoptSuggestion(sg),
-  }));
+  // 候補の空き状態は「現在」を基本に表示し、集合時刻の判定が現在と異なる場合のみ併記する(issue #142)
+  const nowMs = Date.now();
+  const suggestions = s.suggestions.map((sg) => {
+    const freeNow = classroomFreeAt(sg.ref, nowMs);
+    const freeMeet = s.meetAt ? classroomFreeAt(sg.ref, s.meetAt) : freeNow;
+    const parts: string[] = [];
+    if (freeNow !== null) parts.push(freeNow ? "現在空き" : "現在使用中");
+    if (freeMeet !== null && freeMeet !== freeNow)
+      parts.push("集合時刻は" + (freeMeet ? "空き" : "使用中"));
+    return {
+      label: roomFull(sg.ref),
+      meta:
+        (parts.length ? parts.join(" ・ ") + " ・ " : "") +
+        (sg.note ? "「" + sg.note + "」 ・ " : "") +
+        sg.by +
+        "さんが追加",
+      adopt: () => engine.adoptSuggestion(sg),
+    };
+  });
 
   return {
     // sheets
@@ -115,6 +129,7 @@ export function sheetVals(engine: RoomEngine) {
     shMembers: s.sheet === "members",
     shBuilding: s.sheet === "building",
     shMeeting: s.sheet === "meeting",
+    shPlaces: s.sheet === "places",
     shShare: s.sheet === "share",
     shSettings: s.sheet === "settings",
     visBadge: s.visibility === "public" ? "公開" : "非公開",
@@ -140,15 +155,8 @@ export function sheetVals(engine: RoomEngine) {
     roomSuggest: engine.roomSuggest,
 
     // meeting sheet
-    mtIsCoords: s.mtKind === "coords",
-    mtIsMember: s.mtKind === "member",
-    mtIsPlace: s.mtKind === "place",
-    mtDotCoords: selDot(s.mtKind === "coords"),
-    mtDotMember: selDot(s.mtKind === "member"),
-    mtDotPlace: selDot(s.mtKind === "place"),
-    mtPickCoords: engine.mtPickCoords,
-    mtPickMember: engine.mtPickMember,
-    mtPickPlace: engine.mtPickPlace,
+    mtKind: s.mtKind,
+    mtPick: engine.mtPick,
     memberChips,
     placeB: s.placeB,
     onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
@@ -179,12 +187,10 @@ export function sheetVals(engine: RoomEngine) {
     webShare: engine.webShare,
     isHost: s.isHost,
     visPublic: s.visibility === "public",
-    visDotPriv: s.visibility === "private" ? COLORS.INK : "transparent",
-    visDotPub: s.visibility === "public" ? COLORS.INK : "transparent",
     pickPrivate: engine.pickPrivate,
     pickPublic: engine.pickPublic,
     titleVal: s.roomTitle,
-    onTitle: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ roomTitle: e.target.value }),
+    onTitle: (e: ChangeEvent<HTMLInputElement>) => engine.onTitleInput(e.target.value),
     warnPublic: s.warnPublic,
     confirmPublic: engine.confirmPublic,
     cancelPublic: engine.cancelPublic,

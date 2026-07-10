@@ -8,10 +8,11 @@ import type { RoomStatusRes } from "@/types/messages";
 // openRoomById は再参加の導線(公開一覧クリック / 共有リンク)で、サーバー実値から状態を組み立てる。
 afterEach(() => vi.restoreAllMocks());
 
-const statusRes = (visibility: "private" | "public"): RoomStatusRes => ({
+const statusRes = (visibility: "private" | "public", title = ""): RoomStatusRes => ({
   status: "active",
   expires_at: new Date(Date.now() + 3 * 3600000).toISOString(),
   visibility,
+  title,
 });
 
 describe("公開範囲の復元(退出→再参加。issue #35)", () => {
@@ -28,7 +29,6 @@ describe("公開範囲の復元(退出→再参加。issue #35)", () => {
     const v = e.renderVals();
     expect(v.visPublic).toBe(true);
     expect(v.visBadge).toBe("公開");
-    expect(v.visDotPub).toBe("#171717");
   });
 
   it("private のルームに再参加すると private のまま復元される", async () => {

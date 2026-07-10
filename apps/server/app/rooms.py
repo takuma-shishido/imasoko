@@ -86,11 +86,16 @@ def public_room_wire(room: Room) -> dict:
 
 
 def room_status_wire(room: Room) -> dict:
-    """GET /api/rooms/{room_id} の active レスポンス(issue #35)。"""
+    """GET /api/rooms/{room_id} の active レスポンス(issue #35)。
+
+    title も返す:URL で開いた/リロードしたセッションがルーム名を復元できるようにする
+    (これが無いと、名前を変更しても開き直したセッションには反映されない)。
+    """
     return {
         "status": "active",
         "expires_at": room.expires_at.isoformat(),
         "visibility": room.visibility,
+        "title": room.title,
     }
 
 
