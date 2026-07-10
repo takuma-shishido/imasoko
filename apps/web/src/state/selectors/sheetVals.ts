@@ -88,7 +88,7 @@ function addPlanVals(engine: RoomEngine) {
 
 export function sheetVals(engine: RoomEngine) {
   const s = engine.state;
-  const mp = engine.resolveMeetingPos();
+  const mp = engine.meeting.resolvePos();
 
   // member rows
   const memberRows = s.members.map((m) => ({
@@ -187,7 +187,7 @@ export function sheetVals(engine: RoomEngine) {
         (sg.note ? "「" + sg.note + "」 ・ " : "") +
         sg.by +
         "さんが追加",
-      adopt: () => engine.adoptSuggestion(sg),
+      adopt: () => engine.meeting.adoptSuggestion(sg),
     };
   });
 
@@ -231,7 +231,7 @@ export function sheetVals(engine: RoomEngine) {
 
     // meeting sheet
     mtKind: s.mt.kind,
-    mtPick: engine.mtPick,
+    mtPick: engine.meeting.pickKind,
     memberChips,
     placeB: s.mt.placeB,
     onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
@@ -240,8 +240,8 @@ export function sheetVals(engine: RoomEngine) {
     onPlaceR: (e: ChangeEvent<HTMLSelectElement>) =>
       engine.patchSub("mt", { placeR: e.target.value }),
     placeOpts,
-    mtApply: engine.mtApply,
-    mtApplyDisabled: !engine.mtCanApply(),
+    mtApply: engine.meeting.apply,
+    mtApplyDisabled: !engine.meeting.canApply(),
     suggestions,
     noSuggestions: suggestions.length === 0,
     addOpen: s.add.open,

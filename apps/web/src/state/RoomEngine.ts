@@ -16,11 +16,8 @@ import { AREAS, MAP_AREAS } from "@/lib/mapAreas";
 import {
   BUILDINGS,
   CLAMP,
-  bAnchor,
   bById,
-  bSpot,
   mergeCampus,
-  roomLookup,
   setBuildings,
   setClassrooms,
 } from "@/lib/campusData";
@@ -31,7 +28,6 @@ import {
   setServerConfig,
 } from "@/lib/constants";
 import { fmtMeetLabel, fromLocalInput, toLocalInput } from "@/lib/format";
-import { meetingLabelOf } from "@/lib/labels";
 import { topVals } from "@/state/selectors/topVals";
 import { mapVals } from "@/state/selectors/mapVals";
 import { sheetVals } from "@/state/selectors/sheetVals";
@@ -46,8 +42,9 @@ import {
 } from "@/lib/api";
 import { clampToEdge, metersBetween, project } from "@/lib/coords";
 import type { ClientMsg } from "@/types/messages";
-import { locate, meetingToWire } from "@/lib/wire";
+import { locate } from "@/lib/wire";
 import { MapGestureController } from "./MapGestureController";
+import { MeetingModel } from "./MeetingModel";
 import { RoomSocketHandler } from "./RoomSocketHandler";
 import { SheetController } from "./SheetController";
 
@@ -142,6 +139,8 @@ export class RoomEngine {
   private clock: ReturnType<typeof setInterval> | null = null;
   // WS 受信処理の実体(issue #164)。RoomContext からも直接参照する(純転送層を挟まない。docs/08)。
   readonly socket: RoomSocketHandler;
+  // 集合場所ドメインの実体(issue #173)。selector からも直接参照する(純転送層を挟まない。docs/08)。
+  readonly meeting: MeetingModel;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
   private socketSend: ((msg: ClientMsg) => void) | null = null;
   // ルーム名変更のデバウンス送信(設定シート)。syncedTitle はサーバー反映済みの値。
@@ -169,7 +168,18 @@ export class RoomEngine {
       getState: () => this.state,
       setState: (patch) => this.setState(patch),
       toast: (msg) => this.toast(msg),
-      keepMeetingOnLeave: (left) => this.keepMeetingOnLeave(left),
+      keepMeetingOnLeave: (left) => this.meeting.keepOnLeave(left),
+    });
+    this.meeting = new MeetingModel({
+      getState: () => this.state,
+      setState: (patch) => this.setState(patch),
+      patchMt: (p) => this.patchSub("mt", p),
+      toast: (msg) => this.toast(msg),
+      send: (msg) => this.send(msg),
+      // 接続時のみ echo が返るため、接続判定込みで予約する
+      expectMeetingEcho: () => {
+        if (this.socketSend) this.socket.expectMeetingEcho();
+      },
     });
   }
 
@@ -547,7 +557,7 @@ export class RoomEngine {
   confirmPin = () => {
     const p = this.state.pendingPin;
     if (!p) return;
-    this.setMeeting(
+    this.meeting.set(
       { kind: "coords", area: p.area, x: p.x, y: p.y, note: this.state.pinNote.trim() },
       "あなた"
     );
@@ -596,7 +606,7 @@ export class RoomEngine {
   roomMeet = () => {
     const rid = this.state.selRoom;
     if (!rid) return;
-    this.setMeeting({ kind: "place", type: "classroom", ref: rid }, "あなた");
+    this.meeting.set({ kind: "place", type: "classroom", ref: rid }, "あなた");
     this.setState({ selRoom: null, sheet: null });
   };
   roomSuggest = () => {
@@ -621,93 +631,10 @@ export class RoomEngine {
     this.toast("空き教室の候補に追加しました");
   };
   spotMeet = () => {
-    this.setMeeting({ kind: "place", type: "spot", ref: this.state.selB }, "あなた");
+    this.meeting.set({ kind: "place", type: "spot", ref: this.state.selB }, "あなた");
     this.setState({ sheet: null });
   };
 
-  // ── meeting point ──
-  setMeeting(point: MeetingPoint, by: string) {
-    this.setState({ meeting: point, meetingBy: by });
-    if (this.socketSend) this.socket.expectMeetingEcho(); // 接続時のみ echo が返る
-    this.send({ type: "meeting_point", point: meetingToWire(point) });
-    this.toast("集合場所を設定しました:" + meetingLabelOf(point, this.state.members));
-  }
-  clearMeeting = () => {
-    this.setState({ meeting: null });
-    if (this.socketSend) this.socket.expectMeetingEcho();
-    this.send({ type: "meeting_point", point: null });
-    this.toast("集合場所を解除しました");
-  };
-  // 集合先(member 追従)の相手が退出しても集合場所を失わないようにする(issue #37 案B)。
-  // 最後の位置が分かる場合は coords に固定し、位置未共有・全エリア外は固定できないため解除する。
-  // サーバーの meeting_point が member のまま残ると再参加・途中参加で集合先が消えるため、
-  // 残メンバーのうち id 最小のクライアントが代表して固定結果を送信する(重複送信の回避)。
-  // note はワイヤ(coords は lat/lng のみ)に乗らないため、代表送信の echo を受けた非代表端末では
-  // 汎用ラベル(「◯◯の地点」)に落ちる(pin-drop の note と同じ既存制約。ピン位置・距離は維持される)。
-  private keepMeetingOnLeave(left: Member) {
-    const mt = this.state.meeting;
-    if (!mt || mt.kind !== "member" || mt.memberId !== left.id) return;
-    const fixed: MeetingPoint | null =
-      left.viewer || left.lost
-        ? null
-        : {
-            kind: "coords",
-            area: left.area,
-            x: left.x,
-            y: left.y,
-            note: left.name + "さんが最後にいた場所",
-          };
-    this.setState({ meeting: fixed });
-    this.toast(
-      fixed
-        ? "集合場所を" + left.name + "さんが最後にいた場所に固定しました"
-        : "集合先の" + left.name + "さんの位置が分からないため、集合場所を解除しました"
-    );
-    const leaderId = this.state.members.map((m) => m.id).sort()[0];
-    if (!leaderId || leaderId !== this.state.selfId) return;
-    if (this.socketSend) this.socket.expectMeetingEcho();
-    this.send({ type: "meeting_point", point: meetingToWire(fixed) });
-  }
-  resolveMeetingPos(): { area: AreaId; x: number; y: number } | null {
-    const pt = this.state.meeting;
-    if (!pt) return null;
-    if (pt.kind === "coords") return { area: pt.area, x: pt.x, y: pt.y };
-    if (pt.kind === "member") {
-      const m = this.state.members.find((x) => x.id === pt.memberId);
-      if (!m || m.lost || m.viewer) return null;
-      return { area: m.area, x: m.x, y: m.y };
-    }
-    if (pt.type === "spot") {
-      const b = bById(pt.ref)!;
-      const p = bSpot(b);
-      return { area: "campus", x: p.x, y: p.y };
-    }
-    const hit = roomLookup(pt.ref);
-    if (!hit) return null;
-    const p = bAnchor(hit.b);
-    return { area: "campus", x: p.x, y: p.y };
-  }
-  mtPick = (kind: State["mt"]["kind"]) => this.patchSub("mt", { kind });
-  // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
-  // coords はピン配置(地図で指定)で確定するため常に押せない。
-  mtCanApply = () => {
-    const s = this.state;
-    return s.mt.kind === "member" ? !!s.mt.member : s.mt.kind === "place" ? !!s.mt.placeR : false;
-  };
-  mtApply = () => {
-    if (!this.mtCanApply()) return;
-    const s = this.state;
-    if (s.mt.kind === "member")
-      this.setMeeting({ kind: "member", memberId: s.mt.member! }, "あなた");
-    else if (s.mt.placeR.startsWith("spot:"))
-      this.setMeeting({ kind: "place", type: "spot", ref: s.mt.placeR.slice(5) }, "あなた");
-    else this.setMeeting({ kind: "place", type: "classroom", ref: s.mt.placeR.slice(5) }, "あなた");
-    this.setState({ sheet: null });
-  };
-  adoptSuggestion(sg: PlaceSuggestion) {
-    this.setMeeting({ kind: "place", type: "classroom", ref: sg.ref }, "あなた");
-    this.setState({ sheet: null });
-  }
   toggleAdd = () =>
     this.setState((s) => {
       const b = bById(s.add.b) || BUILDINGS[0];

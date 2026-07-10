@@ -94,7 +94,7 @@ describe("RoomEngine WebSocket handling (issue #1)", () => {
     const e = new RoomEngine();
     const sent: unknown[] = [];
     e.attachSocket((m) => sent.push(m));
-    e.setMeeting({ kind: "coords", area: "campus", x: 400, y: 320, note: "西門前" }, "あなた");
+    e.meeting.set({ kind: "coords", area: "campus", x: 400, y: 320, note: "西門前" }, "あなた");
     expect(sent).toHaveLength(1);
     // サーバーは note を持たない coords を echo するが、自己設定なので無視する
     e.socket.onServerMsg({

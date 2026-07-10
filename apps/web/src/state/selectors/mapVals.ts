@@ -16,7 +16,7 @@ import { COLORS } from "@/lib/theme";
 
 export function mapVals(engine: RoomEngine) {
   const s = engine.state;
-  const mp = engine.resolveMeetingPos();
+  const mp = engine.meeting.resolvePos();
   const A = AREAS[s.area];
   const invScale = Math.min(2.6, Math.max(0.85, 1 / s.view.k)).toFixed(3);
 
@@ -162,7 +162,7 @@ export function mapVals(engine: RoomEngine) {
     meetingSet: !!s.meeting,
     meetingLabel,
     meetingDistSelf: "あなたから " + selfDist,
-    clearMeeting: engine.clearMeeting,
+    clearMeeting: engine.meeting.clear,
     meetingByLabel:
       s.meetingBy + "が設定" + (s.meeting && s.meeting.kind === "member" ? " ・ 移動に追従中" : ""),
     fabZoomIn: engine.gesture.fabZoomIn,

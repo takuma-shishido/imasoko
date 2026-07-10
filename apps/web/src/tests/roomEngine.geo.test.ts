@@ -98,14 +98,14 @@ describe("目的地までの距離をGPS実座標で計算 (issue #28)", () => {
     e.socket.onServerMsg(meState(35.6303, 139.7858));
     const latB = 35.6303 + 50 / 111320; // 約50m 北
     const p = project(MAP_AREAS.campus, latB, 139.7858);
-    e.setMeeting({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");
+    e.meeting.set({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");
     expect(e.renderVals().meetingDistSelf).toBe("あなたから 約50m");
   });
 
   it("位置未共有(lat/lng なし)は「—」", () => {
     const e = new RoomEngine();
     e.socket.onServerMsg(meState(null, null));
-    e.setMeeting({ kind: "coords", area: "campus", x: 400, y: 320 }, "あなた");
+    e.meeting.set({ kind: "coords", area: "campus", x: 400, y: 320 }, "あなた");
     expect(e.renderVals().meetingDistSelf).toBe("あなたから —");
   });
 
@@ -114,7 +114,7 @@ describe("目的地までの距離をGPS実座標で計算 (issue #28)", () => {
     e.socket.onServerMsg(meState(35.59786, 139.73339)); // 全エリア外(lost)だが GPS あり
     expect(e.state.members[0].lost).toBe(true);
     const p = project(MAP_AREAS.campus, 35.6303, 139.7858); // campus 内の集合場所
-    e.setMeeting({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");
+    e.meeting.set({ kind: "coords", area: "campus", x: p.x, y: p.y }, "あなた");
     expect(e.renderVals().meetingDistSelf).toMatch(/^あなたから 約[\d.]+km$/);
   });
 });
