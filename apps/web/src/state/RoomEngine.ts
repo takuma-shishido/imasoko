@@ -52,15 +52,10 @@ import {
   saveName,
 } from "@/lib/api";
 import { clampToEdge, metersBetween, project, unproject } from "@/lib/coords";
-import type { ClientMsg, ServerMsg } from "@/types/messages";
-import {
-  locate,
-  meetingFromWire,
-  meetingToWire,
-  memberFromWire,
-  suggestionsFromWire,
-} from "@/lib/wire";
+import type { ClientMsg } from "@/types/messages";
+import { locate, meetingToWire } from "@/lib/wire";
 import { MapGestureController } from "./MapGestureController";
+import { RoomSocketHandler } from "./RoomSocketHandler";
 import { SheetController } from "./SheetController";
 import { COLORS } from "@/lib/theme";
 
@@ -153,10 +148,10 @@ export class RoomEngine {
   readonly sheetCtl: SheetController;
   private toastN = 0;
   private clock: ReturnType<typeof setInterval> | null = null;
+  // WS 受信処理の実体(issue #164)。RoomContext からも直接参照する(純転送層を挟まない。docs/08)。
+  readonly socket: RoomSocketHandler;
   // WebSocket 送信関数(RoomContext の useRoomSocket から注入。issue #1)。
   private socketSend: ((msg: ClientMsg) => void) | null = null;
-  // 自分が送った meeting_point の echo を 1 回だけ無視するフラグ(自己設定の上書き防止)。
-  private ignoreMeetingEcho = false;
   // ルーム名変更のデバウンス送信(設定シート)。syncedTitle はサーバー反映済みの値。
   private titleTimer: ReturnType<typeof setTimeout> | null = null;
   private syncedTitle = "";
@@ -177,6 +172,12 @@ export class RoomEngine {
       getSheetEl: () => this.sheetRef.current,
       getState: () => this.state,
       setState: (patch, cb) => this.setState(patch, cb),
+    });
+    this.socket = new RoomSocketHandler({
+      getState: () => this.state,
+      setState: (patch) => this.setState(patch),
+      toast: (msg) => this.toast(msg),
+      keepMeetingOnLeave: (left) => this.keepMeetingOnLeave(left),
     });
   }
 
@@ -336,100 +337,6 @@ export class RoomEngine {
     const reconnecting = status === "reconnecting";
     if (this.state.reconnecting !== reconnecting) this.setState({ reconnecting });
   }
-  private nameOf = (memberId: string): string =>
-    this.state.members.find((m) => m.id === memberId)?.name ?? "誰か";
-
-  // サーバー → クライアントの各メッセージを内部状態へ反映する(dev-docs §6)。
-  // 各 case の処理は per-message ハンドラ(onRoomState 等)へ切り出し、ここは振り分けのみ(issue #108)。
-  // 状態遷移・副作用(setState 内容 / echo 無視 / マージ規則 / toast / keepMeetingOnLeave)は従来と同一。
-  onServerMsg = (msg: ServerMsg) => {
-    switch (msg.type) {
-      case "room_state":
-        this.onRoomState(msg);
-        break;
-      case "member_joined":
-        this.onMemberJoined(msg);
-        break;
-      case "member_update":
-        this.onMemberUpdate(msg);
-        break;
-      case "member_left":
-        this.onMemberLeft(msg);
-        break;
-      case "meeting_point":
-        this.onMeetingPoint(msg);
-        break;
-      case "place_suggestions":
-        this.onPlaceSuggestions(msg);
-        break;
-      case "room_full":
-        this.onRoomFull();
-        break;
-      case "room_expired":
-        this.onRoomExpired();
-        break;
-    }
-  };
-
-  private onRoomState(msg: Extract<ServerMsg, { type: "room_state" }>) {
-    this.setState({
-      selfId: msg.self_id,
-      members: msg.members.map(memberFromWire),
-      meeting: meetingFromWire(msg.meeting_point),
-      expiresAt: Date.parse(msg.expires_at),
-    });
-  }
-
-  private onMemberJoined(msg: Extract<ServerMsg, { type: "member_joined" }>) {
-    const nm = memberFromWire(msg.member);
-    this.setState((s) => ({
-      members: s.members.some((m) => m.id === nm.id)
-        ? s.members.map((m) => (m.id === nm.id ? nm : m))
-        : [...s.members, nm],
-    }));
-    if (nm.id !== this.state.selfId) this.toast(nm.name + "さんが参加しました");
-  }
-
-  private onMemberUpdate(msg: Extract<ServerMsg, { type: "member_update" }>) {
-    const nm = memberFromWire(msg.member);
-    this.setState((s) => ({ members: s.members.map((m) => (m.id === nm.id ? nm : m)) }));
-  }
-
-  private onMemberLeft(msg: Extract<ServerMsg, { type: "member_left" }>) {
-    const left = this.state.members.find((m) => m.id === msg.id);
-    this.setState((s) => ({ members: s.members.filter((m) => m.id !== msg.id) }));
-    if (left && left.id !== this.state.selfId) this.toast(left.name + "さんが退出しました");
-    if (left) this.keepMeetingOnLeave(left);
-  }
-
-  private onMeetingPoint(msg: Extract<ServerMsg, { type: "meeting_point" }>) {
-    // 自分が設定した分は setMeeting で反映済み。その echo は 1 回だけ無視して
-    // ローカルの meeting(coords の note など)と meetingBy「あなた」を保持する。
-    if (this.ignoreMeetingEcho) {
-      this.ignoreMeetingEcho = false;
-      return;
-    }
-    this.setState({
-      meeting: meetingFromWire(msg.point),
-      meetingBy: msg.point ? "メンバー" : "",
-    });
-  }
-
-  private onPlaceSuggestions(msg: Extract<ServerMsg, { type: "place_suggestions" }>) {
-    this.setState({ suggestions: suggestionsFromWire(msg.items, this.nameOf) });
-  }
-
-  private onRoomFull() {
-    // 満員で参加拒否。screen が map を外れ、useRoomSocket が切断・再接続しない。
-    this.setState({ screen: "full", sheet: null });
-  }
-
-  private onRoomExpired() {
-    // 期限切れは終了画面へ。screen が map を外れると useRoomSocket が切断し再接続しない。
-    if (this.state.screen === "map") this.setState({ screen: "ended", sheet: null });
-    else if (this.state.screen === "join") this.setState({ screen: "expired" });
-  }
-
   // ── navigation ──
   goTop = () => {
     this.setState({ ...this.initialState(), publicList: this.state.publicList, now: Date.now() });
@@ -729,13 +636,13 @@ export class RoomEngine {
   // ── meeting point ──
   setMeeting(point: MeetingPoint, by: string) {
     this.setState({ meeting: point, meetingBy: by });
-    if (this.socketSend) this.ignoreMeetingEcho = true; // 接続時のみ echo が返る
+    if (this.socketSend) this.socket.expectMeetingEcho(); // 接続時のみ echo が返る
     this.send({ type: "meeting_point", point: meetingToWire(point) });
     this.toast("集合場所を設定しました:" + this.meetingLabelOf(point));
   }
   clearMeeting = () => {
     this.setState({ meeting: null });
-    if (this.socketSend) this.ignoreMeetingEcho = true;
+    if (this.socketSend) this.socket.expectMeetingEcho();
     this.send({ type: "meeting_point", point: null });
     this.toast("集合場所を解除しました");
   };
@@ -766,7 +673,7 @@ export class RoomEngine {
     );
     const leaderId = this.state.members.map((m) => m.id).sort()[0];
     if (!leaderId || leaderId !== this.state.selfId) return;
-    if (this.socketSend) this.ignoreMeetingEcho = true;
+    if (this.socketSend) this.socket.expectMeetingEcho();
     this.send({ type: "meeting_point", point: meetingToWire(fixed) });
   }
   meetingLabelOf(pt: MeetingPoint | null): string {
