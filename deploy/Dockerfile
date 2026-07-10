@@ -7,6 +7,9 @@ WORKDIR /front
 COPY apps/web/package*.json ./
 RUN npm install
 COPY apps/web/ ./
+# 配信オリジン(OGP の og:url / og:image 用。未指定なら vite.config.ts の既定=本番)
+ARG PUBLIC_ORIGIN=""
+ENV VITE_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
 # web をビルド → /front/dist
 RUN npm run build
 
