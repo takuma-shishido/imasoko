@@ -139,7 +139,7 @@ export function RoomVisibility() {
             value={v.setMeetAtVal}
             onChange={v.onSetMeetAt}
             style={{
-              display: "block",
+              width: "90%",
               height: 40,
               border: `1px solid ${COLORS.BORDER}`,
               borderRadius: 6,

@@ -96,7 +96,7 @@ export function CreateRoomModal() {
         value={v.newMeetAt}
         onChange={v.onNewMeetAt}
         style={{
-          display: "block",
+          width: "90%",
           height: 40,
           border: `1px solid ${COLORS.BORDER}`,
           borderRadius: 6,
