@@ -1,6 +1,8 @@
 // チュートリアルで表示する文言の一元管理。文言の修正はこのファイルだけで完結する。
 // 進行ロジック(anchor / done)は steps.ts、表示・配置は Tutorial.tsx が持つ。
 export const TUTORIAL_TEXTS = {
+  // マスコットの名前(吹き出し内のキャラ画像の下に表示)
+  mascotName: "おあい",
   // 各ステップの吹き出し(ルーム作成 → 参加 → 地図 → 共有 → 集合場所 → まとめ の順)
   steps: {
     createRoom:

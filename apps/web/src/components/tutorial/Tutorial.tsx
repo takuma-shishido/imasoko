@@ -182,7 +182,14 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 6 }}>
-          <Mascot size={64} />
+          <div
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "none" }}
+          >
+            <Mascot size={64} />
+            <div style={{ fontSize: 10, fontWeight: 500, color: COLORS.GRAY, marginTop: 2 }}>
+              {TUTORIAL_TEXTS.mascotName}
+            </div>
+          </div>
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.7, color: COLORS.INK }}>
             {s.speech}
           </div>
