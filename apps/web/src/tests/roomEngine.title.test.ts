@@ -40,6 +40,18 @@ describe("ルーム名の変更(設定シート)", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("URL で開き直すとサーバーのルーム名が復元される", async () => {
+    const e = new RoomEngine();
+    vi.spyOn(api, "getRoom").mockResolvedValue({
+      status: "active",
+      expires_at: new Date(Date.now() + 3 * 3600000).toISOString(),
+      visibility: "public",
+      title: "変更後の名前",
+    });
+    await e.openRoomById("room1"); // 共有URL経由は title 引数なし
+    expect(e.state.roomTitle).toBe("変更後の名前");
+  });
+
   it("送信に失敗したらトーストで知らせる(次回の入力で再送できる)", async () => {
     vi.useFakeTimers();
     const e = new RoomEngine();

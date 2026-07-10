@@ -509,14 +509,16 @@ export class RoomEngine {
     try {
       const res = await api.getRoom(roomId);
       const expiresAt = Date.parse(res.expires_at);
-      this.syncedTitle = title;
+      // ルーム名はサーバー実値を優先して復元(共有URL/リロード経由では引数 title が空のため)。
+      const restoredTitle = res.title || title;
+      this.syncedTitle = restoredTitle;
       this.setState({
         ...this.initialState(),
         now: Date.now(),
         publicList: this.state.publicList,
         screen: "join",
         roomId,
-        roomTitle: title,
+        roomTitle: restoredTitle,
         isHost: getHostToken(roomId) !== null, // 作成した端末なら host を復元
         visibility: res.visibility, // 公開範囲をサーバー実値から復元(public→退出→再参加で private に戻る不具合。issue #35)
         meetAt: expiresAt - serverConfig.endOffsetMs,
