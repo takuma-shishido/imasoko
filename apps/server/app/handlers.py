@@ -3,6 +3,7 @@
 dev-docs §6 + docs/05 §6。位置は最新値のみ保持(履歴なし)。
 """
 
+import logging
 import uuid
 
 from fastapi import WebSocket
@@ -73,6 +74,9 @@ async def establish_join(
     room.members[member_id] = member
     manager.add(room.room_id, member_id, ws)
 
+    logging.info(
+        f"ユーザーが接続しました: room_id={room.room_id}, member_id={member_id}, name={member.name}"
+    )
     await ws.send_json(room_state_payload(room, member_id))
     await manager.broadcast(
         room.room_id,
@@ -94,6 +98,7 @@ async def cleanup_on_disconnect(room: Room, member: Member, manager: ConnectionM
     """
     manager.remove(room.room_id, member.id)
     room.members.pop(member.id, None)
+    logging.info(f"ユーザーが切断しました: room_id={room.room_id}, member_id={member.id}")
     mp = room.meeting_point
     if isinstance(mp, MPMember) and mp.memberId == member.id:
         room.meeting_point = None

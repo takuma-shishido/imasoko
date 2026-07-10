@@ -5,12 +5,20 @@ REST(rooms/campus/meta)+ WebSocket(/ws/{room_id})+ SPA 配信(本番は apps/web
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from . import expiry
 from .routes import campus, meta, rooms, spa, ws
+
+# 動作ログ(issue #9):時刻・レベル付きで INFO 以上を出す(部屋の作成/掃除・WS 接続/切断)。
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 @asynccontextmanager
