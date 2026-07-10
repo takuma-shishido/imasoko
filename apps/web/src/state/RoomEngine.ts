@@ -83,9 +83,8 @@ export interface State {
   creating: boolean;
   refreshing: boolean;
   createOpen: boolean;
-  newTitle: string;
-  newVis: Visibility;
-  newMeetAt: string;
+  /** ルーム作成モーダルの入力(issue #163:サブフォーム単位のネスト。更新は patchSub 経由) */
+  create: { title: string; vis: Visibility; meetAt: string };
   meetAt: number;
   roomId: string;
   roomTitle: string;
@@ -96,8 +95,8 @@ export interface State {
   /** 公開ルーム一覧(実サーバー /api/rooms/public 由来。issue #13)。 */
   publicList: DemoRoom[];
   name: string;
-  joinB: string;
-  joinF: string;
+  /** 参加フォームの建物・階の選択(issue #163) */
+  join: { b: string; f: string };
   permModal: boolean;
   viewerOnly: boolean;
   area: AreaId;
@@ -114,16 +113,16 @@ export interface State {
   pinModal: boolean;
   pendingPin: PendingPin | null;
   pinNote: string;
-  mtKind: "coords" | "member" | "place";
-  mtMember: string | null;
-  placeB: string;
-  placeR: string;
+  /** 集合場所シートの指定フォーム(issue #163) */
+  mt: {
+    kind: "coords" | "member" | "place";
+    member: string | null;
+    placeB: string;
+    placeR: string;
+  };
   suggestions: PlaceSuggestion[];
-  addOpen: boolean;
-  addB: string;
-  addF: string;
-  addRs: string[];
-  addNote: string;
+  /** 空き教室の追加パネル(issue #163) */
+  add: { open: boolean; b: string; f: string; rs: string[]; note: string };
   expiresAt: number;
   now: number;
   reconnecting: boolean;
@@ -136,6 +135,8 @@ export interface State {
 }
 
 type Patch = Partial<State> | ((s: State) => Partial<State>);
+/** patchSub で部分更新できるサブフォームのキー(State のネスト定義と同期させる。issue #163) */
+type SubFormKey = "create" | "join" | "mt" | "add";
 
 export class RoomEngine {
   state: State;
@@ -196,6 +197,11 @@ export class RoomEngine {
     this.emit();
     if (cb) cb();
   }
+  // サブフォーム(create / join / mt / add)の部分更新。ネスト先だけを差し替え、
+  // 無関係フィールドの巻き込み更新を型で防ぐ(issue #163)。
+  patchSub<K extends SubFormKey>(key: K, p: Partial<State[K]>) {
+    this.setState((s) => ({ [key]: { ...s[key], ...p } }) as Partial<State>);
+  }
 
   initialState(): State {
     const now = Date.now();
@@ -204,9 +210,7 @@ export class RoomEngine {
       creating: false,
       refreshing: false,
       createOpen: false,
-      newTitle: "",
-      newVis: "private",
-      newMeetAt: "",
+      create: { title: "", vis: "private", meetAt: "" },
       meetAt: 0,
       roomId: "k7m2pq",
       roomTitle: "",
@@ -215,8 +219,7 @@ export class RoomEngine {
       selfId: "",
       publicList: [],
       name: getName(), // 前回入力した表示名を初期値に(issue #22)
-      joinB: "",
-      joinF: "",
+      join: { b: "", f: "" },
       permModal: false,
       viewerOnly: false,
       area: "campus",
@@ -232,16 +235,9 @@ export class RoomEngine {
       pinModal: false,
       pendingPin: null,
       pinNote: "",
-      mtKind: "place",
-      mtMember: null,
-      placeB: "b1",
-      placeR: "",
+      mt: { kind: "place", member: null, placeB: "b1", placeR: "" },
       suggestions: [],
-      addOpen: false,
-      addB: "b1",
-      addF: "",
-      addRs: [],
-      addNote: "",
+      add: { open: false, b: "b1", f: "", rs: [], note: "" },
       expiresAt: 0,
       now,
       reconnecting: false,
@@ -331,8 +327,8 @@ export class RoomEngine {
     return {
       type: "join",
       name: s.name.trim() || "あなた",
-      building_id: s.joinB || null,
-      floor: s.joinF || null,
+      building_id: s.join.b || null,
+      floor: s.join.f || null,
     };
   }
   /** socket status を再接続バー表示に反映する。 */
@@ -441,21 +437,19 @@ export class RoomEngine {
   createRoom = () =>
     this.setState({
       createOpen: true,
-      newTitle: "",
-      newVis: "private",
-      newMeetAt: toLocalInput(Date.now()),
+      create: { title: "", vis: "private", meetAt: toLocalInput(Date.now()) },
     });
   cancelCreate = () => this.setState({ createOpen: false });
   submitCreate = async () => {
     if (this.state.creating) return;
     this.setState({ creating: true });
-    const { newTitle, newVis, newMeetAt } = this.state;
-    const title = newTitle.trim();
-    const meetAtMs = fromLocalInput(newMeetAt);
+    const { create } = this.state;
+    const title = create.title.trim();
+    const meetAtMs = fromLocalInput(create.meetAt);
     try {
       const res = await api.createRoom({
         title: title || undefined,
-        visibility: newVis,
+        visibility: create.vis,
         meet_at: new Date(meetAtMs).toISOString(),
       });
       // 再訪時に host を復元するため端末に保存(ルームの有効期限を付けて掃除対象にする)
@@ -579,8 +573,8 @@ export class RoomEngine {
         members: [],
         selfId: "",
         area: "campus",
-        selfB: s.joinB,
-        selfF: s.joinF,
+        selfB: s.join.b,
+        selfF: s.join.f,
       },
       () => {
         requestAnimationFrame(() => this.gesture.fitArea());
@@ -804,20 +798,21 @@ export class RoomEngine {
     const p = bAnchor(hit.b);
     return { area: "campus", x: p.x, y: p.y };
   }
-  mtPick = (kind: State["mtKind"]) => this.setState({ mtKind: kind });
+  mtPick = (kind: State["mt"]["kind"]) => this.patchSub("mt", { kind });
   // 「この場所にする」を押せるか。ボタンの無効化(sheetVals)と mtApply のガードの単一ソース。
   // coords はピン配置(地図で指定)で確定するため常に押せない。
   mtCanApply = () => {
     const s = this.state;
-    return s.mtKind === "member" ? !!s.mtMember : s.mtKind === "place" ? !!s.placeR : false;
+    return s.mt.kind === "member" ? !!s.mt.member : s.mt.kind === "place" ? !!s.mt.placeR : false;
   };
   mtApply = () => {
     if (!this.mtCanApply()) return;
     const s = this.state;
-    if (s.mtKind === "member") this.setMeeting({ kind: "member", memberId: s.mtMember! }, "あなた");
-    else if (s.placeR.startsWith("spot:"))
-      this.setMeeting({ kind: "place", type: "spot", ref: s.placeR.slice(5) }, "あなた");
-    else this.setMeeting({ kind: "place", type: "classroom", ref: s.placeR.slice(5) }, "あなた");
+    if (s.mt.kind === "member")
+      this.setMeeting({ kind: "member", memberId: s.mt.member! }, "あなた");
+    else if (s.mt.placeR.startsWith("spot:"))
+      this.setMeeting({ kind: "place", type: "spot", ref: s.mt.placeR.slice(5) }, "あなた");
+    else this.setMeeting({ kind: "place", type: "classroom", ref: s.mt.placeR.slice(5) }, "あなた");
     this.setState({ sheet: null });
   };
   adoptSuggestion(sg: PlaceSuggestion) {
@@ -826,22 +821,22 @@ export class RoomEngine {
   }
   toggleAdd = () =>
     this.setState((s) => {
-      const b = bById(s.addB) || BUILDINGS[0];
-      return { addOpen: !s.addOpen, addF: b.floors[0].level, addRs: [], addNote: "" };
+      const b = bById(s.add.b) || BUILDINGS[0];
+      return { add: { ...s.add, open: !s.add.open, f: b.floors[0].level, rs: [], note: "" } };
     });
   submitAdd = () => {
     const s = this.state;
-    if (!s.addRs.length) {
+    if (!s.add.rs.length) {
       this.toast("教室を選択してください");
       return;
     }
     const existing = new Set(s.suggestions.map((x) => x.ref));
-    const fresh = s.addRs.filter((rid) => !existing.has(rid));
+    const fresh = s.add.rs.filter((rid) => !existing.has(rid));
     if (!fresh.length) {
       this.toast("選択した教室はすべて追加済みです");
       return;
     }
-    const note = s.addNote.trim();
+    const note = s.add.note.trim();
     const now = Date.now();
     const added: PlaceSuggestion[] = fresh.map((rid, i) => ({
       id: "sg" + (now + i),
@@ -850,12 +845,10 @@ export class RoomEngine {
       note,
       by: "あなた",
     }));
-    const dupN = s.addRs.length - fresh.length;
+    const dupN = s.add.rs.length - fresh.length;
     this.setState({
       suggestions: [...s.suggestions, ...added],
-      addOpen: false,
-      addNote: "",
-      addRs: [],
+      add: { ...s.add, open: false, note: "", rs: [] },
     });
     fresh.forEach((rid) =>
       this.send({ type: "add_place_suggestion", place: { type: "classroom", roomId: rid }, note })
@@ -1056,9 +1049,9 @@ export class RoomEngine {
   // selectors/sheetVals の meeting シートから spread するため public 化(issue #101)。
   addPlanVals() {
     const s = this.state;
-    const b = bById(s.addB) || BUILDINGS[0];
-    const f = b.floors.find((x) => x.level === s.addF) || b.floors[0];
-    const sel = new Set(s.addRs);
+    const b = bById(s.add.b) || BUILDINGS[0];
+    const f = b.floors.find((x) => x.level === s.add.f) || b.floors[0];
+    const sel = new Set(s.add.rs);
     // 空き判定は集合時刻時点(未設定なら現在時刻)で行う(issue #142)
     const availAt = s.meetAt || Date.now();
     const cell = (r: Room) => {
@@ -1073,9 +1066,12 @@ export class RoomEngine {
         fg: c.fg,
         pick: () =>
           this.setState((st) => ({
-            addRs: st.addRs.includes(r.id)
-              ? st.addRs.filter((x) => x !== r.id)
-              : [...st.addRs, r.id],
+            add: {
+              ...st.add,
+              rs: st.add.rs.includes(r.id)
+                ? st.add.rs.filter((x) => x !== r.id)
+                : [...st.add.rs, r.id],
+            },
           })),
       };
     };
@@ -1085,7 +1081,7 @@ export class RoomEngine {
       addFloorTabs: b.floors.map((fl) => ({
         name: fl.level,
         ...selChip(f.level === fl.level, COLORS.SUBTLE),
-        pick: () => this.setState({ addF: fl.level }),
+        pick: () => this.patchSub("add", { f: fl.level }),
       })),
       addPlanTitle: b.name + " " + f.level,
       addPlanTop: f.rooms.slice(0, half).map(cell),
@@ -1096,18 +1092,18 @@ export class RoomEngine {
         ? "● 空き ・ × 使用中(" + fmtMeetLabel(availAt) + " 時点)・ 空き情報 " + dataDate
         : "",
       addAvailStale: dataDate ? classroomDataStale(availAt) : false,
-      addRSel: s.addRs.length > 0,
-      addSelCount: s.addRs.length,
-      addSelLabel: s.addRs.map((rid) => roomFull(rid)).join(" / "),
+      addRSel: s.add.rs.length > 0,
+      addSelCount: s.add.rs.length,
+      addSelLabel: s.add.rs.map((rid) => roomFull(rid)).join(" / "),
       // 選択中の各教室の「現在」の状態(× 使用中(HH:MMから空き)/ ● 空き(HH:MMまで))
-      addSelAvail: s.addRs.map((rid) => {
+      addSelAvail: s.add.rs.map((rid) => {
         const now = classroomNowLabel(rid, Date.now());
         return {
           free: now ? now.free : null,
           text: roomFull(rid) + ":" + (now ? now.text : "空き情報なし"),
         };
       }),
-      addSubmitLabel: s.addRs.length ? "追加する(" + s.addRs.length + ")" : "追加する",
+      addSubmitLabel: s.add.rs.length ? "追加する(" + s.add.rs.length + ")" : "追加する",
     };
   }
 }
