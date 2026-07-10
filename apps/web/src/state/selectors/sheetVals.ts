@@ -85,13 +85,13 @@ export function sheetVals(engine: RoomEngine) {
   const others = s.members;
   const memberChips = others.map((m) => ({
     name: m.name + (m.id === s.selfId ? "(自分)" : ""),
-    ...selChip(s.mtMember === m.id),
+    ...selChip(s.mt.member === m.id),
     pick: (e: MouseEvent) => {
       e.stopPropagation();
-      engine.setState({ mtMember: m.id, mtKind: "member" });
+      engine.patchSub("mt", { member: m.id, kind: "member" });
     },
   }));
-  const placeB = bById(s.placeB) || BUILDINGS[0];
+  const placeB = bById(s.mt.placeB) || BUILDINGS[0];
   const placeOpts = [{ id: "spot:" + placeB.id, name: placeB.name + "前(屋外)" }];
   for (const f of placeB.floors)
     for (const r of f.rooms)
@@ -155,30 +155,32 @@ export function sheetVals(engine: RoomEngine) {
     roomSuggest: engine.roomSuggest,
 
     // meeting sheet
-    mtKind: s.mtKind,
+    mtKind: s.mt.kind,
     mtPick: engine.mtPick,
     memberChips,
-    placeB: s.placeB,
+    placeB: s.mt.placeB,
     onPlaceB: (e: ChangeEvent<HTMLSelectElement>) =>
-      engine.setState({ placeB: e.target.value, placeR: "" }),
-    placeR: s.placeR,
-    onPlaceR: (e: ChangeEvent<HTMLSelectElement>) => engine.setState({ placeR: e.target.value }),
+      engine.patchSub("mt", { placeB: e.target.value, placeR: "" }),
+    placeR: s.mt.placeR,
+    onPlaceR: (e: ChangeEvent<HTMLSelectElement>) =>
+      engine.patchSub("mt", { placeR: e.target.value }),
     placeOpts,
     mtApply: engine.mtApply,
     mtApplyDisabled: !engine.mtCanApply(),
     suggestions,
     noSuggestions: suggestions.length === 0,
-    addOpen: s.addOpen,
-    addClosed: !s.addOpen,
+    addOpen: s.add.open,
+    addClosed: !s.add.open,
     toggleAdd: engine.toggleAdd,
-    addB: s.addB,
+    addB: s.add.b,
     onAddB: (e: ChangeEvent<HTMLSelectElement>) => {
       const b = bById(e.target.value);
-      engine.setState({ addB: e.target.value, addF: b ? b.floors[0].level : "" });
+      engine.patchSub("add", { b: e.target.value, f: b ? b.floors[0].level : "" });
     },
     ...engine.addPlanVals(),
-    addNote: s.addNote,
-    onAddNote: (e: ChangeEvent<HTMLInputElement>) => engine.setState({ addNote: e.target.value }),
+    addNote: s.add.note,
+    onAddNote: (e: ChangeEvent<HTMLInputElement>) =>
+      engine.patchSub("add", { note: e.target.value }),
     submitAdd: engine.submitAdd,
 
     // settings sheet

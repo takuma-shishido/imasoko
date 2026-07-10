@@ -76,7 +76,12 @@ export class SheetController {
     if (this.sheetCloseTimer) clearTimeout(this.sheetCloseTimer);
     this.sheetCloseTimer = setTimeout(() => {
       this.sheetCloseTimer = null;
-      this.deps.setState({ sheet: null, sheetClosing: false, selRoom: null, addOpen: false });
+      this.deps.setState((s) => ({
+        sheet: null,
+        sheetClosing: false,
+        selRoom: null,
+        add: { ...s.add, open: false },
+      }));
     }, SHEET_EXIT_MS);
   };
   hDown = (e: PointerEvent<HTMLDivElement>) => {
